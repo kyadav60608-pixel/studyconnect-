@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="hi">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>StudyConnect</title>
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
+
+    <link
+        rel="manifest"
+        href="manifest.json"
+    >
+
+    <meta
+        name="theme-color"
+        content="#2196f3"
+    >
+
+</head>
+
+
+<body>
+
+
+<!-- ==================================================
+     OPEN SCREEN
+================================================== -->
+
+<div
+    id="passwordScreen"
+    class="password-screen"
+>
+
+    <div class="password-box">
+
+        <h1>💬 StudyConnect</h1>
+
+        <p>
+            Student Community App
+        </p>
+
+
+        <label for="openUserName">
+            👤 अपना नाम
+        </label>
+
+        <input
+            type="text"
+            id="openUserName"
+            placeholder="अपना नाम लिखें"
+            autocomplete="name"
+        >
+
+
+        <label for="appPassword">
+            🔐 Password
+        </label>
+
+        <input
+            type="password"
+            id="appPassword"
+            placeholder="Password डालें"
+            autocomplete="off"
+        >
+
+
+        <div class="owner-box">
+
+            <span>👑 App Owner</span>
+
+            <strong>
+                Krishna Yadav
+            </strong>
+
+        </div>
+
+
+        <button
+            type="button"
+            id="unlockBtn"
+        >
+            🚀 Open StudyConnect
+        </button>
+
+
+        <p id="passwordError"></p>
+
+    </div>
+
+</div>
+
+
+
+<!-- ==================================================
+     HEADER
+================================================== -->
+
+<header class="topbar">
+
+    <div class="logo">
+        💬 StudyConnect
+    </div>
+
+
+    <button
+        type="button"
+        id="menuBtn"
+        class="menu-btn"
+    >
+        ☰
+    </button>
+
+
+    <nav id="navMenu">
+
+        <button type="button" data-page="home">
+            🏠 Home
+        </button>
+
+        <button type="button" data-page="chat">
+            💬 Chat
+        </button>
+
+        <button type="button" data-page="groups">
+            👥 Groups
+        </button>
+
+        <button type="button" data-page="homework">
+            📚 Homework
+        </button>
+
+        <button type="button" data-page="school">
+            🏫 School
+        </button>
+
+        <button type="button" data-page="notes">
+            📝 Notes
+        </button>
+
+        <button type="button" data-page="settings">
+            ⚙️ Settings
+        </button>
+
+    </nav>
+
+</header>
+
+
+
+<!-- ==================================================
+     MAIN
+================================================== -->
+
+<main>
+
+
+<!-- ==================================================
+     HOME
+================================================== -->
+
+<section
+    id="home"
+    class="page active"
+>
+
+    <div class="hero">
+
+        <h1>
+            Welcome to StudyConnect 👋
+        </h1>
+
+        <p>
+            दोस्तों से जुड़ें, Chat करें
+            और School Work संभालें।
+        </p>
+
+    </div>
+
+
+    <div class="name-box">
+
+        <h2>
+            👤 आपका नाम
+        </h2>
+
+        <input
+            id="studentName"
+            type="text"
+            placeholder="अपना नाम लिखें"
+        >
+
+        <button
+            type="button"
+            id="saveNameBtn"
+        >
+            💾 Save Name
+        </button>
+
+        <p id="nameMessage"></p>
+
+    </div>
+
+
+    <!-- ONLINE USERS -->
+
+    <div class="online-box">
+
+        <h3>
+            🟢 अभी Online
+        </h3>
+
+        <strong id="onlineCount">
+            0
+        </strong>
+
+        <div id="onlineUsers"></div>
+
+    </div>
+
+
+    <!-- HOME CARDS -->
+
+    <div class="cards">
+
+
+        <div
+            class="card open-page"
+            data-page="chat"
+        >
+
+            <span>💬</span>
+
+            <h2>Chat</h2>
+
+            <p>
+                दोस्तों से बात करें।
+            </p>
+
+        </div>
+
+
+        <div
+            class="card open-page"
+            data-page="groups"
+        >
+
+            <span>👥</span>
+
+            <h2>Groups</h2>
+
+            <p>
+                Group बनाकर group chat करें।
+            </p>
+
+        </div>
+
+
+        <div
+            class="card open-page"
+            data-page="homework"
+        >
+
+            <span>📚</span>
+
+            <h2>Homework</h2>
+
+            <p>
+                सभी subjects का homework।
+            </p>
+
+        </div>
+
+
+        <div
+            class="card open-page"
+            data-page="school"
+        >
+
+            <span>🏫</span>
+
+            <h2>School Update</h2>
+
+            <p>
+                स्कूल की जानकारी।
+            </p>
+
+        </div>
+
+
+        <div
+            class="card open-page"
+            data-page="notes"
+        >
+
+            <span>📝</span>
+
+            <h2>Notes</h2>
+
+            <p>
+                जरूरी notes।
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- ==================================================
+     CHAT
+================================================== -->
+
+<section
+    id="chat"
+    class="page"
+>
+
+    <div class="section-title">
+
+        <h1>💬 Chat</h1>
+
+        <p>
+            दोस्तों से बात करें।
+        </p>
+
+    </div>
+
+
+    <div class="chat-box">
+
+
+        <div
+            id="chatMessages"
+            class="messages"
+        ></div>
+
+
+        <div class="chat-input">
+
+            <button
+                type="button"
+                id="emojiBtn"
+                class="emoji-btn"
+            >
+                😊
+            </button>
+
+
+            <input
+                id="messageInput"
+                type="text"
+                placeholder="Message लिखें..."
+                autocomplete="off"
+            >
+
+
+            <button
+                type="button"
+                id="sendMessageBtn"
+            >
+                Send
+            </button>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- ==================================================
+     GROUPS
+================================================== -->
+
+<section
+    id="groups"
+    class="page"
+>
+
+    <div class="section-title">
+
+        <h1>👥 Groups</h1>
+
+        <p>
+            Group बनाएं और members के साथ chat करें।
+        </p>
+
+    </div>
+
+
+    <div class="form-box">
+
+        <h2>
+            ➕ Create Group
+        </h2>
+
+
+        <input
+            id="groupInput"
+            type="text"
+            placeholder="Group का नाम"
+        >
+
+
+        <button
+            type="button"
+            id="createGroupBtn"
+        >
+            👥 Create Group
+        </button>
+
+    </div>
+
+
+    <div
+        id="groupList"
+        class="list-box"
+    ></div>
+
+
+    <!-- GROUP CHAT -->
+
+    <div
+        id="groupChatSection"
+        style="display:none;"
+    >
+
+        <div class="section-title">
+
+            <h2 id="selectedGroupName">
+                👥 Group
+            </h2>
+
+        </div>
+
+
+        <!-- ADD MEMBER -->
+
+        <div class="form-box">
+
+            <h3>
+                👤 Add Member
+            </h3>
+
+
+            <input
+                id="memberNameInput"
+                type="text"
+                placeholder="Member का नाम"
+            >
+
+
+            <input
+                id="memberPhoneInput"
+                type="tel"
+                placeholder="Phone number"
+            >
+
+
+            <button
+                type="button"
+                id="addMemberBtn"
+            >
+                ➕ Add Member
+            </button>
+
+
+            <div
+                id="memberList"
+                class="list-box"
+            ></div>
+
+        </div>
+
+
+        <!-- GROUP CHAT -->
+
+        <div class="chat-box">
+
+            <div
+                id="groupMessages"
+                class="messages"
+            ></div>
+
+
+            <div class="chat-input">
+
+                <input
+                    id="groupMessageInput"
+                    type="text"
+                    placeholder="Group में message..."
+                >
+
+
+                <button
+                    type="button"
+                    id="sendGroupMessageBtn"
+                >
+                    Send
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- ==================================================
+     HOMEWORK
+================================================== -->
+
+<section
+    id="homework"
+    class="page"
+>
+
+    <div class="section-title">
+
+        <h1>📚 Homework</h1>
+
+        <p>
+            सभी subjects का homework।
+        </p>
+
+    </div>
+
+
+    <div class="form-box">
+
+
+        <label for="homeworkDate">
+            📅 Date
+        </label>
+
+        <input
+            id="homeworkDate"
+            type="date"
+        >
+
+
+        <label for="hindiHomework">
+            📖 Hindi
+        </label>
+
+        <input
+            id="hindiHomework"
+            type="text"
+            placeholder="Hindi का homework"
+        >
+
+
+        <label for="englishHomework">
+            🔤 English
+        </label>
+
+        <input
+            id="englishHomework"
+            type="text"
+            placeholder="English का homework"
+        >
+
+
+        <label for="mathHomework">
+            ➗ Maths
+        </label>
+
+        <input
+            id="mathHomework"
+            type="text"
+            placeholder="Maths का homework"
+        >
+
+
+        <label for="scienceHomework">
+            🔬 Science
+        </label>
+
+        <input
+            id="scienceHomework"
+            type="text"
+            placeholder="Science का homework"
+        >
+
+
+        <label for="sstHomework">
+            🌍 SST
+        </label>
+
+        <input
+            id="sstHomework"
+            type="text"
+            placeholder="SST का homework"
+        >
+
+
+        <label for="computerHomework">
+            💻 Computer
+        </label>
+
+        <input
+            id="computerHomework"
+            type="text"
+            placeholder="Computer का homework"
+        >
+
+
+        <label for="artHomework">
+            🎨 Art
+        </label>
+
+        <input
+            id="artHomework"
+            type="text"
+            placeholder="Art का homework"
+        >
+
+
+        <button
+            type="button"
+            id="addHomeworkBtn"
+        >
+            💾 Save Homework
+        </button>
+
+    </div>
+
+
+    <div
+        id="homeworkList"
+        class="list-box"
+    ></div>
+
+</section>
+
+
+
+<!-- ==================================================
+     SCHOOL UPDATE
+================================================== -->
+
+<section
+    id="school"
+    class="page"
+>
+
+    <div class="section-title">
+
+        <h1>🏫 School Update</h1>
+
+        <p>
+            स्कूल में क्या हुआ?
+        </p>
+
+    </div>
+
+
+    <div class="form-box">
+
+        <textarea
+            id="schoolInput"
+            placeholder="आज स्कूल में क्या पढ़ाया गया या क्या हुआ?"
+        ></textarea>
+
+
+        <button
+            type="button"
+            id="saveSchoolBtn"
+        >
+            🏫 Save Update
+        </button>
+
+    </div>
+
+
+    <div
+        id="schoolList"
+        class="list-box"
+    ></div>
+
+</section>
+
+
+
+<!-- ==================================================
+     NOTES
+================================================== -->
+
+<section
+    id="notes"
+    class="page"
+>
+
+    <div class="section-title">
+
+        <h1>📝 Notes</h1>
+
+        <p>
+            अपने जरूरी notes रखें।
+        </p>
+
+    </div>
+
+
+    <div class="form-box">
+
+        <textarea
+            id="noteInput"
+            placeholder="अपना note लिखें..."
+        ></textarea>
+
+
+        <button
+            type="button"
+            id="saveNoteBtn"
+        >
+            📝 Save Note
+        </button>
+
+    </div>
+
+
+    <div
+        id="notesList"
+        class="list-box"
+    ></div>
+
+</section>
+
+
+
+<!-- ==================================================
+     SETTINGS
+================================================== -->
+
+<section
+    id="settings"
+    class="page"
+>
+
+    <div class="section-title">
+
+        <h1>⚙️ Settings</h1>
+
+        <p>
+            App को अपनी पसंद के अनुसार बदलें।
+        </p>
+
+    </div>
+
+
+    <div class="settings-box">
+
+
+        <!-- CHANGE NAME -->
+
+        <div class="setting-item">
+
+            <h3>
+                👤 Change Name
+            </h3>
+
+            <input
+                id="changeNameInput"
+                type="text"
+                placeholder="नया नाम"
+            >
+
+
+            <button
+                type="button"
+                id="changeNameBtn"
+            >
+                ✏️ Change Name
+            </button>
+
+
+            <p id="changeNameMessage"></p>
+
+        </div>
+
+
+        <!-- LANGUAGE -->
+
+        <div class="setting-item">
+
+            <h3>
+                🌐 Language
+            </h3>
+
+
+            <button
+                type="button"
+                id="hindiLanguageBtn"
+            >
+                🇮🇳 हिंदी
+            </button>
+
+
+            <button
+                type="button"
+                id="englishLanguageBtn"
+            >
+                🇬🇧 English
+            </button>
+
+
+            <p id="languageMessage"></p>
+
+        </div>
+
+
+        <!-- THEME -->
+
+        <div class="setting-item">
+
+            <h3>
+                🎨 Theme
+            </h3>
+
+
+            <button
+                type="button"
+                id="themeBtn"
+            >
+                🌙 Dark Mode
+            </button>
+
+        </div>
+
+
+        <!-- NOTIFICATION -->
+
+        <div class="setting-item">
+
+            <h3>
+                🔔 Notifications
+            </h3>
+
+
+            <button
+                type="button"
+                id="notificationBtn"
+            >
+                🔔 Enable Notifications
+            </button>
+
+
+            <p id="notificationMessage"></p>
+
+        </div>
+
+
+        <!-- RESET -->
+
+        <div class="setting-item">
+
+            <h3>
+                🗑️ App Data
+            </h3>
+
+
+            <button
+                type="button"
+                id="clearDataBtn"
+                class="danger"
+            >
+                Reset App Data
+            </button>
+
+
+            <p id="settingsMessage"></p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+</main>
+
+
+
+<!-- ==================================================
+     FOOTER
+================================================== -->
+
+<footer>
+
+    <p>
+        © 2026 StudyConnect
+    </p>
+
+    <p>
+        👑 Owner: Krishna Yadav
+    </p>
+
+</footer>
+
+
+
+<!-- ==================================================
+     JAVASCRIPT
+================================================== -->
+
+<script
+    type="module"
+    src="script.js"
+></script>
+
+
+
+<!-- ==================================================
+     SERVICE WORKER
+================================================== -->
+
+<script>
+
+if ("serviceWorker" in navigator) {
+
+    window.addEventListener(
+        "load",
+        function () {
+
+            navigator.serviceWorker
+                .register("./service-worker.js")
+                .then(function () {
+
+                    console.log(
+                        "StudyConnect Service Worker registered."
+                    );
+
+                })
+                .catch(function (error) {
+
+                    console.error(
+                        "Service Worker Error:",
+                        error
+                    );
+
+                });
+
+        }
+    );
+
+}
+
+</script>
+
+
+</body>
+
+</html>
