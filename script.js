@@ -1,15 +1,12 @@
-// ========================================
-// STUDYCONNECT - FINAL JAVASCRIPT
-// Made to match the existing index.html
-// Firebase + Login + Real-Time Chat +
-// Groups + Homework + School + Notes +
-// Settings + Online Users
-// ========================================
+// ============================================
+// STUDYCONNECT - SCRIPT.JS
+// Existing index.html compatible version
+// ============================================
 
 
-// ========================================
-// FIREBASE IMPORT
-// ========================================
+// ============================================
+// FIREBASE
+// ============================================
 
 import { initializeApp } from
     "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
@@ -19,22 +16,16 @@ import {
     collection,
     addDoc,
     getDocs,
-    setDoc,
-    updateDoc,
     deleteDoc,
     doc,
     query,
     orderBy,
     onSnapshot,
-    serverTimestamp,
+    updateDoc,
     arrayUnion
 } from
     "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-
-// ========================================
-// FIREBASE CONFIG
-// ========================================
 
 const firebaseConfig = {
     apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3AUCdPWypag",
@@ -46,34 +37,22 @@ const firebaseConfig = {
     measurementId: "G-SYJYMREJJL"
 };
 
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 
-// ========================================
-// CONSTANTS
-// ========================================
+// ============================================
+// APP SETTINGS
+// ============================================
 
-const OWNER_NAME = "Krishna Yadav";
-const OWNER_SHORT_NAME = "Krishna";
 const APP_PASSWORD = "123";
-
-let selectedMessages = new Set();
-let selectedItems = new Set();
-
-let onlineHeartbeat = null;
-
-let unsubscribeMessages = null;
-let unsubscribeGroups = null;
-let unsubscribeHomework = null;
-let unsubscribeSchool = null;
-let unsubscribeNotes = null;
-let unsubscribeGroupMessages = null;
+const OWNER_NAME = "Krishna Yadav";
 
 
-// ========================================
-// HELPER FUNCTIONS
-// ========================================
+// ============================================
+// HELPERS
+// ============================================
 
 function escapeHTML(text) {
 
@@ -88,12 +67,14 @@ function escapeHTML(text) {
 function getUserName() {
 
     return localStorage.getItem("studyName") || "";
+
 }
 
 
-function now() {
+function getTime() {
 
     return Date.now();
+
 }
 
 
@@ -107,32 +88,42 @@ function formatDateTime(value) {
 
         date = new Date(value);
 
-    } else if (value?.toDate) {
+    } else if (value && value.toDate) {
 
         date = value.toDate();
 
     } else {
 
         date = new Date(value);
+
     }
 
-    if (Number.isNaN(date.getTime())) {
+    if (isNaN(date.getTime())) {
+
         return "";
+
     }
 
     return date.toLocaleString("en-IN", {
+
         day: "2-digit",
+
         month: "short",
+
         year: "numeric",
+
         hour: "2-digit",
+
         minute: "2-digit"
+
     });
+
 }
 
 
-// ========================================
+// ============================================
 // PAGE NAVIGATION
-// ========================================
+// ============================================
 
 function showPage(pageId) {
 
@@ -143,7 +134,9 @@ function showPage(pageId) {
     });
 
 
-    const page = document.getElementById(pageId);
+    const page =
+        document.getElementById(pageId);
+
 
     if (page) {
 
@@ -155,13 +148,22 @@ function showPage(pageId) {
     const navMenu =
         document.getElementById("navMenu");
 
+
     if (navMenu) {
 
         navMenu.classList.remove("show");
 
     }
+
 }
 
+
+window.showPage = showPage;
+
+
+// ============================================
+// NAVIGATION BUTTONS
+// ============================================
 
 document.querySelectorAll("[data-page]").forEach(button => {
 
@@ -177,23 +179,27 @@ document.querySelectorAll("[data-page]").forEach(button => {
 });
 
 
-document.querySelectorAll(".open-page").forEach(card => {
+document.querySelectorAll(".open-page").forEach(button => {
 
-    card.addEventListener("click", () => {
+    button.addEventListener("click", () => {
 
         const page =
-            card.getAttribute("data-page");
+            button.getAttribute("data-page");
 
-        showPage(page);
+        if (page) {
+
+            showPage(page);
+
+        }
 
     });
 
 });
 
 
-// ========================================
+// ============================================
 // MENU
-// ========================================
+// ============================================
 
 const menuBtn =
     document.getElementById("menuBtn");
@@ -213,283 +219,163 @@ if (menuBtn && navMenu) {
 }
 
 
-// ========================================
+// ============================================
 // LOGIN
-// ========================================
+// Uses the existing HTML login elements
+// ============================================
 
-function createLoginFlow() {
+const passwordScreen =
+    document.getElementById("passwordScreen");
 
-    const screen =
-        document.getElementById("passwordScreen");
+const openUserName =
+    document.getElementById("openUserName");
 
-    if (!screen) return;
+const appPassword =
+    document.getElementById("appPassword");
 
+const unlockBtn =
+    document.getElementById("unlockBtn");
 
-    screen.innerHTML = `
-        <div class="password-box" id="loginFlowBox">
-
-            <h2 id="loginTitle">
-                👤 User Name
-            </h2>
-
-            <p id="loginText">
-                सबसे पहले अपना नाम लिखें।
-            </p>
-
-            <input
-                type="text"
-                id="loginUserName"
-                placeholder="अपना नाम लिखें"
-                autocomplete="name"
-            >
-
-            <input
-                type="password"
-                id="loginPassword"
-                placeholder="Password"
-                style="display:none;"
-            >
-
-            <button
-                type="button"
-                id="loginNextBtn">
-                Next →
-            </button>
-
-            <p id="loginError"></p>
-
-        </div>
-    `;
+const passwordError =
+    document.getElementById("passwordError");
 
 
-    screen.style.display = "flex";
+function openStudyConnect() {
+
+    if (passwordScreen) {
+
+        passwordScreen.style.display = "none";
+
+    }
+
+    showPage("home");
+
+    startOnlineStatus();
+
+}
 
 
-    const title =
-        document.getElementById("loginTitle");
+function setupLogin() {
 
-    const text =
-        document.getElementById("loginText");
+    if (
+        !passwordScreen ||
+        !unlockBtn ||
+        !appPassword
+    ) {
 
-    const nameInput =
-        document.getElementById("loginUserName");
+        return;
 
-    const passwordInput =
-        document.getElementById("loginPassword");
-
-    const nextBtn =
-        document.getElementById("loginNextBtn");
-
-    const error =
-        document.getElementById("loginError");
+    }
 
 
     const savedName =
         localStorage.getItem("studyName");
 
 
-    let step = savedName ? 2 : 1;
+    if (savedName && openUserName) {
 
+        openUserName.value =
+            savedName;
 
-    if (savedName) {
-
-        nameInput.value = savedName;
-
-        nameInput.style.display = "none";
-
-        passwordInput.style.display = "block";
-
-        title.textContent = "🔐 Password";
-
-        text.textContent =
-            "अपना StudyConnect password डालें।";
-
-        passwordInput.focus();
+        openUserName.style.display =
+            "none";
 
     }
 
 
-    nextBtn.addEventListener("click", () => {
+    unlockBtn.addEventListener(
+        "click",
+        () => {
 
+            const password =
+                appPassword.value.trim();
 
-        // STEP 1
-        if (step === 1) {
-
-            const name =
-                nameInput.value.trim();
-
-
-            if (!name) {
-
-                error.textContent =
-                    "पहले अपना नाम लिखें।";
-
-                return;
-            }
-
-
-            localStorage.setItem(
-                "studyName",
-                name
-            );
-
-
-            nameInput.style.display =
-                "none";
-
-            passwordInput.style.display =
-                "block";
-
-
-            title.textContent =
-                "🔐 Password";
-
-            text.textContent =
-                "अब StudyConnect का password डालें।";
-
-            nextBtn.textContent =
-                "Next →";
-
-            error.textContent = "";
-
-            step = 2;
-
-            passwordInput.focus();
-
-            return;
-        }
-
-
-        // STEP 2
-        if (step === 2) {
 
             if (
-                passwordInput.value !==
+                password !==
                 APP_PASSWORD
             ) {
 
-                error.textContent =
-                    "गलत password ❌";
+                if (passwordError) {
 
-                passwordInput.value = "";
+                    passwordError.textContent =
+                        "गलत Password ❌";
+
+                }
 
                 return;
+
             }
 
 
-            passwordInput.style.display =
-                "none";
+            if (openUserName) {
+
+                const name =
+                    openUserName.value.trim();
 
 
-            title.textContent =
-                "👑 App Owner";
+                if (name) {
 
-
-            text.innerHTML = `
-                Owner:
-                <strong>
-                    ${escapeHTML(OWNER_NAME)}
-                </strong>
-                <br>
-                <small>
-                    (${escapeHTML(OWNER_SHORT_NAME)})
-                </small>
-            `;
-
-
-            nextBtn.textContent =
-                "Next →";
-
-            error.textContent = "";
-
-            step = 3;
-
-            return;
-        }
-
-
-        // STEP 3
-        if (step === 3) {
-
-            title.textContent =
-                "💬 StudyConnect";
-
-
-            text.innerHTML = `
-                Welcome,
-                <strong>
-                    ${escapeHTML(getUserName())}
-                </strong>! 👋
-                <br>
-                <small>
-                    Owner:
-                    ${escapeHTML(OWNER_SHORT_NAME)}
-                </small>
-            `;
-
-
-            nextBtn.textContent =
-                "Open StudyConnect";
-
-            step = 4;
-
-            return;
-        }
-
-
-        // STEP 4
-        screen.style.display = "none";
-
-
-        showPage("school");
-
-
-        startOnlineStatus();
-
-    });
-
-
-    [
-        nameInput,
-        passwordInput
-    ].forEach(input => {
-
-        input.addEventListener(
-            "keydown",
-            event => {
-
-                if (event.key === "Enter") {
-
-                    nextBtn.click();
+                    localStorage.setItem(
+                        "studyName",
+                        name
+                    );
 
                 }
 
             }
-        );
 
-    });
+
+            if (passwordError) {
+
+                passwordError.textContent =
+                    "";
+
+            }
+
+
+            openStudyConnect();
+
+        }
+    );
+
+
+    appPassword.addEventListener(
+        "keydown",
+        event => {
+
+            if (event.key === "Enter") {
+
+                unlockBtn.click();
+
+            }
+
+        }
+    );
+
 }
 
 
-// ========================================
-// NAME SETTINGS
-// ========================================
-
-function setupNameSettings() {
-
-    const studentName =
-        document.getElementById("studentName");
-
-    const saveNameBtn =
-        document.getElementById("saveNameBtn");
-
-    const nameMessage =
-        document.getElementById("nameMessage");
+setupLogin();
 
 
-    if (!studentName || !saveNameBtn) {
-        return;
-    }
+// ============================================
+// NAME
+// ============================================
+
+const studentName =
+    document.getElementById("studentName");
+
+const saveNameBtn =
+    document.getElementById("saveNameBtn");
+
+const nameMessage =
+    document.getElementById("nameMessage");
+
+
+function setupName() {
+
+    if (!studentName) return;
 
 
     const savedName =
@@ -501,21 +387,10 @@ function setupNameSettings() {
         studentName.value =
             savedName;
 
-        studentName.disabled =
-            true;
-
-        saveNameBtn.style.display =
-            "none";
-
-
-        if (nameMessage) {
-
-            nameMessage.textContent =
-                `Welcome, ${savedName}! 👋`;
-
-        }
-
     }
+
+
+    if (!saveNameBtn) return;
 
 
     saveNameBtn.addEventListener(
@@ -531,11 +406,12 @@ function setupNameSettings() {
                 if (nameMessage) {
 
                     nameMessage.textContent =
-                        "पहले अपना नाम लिखें।";
+                        "पहले नाम लिखें।";
 
                 }
 
                 return;
+
             }
 
 
@@ -547,6 +423,7 @@ function setupNameSettings() {
 
             studentName.disabled =
                 true;
+
 
             saveNameBtn.style.display =
                 "none";
@@ -560,285 +437,117 @@ function setupNameSettings() {
             }
 
 
-            updateOnlineUserName(name);
+            updateOnlineUser();
 
         }
     );
 
-
-    const settingsBox =
-        document.querySelector(
-            ".settings-box"
-        );
+}
 
 
-    if (
-        settingsBox &&
-        !document.getElementById(
-            "changeNameBtn"
-        )
-    ) {
-
-        const button =
-            document.createElement("button");
+setupName();
 
 
-        button.type = "button";
+// ============================================
+// CHANGE NAME
+// ============================================
 
-        button.id =
-            "changeNameBtn";
+const changeNameInput =
+    document.getElementById(
+        "changeNameInput"
+    );
 
-        button.textContent =
-            "✏️ Change Name";
+const changeNameBtn =
+    document.getElementById(
+        "changeNameBtn"
+    );
 
-
-        settingsBox.insertBefore(
-            button,
-            settingsBox.firstChild
-        );
-
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                studentName.disabled =
-                    false;
-
-                studentName.focus();
-
-                saveNameBtn.style.display =
-                    "inline-block";
+const changeNameMessage =
+    document.getElementById(
+        "changeNameMessage"
+    );
 
 
-                if (nameMessage) {
+if (
+    changeNameBtn &&
+    changeNameInput
+) {
 
-                    nameMessage.textContent =
-                        "नया नाम लिखकर Save Name दबाएँ।";
+    changeNameBtn.addEventListener(
+        "click",
+        () => {
+
+            const name =
+                changeNameInput.value.trim();
+
+
+            if (!name) {
+
+                if (changeNameMessage) {
+
+                    changeNameMessage.textContent =
+                        "नया नाम लिखें।";
 
                 }
 
-            }
-        );
-    }
-}
-
-
-// ========================================
-// LONG PRESS DELETE
-// ========================================
-
-function addLongPressSelect(
-    element,
-    id,
-    onDelete
-) {
-
-    let timer = null;
-
-
-    const start = event => {
-
-        if (
-            event.target.closest("button") ||
-            event.target.closest("input") ||
-            event.target.closest("textarea")
-        ) {
-
-            return;
-
-        }
-
-
-        timer = setTimeout(() => {
-
-            element.classList.toggle(
-                "selected-item"
-            );
-
-
-            if (
-                element.classList.contains(
-                    "selected-item"
-                )
-            ) {
-
-                selectedItems.add(id);
-
-            } else {
-
-                selectedItems.delete(id);
+                return;
 
             }
 
 
-            showDeleteBar(onDelete);
-
-        }, 700);
-
-    };
-
-
-    const cancel = () => {
-
-        if (timer) {
-
-            clearTimeout(timer);
-
-            timer = null;
-
-        }
-
-    };
-
-
-    element.addEventListener(
-        "mousedown",
-        start
-    );
-
-    element.addEventListener(
-        "mouseup",
-        cancel
-    );
-
-    element.addEventListener(
-        "mouseleave",
-        cancel
-    );
-
-    element.addEventListener(
-        "touchstart",
-        start,
-        { passive: true }
-    );
-
-    element.addEventListener(
-        "touchend",
-        cancel
-    );
-
-    element.addEventListener(
-        "touchmove",
-        cancel
-    );
-}
-
-
-function showDeleteBar(deleteCallback) {
-
-    let bar =
-        document.getElementById(
-            "multiDeleteBar"
-        );
-
-
-    if (!bar) {
-
-        bar =
-            document.createElement("div");
-
-        bar.id =
-            "multiDeleteBar";
-
-
-        bar.style.cssText = `
-            position:fixed;
-            left:10px;
-            right:10px;
-            bottom:15px;
-            z-index:9999;
-            padding:12px;
-            border-radius:14px;
-            background:#222;
-            color:white;
-            display:flex;
-            justify-content:space-between;
-            align-items:center;
-            gap:10px;
-        `;
-
-
-        document.body.appendChild(bar);
-    }
-
-
-    bar.innerHTML = `
-        <span>
-            ${selectedItems.size} selected
-        </span>
-
-        <button
-            id="deleteSelectedBtn"
-            type="button">
-            🗑️ Delete
-        </button>
-
-        <button
-            id="cancelSelectedBtn"
-            type="button">
-            Cancel
-        </button>
-    `;
-
-
-    bar.querySelector(
-        "#deleteSelectedBtn"
-    ).onclick = async () => {
-
-        if (!selectedItems.size) {
-            return;
-        }
-
-
-        const yes =
-            confirm(
-                `क्या ${selectedItems.size} items delete करने हैं?`
+            localStorage.setItem(
+                "studyName",
+                name
             );
 
 
-        if (!yes) return;
+            if (studentName) {
+
+                studentName.value =
+                    name;
+
+                studentName.disabled =
+                    true;
+
+            }
 
 
-        await deleteCallback(
-            [...selectedItems]
-        );
+            if (saveNameBtn) {
+
+                saveNameBtn.style.display =
+                    "none";
+
+            }
 
 
-        selectedItems.clear();
-
-        bar.remove();
-
-    };
+            changeNameInput.value =
+                "";
 
 
-    bar.querySelector(
-        "#cancelSelectedBtn"
-    ).onclick = () => {
+            if (changeNameMessage) {
 
-        selectedItems.clear();
+                changeNameMessage.textContent =
+                    "नाम बदल गया ✅";
 
-
-        document
-            .querySelectorAll(
-                ".selected-item"
-            )
-            .forEach(el =>
-                el.classList.remove(
-                    "selected-item"
-                )
-            );
+            }
 
 
-        bar.remove();
+            updateOnlineUser(name);
 
-    };
+        }
+    );
+
 }
 
 
-// ========================================
-// CHAT ELEMENTS
-// ========================================
+// ============================================
+// CHAT
+// ============================================
+
+const chatMessages =
+    document.getElementById(
+        "chatMessages"
+    );
 
 const messageInput =
     document.getElementById(
@@ -850,20 +559,11 @@ const sendMessageBtn =
         "sendMessageBtn"
     );
 
-const chatMessages =
-    document.getElementById(
-        "chatMessages"
-    );
-
 const emojiBtn =
     document.getElementById(
         "emojiBtn"
     );
 
-
-// ========================================
-// EMOJI
-// ========================================
 
 if (emojiBtn && messageInput) {
 
@@ -878,38 +578,30 @@ if (emojiBtn && messageInput) {
 
         }
     );
+
 }
 
 
-// ========================================
-// MESSAGE TICKS
-// ========================================
+// ============================================
+// CHAT TICKS
+// ============================================
 
-function getTickHTML(
-    data,
-    isMine
-) {
+function getTick(data, mine) {
 
-    if (!isMine) {
+    if (!mine) {
+
         return "";
+
     }
 
 
-    const seen =
+    if (
         Array.isArray(data.seenBy) &&
-        data.seenBy.length > 0;
-
-
-    const delivered =
-        data.delivered === true;
-
-
-    if (seen) {
+        data.seenBy.length > 0
+    ) {
 
         return `
-            <span
-                class="message-tick blue-ticks"
-                title="Seen">
+            <span class="message-tick blue-ticks">
                 ✓✓
             </span>
         `;
@@ -917,12 +609,10 @@ function getTickHTML(
     }
 
 
-    if (delivered) {
+    if (data.delivered === true) {
 
         return `
-            <span
-                class="message-tick"
-                title="Delivered">
+            <span class="message-tick">
                 ✓✓
             </span>
         `;
@@ -931,88 +621,29 @@ function getTickHTML(
 
 
     return `
-        <span
-            class="message-tick"
-            title="Sent">
+        <span class="message-tick">
             ✓
         </span>
     `;
+
 }
 
 
-// ========================================
-// MARK MESSAGE SEEN
-// ========================================
-
-async function markMessageSeen(
-    messageId,
-    data
-) {
-
-    const name =
-        getUserName();
-
-
-    if (!name) return;
-
-
-    if (data.name === name) {
-        return;
-    }
-
-
-    const seenBy =
-        Array.isArray(data.seenBy)
-            ? data.seenBy
-            : [];
-
-
-    if (seenBy.includes(name)) {
-        return;
-    }
-
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "messages",
-                messageId
-            ),
-            {
-                seenBy:
-                    arrayUnion(name),
-
-                delivered: true
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Seen update error:",
-            error
-        );
-
-    }
-}
-
-
-// ========================================
+// ============================================
 // REAL-TIME CHAT
-// ========================================
+// ============================================
 
-function startRealtimeChat() {
-
-    if (!chatMessages) {
-        return;
-    }
+let stopChatListener = null;
 
 
-    if (unsubscribeMessages) {
+function startChat() {
 
-        unsubscribeMessages();
+    if (!chatMessages) return;
+
+
+    if (stopChatListener) {
+
+        stopChatListener();
 
     }
 
@@ -1030,12 +661,13 @@ function startRealtimeChat() {
         );
 
 
-    unsubscribeMessages =
+    stopChatListener =
         onSnapshot(
             messagesQuery,
             snapshot => {
 
-                chatMessages.innerHTML = "";
+                chatMessages.innerHTML =
+                    "";
 
 
                 if (snapshot.empty) {
@@ -1053,10 +685,11 @@ function startRealtimeChat() {
                     `;
 
                     return;
+
                 }
 
 
-                const currentName =
+                const myName =
                     getUserName();
 
 
@@ -1072,14 +705,13 @@ function startRealtimeChat() {
                             "Student";
 
 
-                        const text =
+                        const message =
                             data.message ||
                             "";
 
 
-                        const isMine =
-                            name ===
-                            currentName;
+                        const mine =
+                            name === myName;
 
 
                         const box =
@@ -1089,26 +721,27 @@ function startRealtimeChat() {
 
 
                         box.className =
-                            isMine
+                            mine
                                 ? "message mine"
                                 : "message other";
 
 
                         box.innerHTML = `
+
                             <strong>
                                 ${escapeHTML(name)}
                             </strong>
 
                             <p>
-                                ${escapeHTML(text)}
-                                ${getTickHTML(
+                                ${escapeHTML(message)}
+
+                                ${getTick(
                                     data,
-                                    isMine
+                                    mine
                                 )}
                             </p>
 
-                            <small
-                                class="message-time">
+                            <small>
                                 ${escapeHTML(
                                     formatDateTime(
                                         data.createdAt
@@ -1116,63 +749,26 @@ function startRealtimeChat() {
                                 )}
                             </small>
 
-                            ${
-                                isMine &&
-                                Array.isArray(
-                                    data.seenBy
-                                ) &&
-                                data.seenBy.length
-                                    ? `
-                                    <small>
-                                        👀 Seen by:
-                                        ${escapeHTML(
-                                            data.seenBy.join(
-                                                ", "
-                                            )
-                                        )}
-                                    </small>
-                                    `
-                                    : ""
-                            }
                         `;
-
-
-                        if (!isMine) {
-
-                            markMessageSeen(
-                                messageDoc.id,
-                                data
-                            );
-
-                        }
-
-
-                        addLongPressSelect(
-                            box,
-                            messageDoc.id,
-                            async ids => {
-
-                                for (
-                                    const id of ids
-                                ) {
-
-                                    await deleteDoc(
-                                        doc(
-                                            db,
-                                            "messages",
-                                            id
-                                        )
-                                    );
-
-                                }
-
-                            }
-                        );
 
 
                         chatMessages.appendChild(
                             box
                         );
+
+
+                        if (
+                            !mine &&
+                            !Array.isArray(
+                                data.seenBy
+                            )
+                        ) {
+
+                            markSeen(
+                                messageDoc.id
+                            );
+
+                        }
 
                     }
                 );
@@ -1186,27 +782,55 @@ function startRealtimeChat() {
             error => {
 
                 console.error(
-                    "Real-time chat error:",
+                    "Chat error:",
                     error
                 );
 
-                chatMessages.innerHTML =
-                    "<p>Chat load नहीं हो पाया।</p>";
-
             }
         );
+
 }
 
 
-// ========================================
-// SEND MESSAGE
-// ========================================
+async function markSeen(id) {
+
+    try {
+
+        await updateDoc(
+            doc(
+                db,
+                "messages",
+                id
+            ),
+            {
+                delivered: true,
+
+                seenBy:
+                    arrayUnion(
+                        getUserName()
+                    )
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Seen error:",
+            error
+        );
+
+    }
+
+}
+
+
+// ============================================
+// SEND CHAT MESSAGE
+// ============================================
 
 async function sendMessage() {
 
-    if (!messageInput) {
-        return;
-    }
+    if (!messageInput) return;
 
 
     const text =
@@ -1217,20 +841,21 @@ async function sendMessage() {
         getUserName();
 
 
-    if (!text) {
-        return;
-    }
-
-
     if (!name) {
 
         alert(
             "पहले अपना नाम Save करें।"
         );
 
-        showPage("home");
+        return;
+
+    }
+
+
+    if (!text) {
 
         return;
+
     }
 
 
@@ -1242,30 +867,38 @@ async function sendMessage() {
                 "messages"
             ),
             {
-                name,
+
+                name: name,
+
                 message: text,
-                createdAt: now(),
+
+                createdAt: getTime(),
+
                 delivered: false,
+
                 seenBy: []
+
             }
         );
 
 
-        messageInput.value = "";
-
+        messageInput.value =
+            "";
 
     } catch (error) {
 
         console.error(
-            "Message sending error:",
+            "Send message error:",
             error
         );
+
 
         alert(
             "Message send नहीं हुआ।"
         );
 
     }
+
 }
 
 
@@ -1299,45 +932,46 @@ if (messageInput) {
 }
 
 
-// ========================================
-// SCHOOL
-// ========================================
+// ============================================
+// GROUPS
+// ============================================
 
-const schoolInput =
+const groupInput =
     document.getElementById(
-        "schoolInput"
+        "groupInput"
     );
 
-const saveSchoolBtn =
+const createGroupBtn =
     document.getElementById(
-        "saveSchoolBtn"
+        "createGroupBtn"
     );
 
-const schoolList =
+const groupList =
     document.getElementById(
-        "schoolList"
+        "groupList"
     );
 
 
-function startRealtimeSchool() {
+let stopGroupsListener = null;
 
-    if (!schoolList) {
-        return;
+
+function startGroups() {
+
+    if (!groupList) return;
+
+
+    if (stopGroupsListener) {
+
+        stopGroupsListener();
+
     }
 
 
-    if (unsubscribeSchool) {
-
-        unsubscribeSchool();
-
-    }
-
-
-    const schoolQuery =
+    const groupsQuery =
         query(
             collection(
                 db,
-                "school"
+                "groups"
             ),
             orderBy(
                 "createdAt",
@@ -1346,20 +980,20 @@ function startRealtimeSchool() {
         );
 
 
-    unsubscribeSchool =
+    stopGroupsListener =
         onSnapshot(
-            schoolQuery,
+            groupsQuery,
             snapshot => {
 
-                schoolList.innerHTML =
+                groupList.innerHTML =
                     "";
 
 
                 snapshot.forEach(
-                    item => {
+                    groupDoc => {
 
                         const data =
-                            item.data();
+                            groupDoc.data();
 
 
                         const box =
@@ -1369,20 +1003,407 @@ function startRealtimeSchool() {
 
 
                         box.className =
-                            "school-item";
+                            "group-item";
 
 
-                        const seenBy =
+                        const members =
                             Array.isArray(
-                                data.seenBy
+                                data.members
                             )
-                                ? data.seenBy
+                                ? data.members
                                 : [];
 
 
                         box.innerHTML = `
+
                             <strong>
-                                🏫
+                                👥
+                                ${escapeHTML(
+                                    data.name ||
+                                    "Group"
+                                )}
+                            </strong>
+
+                            <p>
+                                👤
+                                ${members.length}
+                                Members
+                            </p>
+
+                            <small>
+                                Created by:
+                                ${escapeHTML(
+                                    data.owner ||
+                                    ""
+                                )}
+                            </small>
+
+                        `;
+
+
+                        box.addEventListener(
+                            "click",
+                            () => {
+
+                                openGroup(
+                                    groupDoc.id,
+                                    data
+                                );
+
+                            }
+                        );
+
+
+                        groupList.appendChild(
+                            box
+                        );
+
+                    }
+                );
+
+            },
+
+            error => {
+
+                console.error(
+                    "Groups error:",
+                    error
+                );
+
+            }
+        );
+
+}
+
+
+if (
+    createGroupBtn &&
+    groupInput
+) {
+
+    createGroupBtn.addEventListener(
+        "click",
+        async () => {
+
+            const name =
+                groupInput.value.trim();
+
+
+            const owner =
+                getUserName();
+
+
+            if (!name) {
+
+                alert(
+                    "Group का नाम लिखें।"
+                );
+
+                return;
+
+            }
+
+
+            if (!owner) {
+
+                alert(
+                    "पहले अपना नाम Save करें।"
+                );
+
+                return;
+
+            }
+
+
+            try {
+
+                await addDoc(
+                    collection(
+                        db,
+                        "groups"
+                    ),
+                    {
+
+                        name: name,
+
+                        owner: owner,
+
+                        members: [
+                            owner
+                        ],
+
+                        createdAt:
+                            getTime()
+
+                    }
+                );
+
+
+                groupInput.value =
+                    "";
+
+
+                alert(
+                    "Group create हो गया ✅"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Group create error:",
+                    error
+                );
+
+
+                alert(
+                    "Group create नहीं हुआ।"
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================
+// OPEN GROUP
+// ============================================
+
+function openGroup(
+    groupId,
+    groupData
+) {
+
+    const section =
+        document.getElementById(
+            "groupChatSection"
+        );
+
+
+    const groupName =
+        document.getElementById(
+            "selectedGroupName"
+        );
+
+
+    if (section) {
+
+        section.style.display =
+            "block";
+
+    }
+
+
+    if (groupName) {
+
+        groupName.textContent =
+            groupData.name ||
+            "Group";
+
+    }
+
+
+    const members =
+        Array.isArray(
+            groupData.members
+        )
+            ? groupData.members
+            : [];
+
+
+    const memberList =
+        document.getElementById(
+            "memberList"
+        );
+
+
+    if (memberList) {
+
+        memberList.innerHTML =
+            members.map(
+                member => `
+                    <div>
+                        👤
+                        ${escapeHTML(member)}
+                    </div>
+                `
+            ).join("");
+
+    }
+
+
+    loadGroupMessages(
+        groupId
+    );
+
+}
+
+
+// ============================================
+// GROUP MEMBER ADD
+// ============================================
+
+const memberNameInput =
+    document.getElementById(
+        "memberNameInput"
+    );
+
+const memberPhoneInput =
+    document.getElementById(
+        "memberPhoneInput"
+    );
+
+const addMemberBtn =
+    document.getElementById(
+        "addMemberBtn"
+    );
+
+const memberList =
+    document.getElementById(
+        "memberList"
+    );
+
+
+let currentGroupId =
+    null;
+
+
+async function addMember() {
+
+    if (!memberNameInput) return;
+
+
+    const name =
+        memberNameInput.value.trim();
+
+
+    if (!name) {
+
+        alert(
+            "Member का नाम लिखें।"
+        );
+
+        return;
+
+    }
+
+
+    alert(
+        "पहले Group खोलकर member add करना होगा।"
+    );
+
+}
+
+
+if (addMemberBtn) {
+
+    addMemberBtn.addEventListener(
+        "click",
+        addMember
+    );
+
+}
+
+
+// ============================================
+// GROUP CHAT
+// ============================================
+
+const groupMessages =
+    document.getElementById(
+        "groupMessages"
+    );
+
+const groupMessageInput =
+    document.getElementById(
+        "groupMessageInput"
+    );
+
+const sendGroupMessageBtn =
+    document.getElementById(
+        "sendGroupMessageBtn"
+    );
+
+
+function loadGroupMessages(
+    groupId
+) {
+
+    currentGroupId =
+        groupId;
+
+
+    if (!groupMessages) return;
+
+
+    if (stopGroupMessagesListener) {
+
+        stopGroupMessagesListener();
+
+    }
+
+
+    const messagesQuery =
+        query(
+            collection(
+                db,
+                "groupMessages"
+            ),
+            orderBy(
+                "createdAt",
+                "asc"
+            )
+        );
+
+
+    stopGroupMessagesListener =
+        onSnapshot(
+            messagesQuery,
+            snapshot => {
+
+                groupMessages.innerHTML =
+                    "";
+
+
+                snapshot.forEach(
+                    messageDoc => {
+
+                        const data =
+                            messageDoc.data();
+
+
+                        if (
+                            data.groupId !==
+                            groupId
+                        ) {
+
+                            return;
+
+                        }
+
+
+                        const box =
+                            document.createElement(
+                                "div"
+                            );
+
+
+                        const mine =
+                            data.name ===
+                            getUserName();
+
+
+                        box.className =
+                            mine
+                                ? "message mine"
+                                : "message other";
+
+
+                        box.innerHTML = `
+
+                            <strong>
                                 ${escapeHTML(
                                     data.name ||
                                     "Student"
@@ -1391,7 +1412,7 @@ function startRealtimeSchool() {
 
                             <p>
                                 ${escapeHTML(
-                                    data.update ||
+                                    data.message ||
                                     ""
                                 )}
                             </p>
@@ -1404,386 +1425,121 @@ function startRealtimeSchool() {
                                 )}
                             </small>
 
-                            ${
-                                seenBy.length
-                                    ? `
-                                    <br>
-                                    <small>
-                                        👀 Seen by:
-                                        ${escapeHTML(
-                                            seenBy.join(
-                                                ", "
-                                            )
-                                        )}
-                                    </small>
-                                    `
-                                    : ""
-                            }
                         `;
 
 
-                        addLongPressSelect(
-                            box,
-                            item.id,
-                            async ids => {
-
-                                for (
-                                    const id of ids
-                                ) {
-
-                                    await deleteDoc(
-                                        doc(
-                                            db,
-                                            "school",
-                                            id
-                                        )
-                                    );
-
-                                }
-
-                            }
-                        );
-
-
-                        schoolList.appendChild(
+                        groupMessages.appendChild(
                             box
                         );
 
                     }
                 );
 
-            },
 
-            error => {
-
-                console.error(
-                    "School realtime error:",
-                    error
-                );
+                groupMessages.scrollTop =
+                    groupMessages.scrollHeight;
 
             }
         );
-}
-
-
-if (
-    saveSchoolBtn &&
-    schoolInput
-) {
-
-    saveSchoolBtn.addEventListener(
-        "click",
-        async () => {
-
-            const update =
-                schoolInput.value.trim();
-
-
-            const name =
-                getUserName();
-
-
-            if (!update) {
-
-                alert(
-                    "School update लिखें।"
-                );
-
-                return;
-            }
-
-
-            if (!name) {
-
-                alert(
-                    "पहले अपना नाम Save करें।"
-                );
-
-                return;
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "school"
-                    ),
-                    {
-                        name,
-                        update,
-                        createdAt: now(),
-                        seenBy: [name]
-                    }
-                );
-
-
-                schoolInput.value = "";
-
-
-                alert(
-                    "School update save हो गया।"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "School save error:",
-                    error
-                );
-
-                alert(
-                    "School update save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
 
 }
 
 
-// ========================================
-// NOTES
-// ========================================
-
-const noteInput =
-    document.getElementById(
-        "noteInput"
-    );
-
-const saveNoteBtn =
-    document.getElementById(
-        "saveNoteBtn"
-    );
-
-const notesList =
-    document.getElementById(
-        "notesList"
-    );
+let stopGroupMessagesListener =
+    null;
 
 
-function startRealtimeNotes() {
+async function sendGroupMessage() {
 
-    if (!notesList) {
+    if (
+        !groupMessageInput ||
+        !currentGroupId
+    ) {
+
         return;
-    }
-
-
-    if (unsubscribeNotes) {
-
-        unsubscribeNotes();
 
     }
 
 
-    const notesQuery =
-        query(
+    const message =
+        groupMessageInput.value.trim();
+
+
+    if (!message) {
+
+        return;
+
+    }
+
+
+    const name =
+        getUserName();
+
+
+    try {
+
+        await addDoc(
             collection(
                 db,
-                "notes"
+                "groupMessages"
             ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
+            {
 
+                groupId:
+                    currentGroupId,
 
-    unsubscribeNotes =
-        onSnapshot(
-            notesQuery,
-            snapshot => {
+                name: name,
 
-                notesList.innerHTML =
-                    "";
+                message: message,
 
-
-                snapshot.forEach(
-                    item => {
-
-                        const data =
-                            item.data();
-
-
-                        const box =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        box.className =
-                            "note-item";
-
-
-                        const seenBy =
-                            Array.isArray(
-                                data.seenBy
-                            )
-                                ? data.seenBy
-                                : [];
-
-
-                        box.innerHTML = `
-                            <strong>
-                                📝
-                                ${escapeHTML(
-                                    data.name ||
-                                    "Student"
-                                )}
-                            </strong>
-
-                            <p>
-                                ${escapeHTML(
-                                    data.note ||
-                                    ""
-                                )}
-                            </p>
-
-                            <small>
-                                ${escapeHTML(
-                                    formatDateTime(
-                                        data.createdAt
-                                    )
-                                )}
-                            </small>
-
-                            ${
-                                seenBy.length
-                                    ? `
-                                    <br>
-                                    <small>
-                                        👀 Seen by:
-                                        ${escapeHTML(
-                                            seenBy.join(
-                                                ", "
-                                            )
-                                        )}
-                                    </small>
-                                    `
-                                    : ""
-                            }
-                        `;
-
-
-                        addLongPressSelect(
-                            box,
-                            item.id,
-                            async ids => {
-
-                                for (
-                                    const id of ids
-                                ) {
-
-                                    await deleteDoc(
-                                        doc(
-                                            db,
-                                            "notes",
-                                            id
-                                        )
-                                    );
-
-                                }
-
-                            }
-                        );
-
-
-                        notesList.appendChild(
-                            box
-                        );
-
-                    }
-                );
-
-            },
-
-            error => {
-
-                console.error(
-                    "Notes realtime error:",
-                    error
-                );
+                createdAt:
+                    getTime()
 
             }
         );
+
+
+        groupMessageInput.value =
+            "";
+
+    } catch (error) {
+
+        console.error(
+            "Group message error:",
+            error
+        );
+
+
+        alert(
+            "Group message send नहीं हुआ।"
+        );
+
+    }
+
 }
 
 
-if (
-    saveNoteBtn &&
-    noteInput
-) {
+if (sendGroupMessageBtn) {
 
-    saveNoteBtn.addEventListener(
+    sendGroupMessageBtn.addEventListener(
         "click",
-        async () => {
+        sendGroupMessage
+    );
 
-            const note =
-                noteInput.value.trim();
-
-
-            const name =
-                getUserName();
+}
 
 
-            if (!note) {
+if (groupMessageInput) {
 
-                alert(
-                    "Note लिखें।"
-                );
+    groupMessageInput.addEventListener(
+        "keydown",
+        event => {
 
-                return;
-            }
+            if (event.key === "Enter") {
 
+                event.preventDefault();
 
-            if (!name) {
-
-                alert(
-                    "पहले अपना नाम Save करें।"
-                );
-
-                return;
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "notes"
-                    ),
-                    {
-                        name,
-                        note,
-                        createdAt: now(),
-                        seenBy: [name]
-                    }
-                );
-
-
-                noteInput.value = "";
-
-
-                alert(
-                    "Note save हो गया।"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    "Note save error:",
-                    error
-                );
-
-                alert(
-                    "Note save नहीं हुआ।"
-                );
+                sendGroupMessage();
 
             }
 
@@ -1793,9 +1549,9 @@ if (
 }
 
 
-// ========================================
+// ============================================
 // HOMEWORK
-// ========================================
+// ============================================
 
 const homeworkDate =
     document.getElementById(
@@ -1848,20 +1604,18 @@ const homeworkList =
     );
 
 
-// ========================================
-// REAL-TIME HOMEWORK
-// ========================================
-
-function startRealtimeHomework() {
-
-    if (!homeworkList) {
-        return;
-    }
+let stopHomeworkListener =
+    null;
 
 
-    if (unsubscribeHomework) {
+function startHomework() {
 
-        unsubscribeHomework();
+    if (!homeworkList) return;
+
+
+    if (stopHomeworkListener) {
+
+        stopHomeworkListener();
 
     }
 
@@ -1879,7 +1633,7 @@ function startRealtimeHomework() {
         );
 
 
-    unsubscribeHomework =
+    stopHomeworkListener =
         onSnapshot(
             homeworkQuery,
             snapshot => {
@@ -1906,6 +1660,7 @@ function startRealtimeHomework() {
 
 
                         box.innerHTML = `
+
                             <h3>
                                 📅
                                 ${escapeHTML(
@@ -1915,9 +1670,7 @@ function startRealtimeHomework() {
                             </h3>
 
                             <p>
-                                <strong>
-                                    📖 Hindi:
-                                </strong>
+                                📖 Hindi:
                                 ${escapeHTML(
                                     data.hindi ||
                                     ""
@@ -1925,9 +1678,7 @@ function startRealtimeHomework() {
                             </p>
 
                             <p>
-                                <strong>
-                                    🔤 English:
-                                </strong>
+                                🔤 English:
                                 ${escapeHTML(
                                     data.english ||
                                     ""
@@ -1935,9 +1686,7 @@ function startRealtimeHomework() {
                             </p>
 
                             <p>
-                                <strong>
-                                    ➗ Maths:
-                                </strong>
+                                ➗ Maths:
                                 ${escapeHTML(
                                     data.maths ||
                                     ""
@@ -1945,9 +1694,7 @@ function startRealtimeHomework() {
                             </p>
 
                             <p>
-                                <strong>
-                                    🔬 Science:
-                                </strong>
+                                🔬 Science:
                                 ${escapeHTML(
                                     data.science ||
                                     ""
@@ -1955,9 +1702,7 @@ function startRealtimeHomework() {
                             </p>
 
                             <p>
-                                <strong>
-                                    🌍 SST:
-                                </strong>
+                                🌍 SST:
                                 ${escapeHTML(
                                     data.sst ||
                                     ""
@@ -1965,9 +1710,7 @@ function startRealtimeHomework() {
                             </p>
 
                             <p>
-                                <strong>
-                                    💻 Computer:
-                                </strong>
+                                💻 Computer:
                                 ${escapeHTML(
                                     data.computer ||
                                     ""
@@ -1975,9 +1718,7 @@ function startRealtimeHomework() {
                             </p>
 
                             <p>
-                                <strong>
-                                    🎨 Art:
-                                </strong>
+                                🎨 Art:
                                 ${escapeHTML(
                                     data.art ||
                                     ""
@@ -1988,7 +1729,7 @@ function startRealtimeHomework() {
                                 👤
                                 ${escapeHTML(
                                     data.name ||
-                                    "Student"
+                                    ""
                                 )}
                             </small>
 
@@ -2001,30 +1742,8 @@ function startRealtimeHomework() {
                                     )
                                 )}
                             </small>
+
                         `;
-
-
-                        addLongPressSelect(
-                            box,
-                            item.id,
-                            async ids => {
-
-                                for (
-                                    const id of ids
-                                ) {
-
-                                    await deleteDoc(
-                                        doc(
-                                            db,
-                                            "homework",
-                                            id
-                                        )
-                                    );
-
-                                }
-
-                            }
-                        );
 
 
                         homeworkList.appendChild(
@@ -2034,23 +1753,11 @@ function startRealtimeHomework() {
                     }
                 );
 
-            },
-
-            error => {
-
-                console.error(
-                    "Homework realtime error:",
-                    error
-                );
-
             }
         );
+
 }
 
-
-// ========================================
-// SAVE HOMEWORK
-// ========================================
 
 if (addHomeworkBtn) {
 
@@ -2074,28 +1781,11 @@ if (addHomeworkBtn) {
                 );
 
                 return;
-            }
 
-
-            if (!name) {
-
-                alert(
-                    "पहले अपना नाम Save करें।"
-                );
-
-                return;
             }
 
 
             try {
-
-                addHomeworkBtn.disabled =
-                    true;
-
-
-                addHomeworkBtn.textContent =
-                    "⏳ Saving...";
-
 
                 await addDoc(
                     collection(
@@ -2103,7 +1793,8 @@ if (addHomeworkBtn) {
                         "homework"
                     ),
                     {
-                        date,
+
+                        date: date,
 
                         hindi:
                             hindiHomework?.value.trim() ||
@@ -2133,9 +1824,11 @@ if (addHomeworkBtn) {
                             artHomework?.value.trim() ||
                             "",
 
-                        name,
+                        name: name,
 
-                        createdAt: now()
+                        createdAt:
+                            getTime()
+
                     }
                 );
 
@@ -2149,39 +1842,35 @@ if (addHomeworkBtn) {
                     sstHomework,
                     computerHomework,
                     artHomework
-                ].forEach(input => {
+                ].forEach(
+                    input => {
 
-                    if (input) {
-                        input.value = "";
+                        if (input) {
+
+                            input.value =
+                                "";
+
+                        }
+
                     }
-
-                });
+                );
 
 
                 alert(
-                    "✅ Homework Save हो गया!"
+                    "Homework Save हो गया ✅"
                 );
-
 
             } catch (error) {
 
                 console.error(
-                    "Homework save error:",
+                    "Homework error:",
                     error
                 );
+
 
                 alert(
                     "Homework save नहीं हुआ।"
                 );
-
-
-            } finally {
-
-                addHomeworkBtn.disabled =
-                    false;
-
-                addHomeworkBtn.textContent =
-                    "💾 Save Homework";
 
             }
 
@@ -2191,49 +1880,47 @@ if (addHomeworkBtn) {
 }
 
 
-// ========================================
-// GROUPS
-// ========================================
+// ============================================
+// SCHOOL
+// ============================================
 
-const groupInput =
+const schoolInput =
     document.getElementById(
-        "groupInput"
+        "schoolInput"
     );
 
-const createGroupBtn =
+const saveSchoolBtn =
     document.getElementById(
-        "createGroupBtn"
+        "saveSchoolBtn"
     );
 
-const groupList =
+const schoolList =
     document.getElementById(
-        "groupList"
+        "schoolList"
     );
 
 
-// ========================================
-// REAL-TIME GROUPS
-// ========================================
+let stopSchoolListener =
+    null;
 
-function startRealtimeGroups() {
 
-    if (!groupList) {
-        return;
+function startSchool() {
+
+    if (!schoolList) return;
+
+
+    if (stopSchoolListener) {
+
+        stopSchoolListener();
+
     }
 
 
-    if (unsubscribeGroups) {
-
-        unsubscribeGroups();
-
-    }
-
-
-    const groupsQuery =
+    const schoolQuery =
         query(
             collection(
                 db,
-                "groups"
+                "school"
             ),
             orderBy(
                 "createdAt",
@@ -2242,12 +1929,12 @@ function startRealtimeGroups() {
         );
 
 
-    unsubscribeGroups =
+    stopSchoolListener =
         onSnapshot(
-            groupsQuery,
+            schoolQuery,
             snapshot => {
 
-                groupList.innerHTML =
+                schoolList.innerHTML =
                     "";
 
 
@@ -2265,136 +1952,75 @@ function startRealtimeGroups() {
 
 
                         box.className =
-                            "group-item";
-
-
-                        const members =
-                            Array.isArray(
-                                data.members
-                            )
-                                ? data.members
-                                : [];
+                            "school-item";
 
 
                         box.innerHTML = `
+
                             <strong>
-                                👥
+                                🏫
                                 ${escapeHTML(
                                     data.name ||
-                                    "Group"
+                                    "Student"
                                 )}
                             </strong>
 
                             <p>
-                                👤 Members:
-                                ${members.length}
+                                ${escapeHTML(
+                                    data.update ||
+                                    ""
+                                )}
                             </p>
 
                             <small>
-                                Created by:
                                 ${escapeHTML(
-                                    data.owner ||
-                                    ""
+                                    formatDateTime(
+                                        data.createdAt
+                                    )
                                 )}
                             </small>
+
                         `;
 
 
-                        box.addEventListener(
-                            "click",
-                            () => {
-
-                                openGroup(
-                                    item.id,
-                                    data
-                                );
-
-                            }
-                        );
-
-
-                        addLongPressSelect(
-                            box,
-                            item.id,
-                            async ids => {
-
-                                for (
-                                    const id of ids
-                                ) {
-
-                                    await deleteDoc(
-                                        doc(
-                                            db,
-                                            "groups",
-                                            id
-                                        )
-                                    );
-
-                                }
-
-                            }
-                        );
-
-
-                        groupList.appendChild(
+                        schoolList.appendChild(
                             box
                         );
 
                     }
                 );
 
-            },
-
-            error => {
-
-                console.error(
-                    "Groups realtime error:",
-                    error
-                );
-
             }
         );
+
 }
 
 
-// ========================================
-// CREATE GROUP
-// ========================================
-
 if (
-    createGroupBtn &&
-    groupInput
+    saveSchoolBtn &&
+    schoolInput
 ) {
 
-    createGroupBtn.addEventListener(
+    saveSchoolBtn.addEventListener(
         "click",
         async () => {
 
+            const update =
+                schoolInput.value.trim();
+
+
             const name =
-                groupInput.value.trim();
-
-
-            const owner =
                 getUserName();
 
 
-            if (!name) {
+            if (!update) {
 
                 alert(
-                    "Group का नाम लिखें।"
+                    "School update लिखें।"
                 );
 
                 return;
-            }
 
-
-            if (!owner) {
-
-                alert(
-                    "पहले अपना नाम Save करें।"
-                );
-
-                return;
             }
 
 
@@ -2403,39 +2029,41 @@ if (
                 await addDoc(
                     collection(
                         db,
-                        "groups"
+                        "school"
                     ),
                     {
-                        name,
 
-                        owner,
+                        name: name,
 
-                        members: [
-                            owner
-                        ],
+                        update: update,
 
-                        createdAt: now()
+                        createdAt:
+                            getTime(),
+
+                        seenBy: []
+
                     }
                 );
 
 
-                groupInput.value = "";
+                schoolInput.value =
+                    "";
 
 
                 alert(
-                    "👥 Group create हो गया!"
+                    "School update save हो गया ✅"
                 );
-
 
             } catch (error) {
 
                 console.error(
-                    "Group create error:",
+                    "School error:",
                     error
                 );
 
+
                 alert(
-                    "Group create नहीं हुआ।"
+                    "School update save नहीं हुआ।"
                 );
 
             }
@@ -2446,501 +2074,203 @@ if (
 }
 
 
-// ========================================
-// OPEN GROUP
-// ========================================
+// ============================================
+// NOTES
+// ============================================
 
-function openGroup(
-    groupId,
-    groupData
-) {
-
-    const memberText =
-        Array.isArray(
-            groupData.members
-        )
-            ? groupData.members.join(
-                ", "
-            )
-            : "";
-
-
-    alert(
-        `👥 ${groupData.name}\n\n` +
-
-        `Members:\n${memberText}\n\n` +
-
-        `Group ID: ${groupId}\n\n` +
-
-        `Group real-time data Firebase में मौजूद है।`
+const noteInput =
+    document.getElementById(
+        "noteInput"
     );
 
-}
+const saveNoteBtn =
+    document.getElementById(
+        "saveNoteBtn"
+    );
+
+const notesList =
+    document.getElementById(
+        "notesList"
+    );
 
 
-// ========================================
-// ONLINE USERS
-// ========================================
+let stopNotesListener =
+    null;
 
-async function updateOnlineUserName(
-    name = getUserName()
-) {
 
-    if (!name) {
-        return;
+function startNotes() {
+
+    if (!notesList) return;
+
+
+    if (stopNotesListener) {
+
+        stopNotesListener();
+
     }
 
 
-    const safeId =
-        btoa(
-            unescape(
-                encodeURIComponent(name)
-            )
-        ).replace(
-            /[^a-zA-Z0-9]/g,
-            ""
-        );
-
-
-    try {
-
-        await setDoc(
-            doc(
+    const notesQuery =
+        query(
+            collection(
                 db,
-                "onlineUsers",
-                safeId
+                "notes"
             ),
-            {
-                name,
-
-                online: true,
-
-                lastSeen: now()
-            },
-            {
-                merge: true
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Online status error:",
-            error
-        );
-
-    }
-}
-
-
-// ========================================
-// REAL-TIME ONLINE LIST
-// ========================================
-
-function startOnlineRealtime() {
-
-    const onlineCount =
-        document.getElementById(
-            "onlineCount"
-        );
-
-    const onlineUsers =
-        document.getElementById(
-            "onlineUsers"
+            orderBy(
+                "createdAt",
+                "asc"
+            )
         );
 
 
-    if (!onlineCount) {
-        return;
-    }
+    stopNotesListener =
+        onSnapshot(
+            notesQuery,
+            snapshot => {
+
+                notesList.innerHTML =
+                    "";
 
 
-    onSnapshot(
-        collection(
-            db,
-            "onlineUsers"
-        ),
-        snapshot => {
+                snapshot.forEach(
+                    item => {
 
-            let count = 0;
-
-            const names = [];
+                        const data =
+                            item.data();
 
 
-            snapshot.forEach(
-                item => {
-
-                    const data =
-                        item.data();
-
-
-                    const lastSeen =
-                        Number(
-                            data.lastSeen || 0
-                        );
+                        const box =
+                            document.createElement(
+                                "div"
+                            );
 
 
-                    const isRecentlyOnline =
-                        data.online === true &&
-                        (
-                            !lastSeen ||
-                            Date.now() -
-                            lastSeen <
-                            70000
-                        );
+                        box.className =
+                            "note-item";
 
 
-                    if (
-                        isRecentlyOnline
-                    ) {
+                        box.innerHTML = `
 
-                        count++;
+                            <strong>
+                                📝
+                                ${escapeHTML(
+                                    data.name ||
+                                    "Student"
+                                )}
+                            </strong>
 
-                        names.push(
-                            data.name ||
-                            "Student"
+                            <p>
+                                ${escapeHTML(
+                                    data.note ||
+                                    ""
+                                )}
+                            </p>
+
+                            <small>
+                                ${escapeHTML(
+                                    formatDateTime(
+                                        data.createdAt
+                                    )
+                                )}
+                            </small>
+
+                        `;
+
+
+                        notesList.appendChild(
+                            box
                         );
 
                     }
-
-                }
-            );
-
-
-            onlineCount.textContent =
-                count;
-
-
-            if (onlineUsers) {
-
-                onlineUsers.innerHTML =
-                    names.map(
-                        name => `
-                            <div>
-                                🟢
-                                ${escapeHTML(name)}
-                            </div>
-                        `
-                    ).join("");
+                );
 
             }
+        );
 
-        }
-    );
 }
 
 
-// ========================================
-// ONLINE HEARTBEAT
-// ========================================
+if (
+    saveNoteBtn &&
+    noteInput
+) {
 
-function startOnlineStatus() {
-
-    if (onlineHeartbeat) {
-
-        clearInterval(
-            onlineHeartbeat
-        );
-
-    }
-
-
-    updateOnlineUserName();
-
-
-    startOnlineRealtime();
-
-
-    onlineHeartbeat =
-        setInterval(
-            () => {
-
-                updateOnlineUserName();
-
-            },
-            30000
-        );
-
-
-    window.addEventListener(
-        "beforeunload",
+    saveNoteBtn.addEventListener(
+        "click",
         async () => {
+
+            const note =
+                noteInput.value.trim();
+
 
             const name =
                 getUserName();
 
 
-            if (!name) {
-                return;
-            }
+            if (!note) {
 
-
-            const safeId =
-                btoa(
-                    unescape(
-                        encodeURIComponent(name)
-                    )
-                ).replace(
-                    /[^a-zA-Z0-9]/g,
-                    ""
+                alert(
+                    "Note लिखें।"
                 );
+
+                return;
+
+            }
 
 
             try {
 
-                await updateDoc(
-                    doc(
+                await addDoc(
+                    collection(
                         db,
-                        "onlineUsers",
-                        safeId
+                        "notes"
                     ),
                     {
-                        online: false,
-                        lastSeen: now()
+
+                        name: name,
+
+                        note: note,
+
+                        createdAt:
+                            getTime(),
+
+                        seenBy: []
+
                     }
                 );
 
-            } catch (_) {}
+
+                noteInput.value =
+                    "";
+
+
+                alert(
+                    "Note save हो गया ✅"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Notes error:",
+                    error
+                );
+
+
+                alert(
+                    "Note save नहीं हुआ।"
+                );
+
+            }
 
         }
-    );
-}
-
-
-// ========================================
-// LANGUAGE
-// ========================================
-
-const translations = {
-
-    hi: {
-
-        home: "🏠 Home",
-        chat: "💬 Chat",
-        groups: "👥 Groups",
-        homework: "📚 Homework",
-        school: "🏫 School",
-        notes: "📝 Notes",
-        settings: "⚙️ Settings",
-
-        saveName: "Save Name",
-        saveSchool: "Save Update",
-        saveNote: "Save Note",
-        send: "Send"
-
-    },
-
-
-    en: {
-
-        home: "🏠 Home",
-        chat: "💬 Chat",
-        groups: "👥 Groups",
-        homework: "📚 Homework",
-        school: "🏫 School",
-        notes: "📝 Notes",
-        settings: "⚙️ Settings",
-
-        saveName: "Save Name",
-        saveSchool: "Save Update",
-        saveNote: "Save Note",
-        send: "Send"
-
-    }
-
-};
-
-
-function applyLanguage(
-    language
-) {
-
-    localStorage.setItem(
-        "studyLanguage",
-        language
-    );
-
-
-    const t =
-        translations[language] ||
-        translations.hi;
-
-
-    document.querySelectorAll(
-        "[data-page]"
-    ).forEach(button => {
-
-        const page =
-            button.getAttribute(
-                "data-page"
-            );
-
-
-        if (t[page]) {
-
-            button.textContent =
-                t[page];
-
-        }
-
-    });
-
-
-    const send =
-        document.getElementById(
-            "sendMessageBtn"
-        );
-
-
-    if (send) {
-        send.textContent =
-            t.send;
-    }
-
-
-    const saveName =
-        document.getElementById(
-            "saveNameBtn"
-        );
-
-
-    if (saveName) {
-
-        saveName.textContent =
-            t.saveName;
-
-    }
-
-
-    const saveSchool =
-        document.getElementById(
-            "saveSchoolBtn"
-        );
-
-
-    if (saveSchool) {
-
-        saveSchool.textContent =
-            t.saveSchool;
-
-    }
-
-
-    const saveNote =
-        document.getElementById(
-            "saveNoteBtn"
-        );
-
-
-    if (saveNote) {
-
-        saveNote.textContent =
-            t.saveNote;
-
-    }
-
-}
-
-
-// ========================================
-// LANGUAGE SETTING
-// ========================================
-
-function setupLanguageSetting() {
-
-    const settingsBox =
-        document.querySelector(
-            ".settings-box"
-        );
-
-
-    if (!settingsBox) {
-        return;
-    }
-
-
-    if (
-        document.getElementById(
-            "languageSelect"
-        )
-    ) {
-
-        return;
-    }
-
-
-    const label =
-        document.createElement(
-            "label"
-        );
-
-
-    label.textContent =
-        "🌐 Language";
-
-
-    const select =
-        document.createElement(
-            "select"
-        );
-
-
-    select.id =
-        "languageSelect";
-
-
-    select.innerHTML = `
-        <option value="hi">
-            🇮🇳 हिंदी
-        </option>
-
-        <option value="en">
-            🇬🇧 English
-        </option>
-    `;
-
-
-    const savedLanguage =
-        localStorage.getItem(
-            "studyLanguage"
-        ) || "hi";
-
-
-    select.value =
-        savedLanguage;
-
-
-    select.addEventListener(
-        "change",
-        () => {
-
-            applyLanguage(
-                select.value
-            );
-
-        }
-    );
-
-
-    settingsBox.appendChild(
-        label
-    );
-
-    settingsBox.appendChild(
-        select
-    );
-
-
-    applyLanguage(
-        savedLanguage
     );
 
 }
 
 
-// ========================================
+// ============================================
 // DARK MODE
-// ========================================
+// ============================================
 
 const themeBtn =
     document.getElementById(
@@ -2985,80 +2315,154 @@ if (
 }
 
 
-// ========================================
-// OWNER INFO
-// ========================================
+// ============================================
+// NOTIFICATIONS
+// ============================================
 
-function setupOwnerInfo() {
+const notificationBtn =
+    document.getElementById(
+        "notificationBtn"
+    );
 
-    const settingsBox =
-        document.querySelector(
-            ".settings-box"
-        );
-
-
-    if (!settingsBox) {
-        return;
-    }
+const notificationMessage =
+    document.getElementById(
+        "notificationMessage"
+    );
 
 
-    if (
-        document.getElementById(
-            "ownerInfo"
-        )
-    ) {
+if (notificationBtn) {
 
-        return;
-    }
+    notificationBtn.addEventListener(
+        "click",
+        async () => {
 
+            if (
+                !("Notification" in window)
+            ) {
 
-    const info =
-        document.createElement(
-            "div"
-        );
+                if (notificationMessage) {
 
+                    notificationMessage.textContent =
+                        "इस browser में notification support नहीं है।";
 
-    info.id =
-        "ownerInfo";
+                }
 
+                return;
 
-    info.innerHTML = `
-        <hr>
-
-        <p>
-            👑
-            <strong>
-                App Owner:
-            </strong>
-            ${escapeHTML(
-                OWNER_NAME
-            )}
-        </p>
-
-        <p>
-            💬
-            <strong>
-                App:
-            </strong>
-            StudyConnect
-        </p>
-    `;
+            }
 
 
-    settingsBox.appendChild(
-        info
+            const permission =
+                await Notification.requestPermission();
+
+
+            if (notificationMessage) {
+
+                if (
+                    permission ===
+                    "granted"
+                ) {
+
+                    notificationMessage.textContent =
+                        "Notifications ON ✅";
+
+                } else {
+
+                    notificationMessage.textContent =
+                        "Notifications allow नहीं हुई।";
+
+                }
+
+            }
+
+        }
     );
 
 }
 
 
-// ========================================
-// RESET LOCAL DATA
-// ========================================
+// ============================================
+// LANGUAGE BUTTONS
+// ============================================
+
+const hindiLanguageBtn =
+    document.getElementById(
+        "hindiLanguageBtn"
+    );
+
+const englishLanguageBtn =
+    document.getElementById(
+        "englishLanguageBtn"
+    );
+
+const languageMessage =
+    document.getElementById(
+        "languageMessage"
+    );
+
+
+if (hindiLanguageBtn) {
+
+    hindiLanguageBtn.addEventListener(
+        "click",
+        () => {
+
+            localStorage.setItem(
+                "studyLanguage",
+                "hi"
+            );
+
+
+            if (languageMessage) {
+
+                languageMessage.textContent =
+                    "भाषा हिंदी कर दी गई। 🇮🇳";
+
+            }
+
+        }
+    );
+
+}
+
+
+if (englishLanguageBtn) {
+
+    englishLanguageBtn.addEventListener(
+        "click",
+        () => {
+
+            localStorage.setItem(
+                "studyLanguage",
+                "en"
+            );
+
+
+            if (languageMessage) {
+
+                languageMessage.textContent =
+                    "Language changed to English. 🇬🇧";
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================
+// RESET APP DATA
+// ============================================
 
 const clearDataBtn =
     document.getElementById(
         "clearDataBtn"
+    );
+
+const settingsMessage =
+    document.getElementById(
+        "settingsMessage"
     );
 
 
@@ -3070,29 +2474,24 @@ if (clearDataBtn) {
 
             const yes =
                 confirm(
-                    "क्या आप इस device का local StudyConnect data reset करना चाहते हैं?"
+                    "क्या आप इस device का saved StudyConnect data हटाना चाहते हैं?"
                 );
 
 
-            if (!yes) {
-                return;
-            }
+            if (!yes) return;
 
 
-            localStorage.removeItem(
-                "studyName"
-            );
-
-            localStorage.removeItem(
-                "studyLanguage"
-            );
-
-            localStorage.removeItem(
-                "darkMode"
-            );
-
+            localStorage.clear();
 
             sessionStorage.clear();
+
+
+            if (settingsMessage) {
+
+                settingsMessage.textContent =
+                    "Data reset हो गया।";
+
+            }
 
 
             location.reload();
@@ -3103,28 +2502,185 @@ if (clearDataBtn) {
 }
 
 
-// ========================================
-// START EVERYTHING
-// ========================================
+// ============================================
+// ONLINE USERS
+// ============================================
 
-setupNameSettings();
+const onlineCount =
+    document.getElementById(
+        "onlineCount"
+    );
 
-setupLanguageSetting();
+const onlineUsers =
+    document.getElementById(
+        "onlineUsers"
+    );
 
-setupOwnerInfo();
 
-createLoginFlow();
+function getSafeUserId(name) {
 
-startRealtimeChat();
+    return encodeURIComponent(
+        name
+    )
+    .replace(
+        /%/g,
+        "_"
+    )
+    .replace(
+        /[^a-zA-Z0-9_-]/g,
+        ""
+    )
+    .slice(
+        0,
+        100
+    );
 
-startRealtimeHomework();
+}
 
-startRealtimeSchool();
 
-startRealtimeNotes();
+async function updateOnlineUser(
+    name = getUserName()
+) {
 
-startRealtimeGroups();
+    if (!name) return;
+
+
+    try {
+
+        await addDoc(
+            collection(
+                db,
+                "onlineUsers"
+            ),
+            {
+
+                name: name,
+
+                online: true,
+
+                lastSeen:
+                    getTime()
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Online user error:",
+            error
+        );
+
+    }
+
+}
+
+
+function startOnlineStatus() {
+
+    if (!getUserName()) {
+
+        return;
+
+    }
+
+
+    updateOnlineUser();
+
+}
+
+
+if (onlineCount) {
+
+    onSnapshot(
+        collection(
+            db,
+            "onlineUsers"
+        ),
+        snapshot => {
+
+            const users = [];
+
+            const currentTime =
+                Date.now();
+
+
+            snapshot.forEach(
+                item => {
+
+                    const data =
+                        item.data();
+
+
+                    const lastSeen =
+                        Number(
+                            data.lastSeen ||
+                            0
+                        );
+
+
+                    if (
+                        data.online === true &&
+                        (
+                            currentTime -
+                            lastSeen
+                        ) < 70000
+                    ) {
+
+                        users.push(
+                            data.name ||
+                            "Student"
+                        );
+
+                    }
+
+                }
+            );
+
+
+            onlineCount.textContent =
+                users.length;
+
+
+            if (onlineUsers) {
+
+                onlineUsers.innerHTML =
+                    users.map(
+                        name => `
+                            <div>
+                                🟢
+                                ${escapeHTML(name)}
+                            </div>
+                        `
+                    ).join("");
+
+            }
+
+        }
+    );
+
+}
+
+
+// ============================================
+// START APP DATA
+// ============================================
+
+startChat();
+
+startGroups();
+
+startHomework();
+
+startSchool();
+
+startNotes();
+
+
+// ============================================
+// FINISHED
+// ============================================
 
 console.log(
-    "StudyConnect FINAL JavaScript loaded successfully."
+    "StudyConnect loaded successfully ✅"
 );
