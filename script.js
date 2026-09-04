@@ -1,31 +1,32 @@
-// ============================================
-// STUDYCONNECT - SCRIPT.JS
-// Existing index.html compatible version
-// ============================================
+/* =========================================================
+   STUDYCONNECT - FINAL SCRIPT
+   Firebase + Realtime Chat + Groups + Online Users
+   ========================================================= */
 
-
-// ============================================
-// FIREBASE
-// ============================================
-
-import { initializeApp } from
-    "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
 import {
     getFirestore,
     collection,
     addDoc,
     getDocs,
-    deleteDoc,
+    getDoc,
     doc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
     query,
     orderBy,
     onSnapshot,
-    updateDoc,
     arrayUnion
-} from
-    "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
+
+/* =========================================================
+   FIREBASE
+   ========================================================= */
 
 const firebaseConfig = {
     apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3AUCdPWypag",
@@ -37,192 +38,146 @@ const firebaseConfig = {
     measurementId: "G-SYJYMREJJL"
 };
 
-
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 
-// ============================================
-// APP SETTINGS
-// ============================================
+/* =========================================================
+   APP SETTINGS
+   ========================================================= */
 
 const APP_PASSWORD = "123";
+
 const OWNER_NAME = "Krishna Yadav";
 
+const OWNER_SETTINGS_PASSWORD = "12341";
 
-// ============================================
-// HELPERS
-// ============================================
+const OWNER_CONTACT_NUMBER = "8738084554";
 
-function escapeHTML(text) {
+const ONLINE_TIMEOUT = 70000;
 
-    const div = document.createElement("div");
 
-    div.textContent = text ?? "";
+/* =========================================================
+   COMMON HELPERS
+   ========================================================= */
 
-    return div.innerHTML;
+function now() {
+    return Date.now();
 }
 
 
 function getUserName() {
-
     return localStorage.getItem("studyName") || "";
-
 }
 
 
-function getTime() {
-
-    return Date.now();
-
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 
-function formatDateTime(value) {
+function formatDateTime(timestamp) {
+    if (!timestamp) return "";
 
-    if (!value) return "";
-
-    let date;
-
-    if (typeof value === "number") {
-
-        date = new Date(value);
-
-    } else if (value && value.toDate) {
-
-        date = value.toDate();
-
-    } else {
-
-        date = new Date(value);
-
-    }
-
-    if (isNaN(date.getTime())) {
-
+    try {
+        return new Date(timestamp).toLocaleString("hi-IN", {
+            dateStyle: "short",
+            timeStyle: "short"
+        });
+    } catch (error) {
         return "";
-
     }
-
-    return date.toLocaleString("en-IN", {
-
-        day: "2-digit",
-
-        month: "short",
-
-        year: "numeric",
-
-        hour: "2-digit",
-
-        minute: "2-digit"
-
-    });
-
 }
 
 
-// ============================================
-// PAGE NAVIGATION
-// ============================================
-
-function showPage(pageId) {
-
-    document.querySelectorAll(".page").forEach(page => {
-
-        page.classList.remove("active");
-
-    });
-
-
-    const page =
-        document.getElementById(pageId);
-
-
-    if (page) {
-
-        page.classList.add("active");
-
-    }
-
-
-    const navMenu =
-        document.getElementById("navMenu");
-
-
-    if (navMenu) {
-
-        navMenu.classList.remove("show");
-
-    }
-
+function safeId(text) {
+    return btoa(
+        unescape(
+            encodeURIComponent(String(text))
+        )
+    ).replace(/[^a-zA-Z0-9]/g, "");
 }
 
 
-window.showPage = showPage;
+/* =========================================================
+   ALLOWED USERS
+   ========================================================= */
 
+function getAllowedUsers() {
 
-// ============================================
-// NAVIGATION BUTTONS
-// ============================================
+    const saved = localStorage.getItem("studyAllowedUsers");
 
-document.querySelectorAll("[data-page]").forEach(button => {
+    if (!saved) {
+        return [OWNER_NAME];
+    }
 
-    button.addEventListener("click", () => {
+    try {
 
-        const page =
-            button.getAttribute("data-page");
+        const users = JSON.parse(saved);
 
-        showPage(page);
-
-    });
-
-});
-
-
-document.querySelectorAll(".open-page").forEach(button => {
-
-    button.addEventListener("click", () => {
-
-        const page =
-            button.getAttribute("data-page");
-
-        if (page) {
-
-            showPage(page);
-
+        if (!Array.isArray(users)) {
+            return [OWNER_NAME];
         }
 
-    });
+        if (!users.includes(OWNER_NAME)) {
+            users.unshift(OWNER_NAME);
+        }
 
-});
+        return users;
 
+    } catch (error) {
 
-// ============================================
-// MENU
-// ============================================
-
-const menuBtn =
-    document.getElementById("menuBtn");
-
-const navMenu =
-    document.getElementById("navMenu");
-
-
-if (menuBtn && navMenu) {
-
-    menuBtn.addEventListener("click", () => {
-
-        navMenu.classList.toggle("show");
-
-    });
-
+        return [OWNER_NAME];
+    }
 }
 
 
-// ============================================
-// LOGIN
-// Uses the existing HTML login elements
-// ============================================
+function saveAllowedUsers(users) {
+
+    const cleaned = [];
+
+    users.forEach(name => {
+
+        const value = String(name).trim();
+
+        if (!value) return;
+
+        if (!cleaned.includes(value)) {
+            cleaned.push(value);
+        }
+    });
+
+    if (!cleaned.includes(OWNER_NAME)) {
+        cleaned.unshift(OWNER_NAME);
+    }
+
+    localStorage.setItem(
+        "studyAllowedUsers",
+        JSON.stringify(cleaned)
+    );
+}
+
+
+function isAllowedUser(name) {
+
+    const allowed = getAllowedUsers();
+
+    return allowed.some(
+        user =>
+            user.toLowerCase() ===
+            String(name).trim().toLowerCase()
+    );
+}
+
+
+/* =========================================================
+   LOGIN / OPEN SCREEN
+   ========================================================= */
 
 const passwordScreen =
     document.getElementById("passwordScreen");
@@ -240,128 +195,210 @@ const passwordError =
     document.getElementById("passwordError");
 
 
-function openStudyConnect() {
+function showApp() {
 
     if (passwordScreen) {
-
         passwordScreen.style.display = "none";
-
     }
 
-    showPage("home");
+    document.body.classList.add("study-app-open");
 
     startOnlineStatus();
 
+    startRealtimeData();
+
+    updateOnlineArrow();
+
+    applyLanguage(
+        localStorage.getItem("studyLanguage") || "hi"
+    );
+}
+
+
+function showPasswordError(message) {
+
+    if (passwordError) {
+        passwordError.textContent = message;
+        passwordError.style.display = "block";
+    }
 }
 
 
 function setupLogin() {
 
-    if (
-        !passwordScreen ||
-        !unlockBtn ||
-        !appPassword
-    ) {
+    if (!unlockBtn) return;
 
-        return;
-
-    }
-
-
-    const savedName =
-        localStorage.getItem("studyName");
-
+    const savedName = getUserName();
 
     if (savedName && openUserName) {
-
-        openUserName.value =
-            savedName;
-
-        openUserName.style.display =
-            "none";
-
+        openUserName.value = savedName;
     }
 
+    unlockBtn.addEventListener("click", () => {
 
-    unlockBtn.addEventListener(
-        "click",
-        () => {
+        const name =
+            openUserName?.value.trim() || savedName;
 
-            const password =
-                appPassword.value.trim();
+        const password =
+            appPassword?.value || "";
 
+        if (!name) {
 
-            if (
-                password !==
-                APP_PASSWORD
-            ) {
+            showPasswordError(
+                "पहले अपना नाम लिखें।"
+            );
 
-                if (passwordError) {
-
-                    passwordError.textContent =
-                        "गलत Password ❌";
-
-                }
-
-                return;
-
-            }
-
-
-            if (openUserName) {
-
-                const name =
-                    openUserName.value.trim();
-
-
-                if (name) {
-
-                    localStorage.setItem(
-                        "studyName",
-                        name
-                    );
-
-                }
-
-            }
-
-
-            if (passwordError) {
-
-                passwordError.textContent =
-                    "";
-
-            }
-
-
-            openStudyConnect();
-
+            return;
         }
-    );
 
+        if (!password) {
 
-    appPassword.addEventListener(
-        "keydown",
-        event => {
+            showPasswordError(
+                "Password लिखें।"
+            );
 
-            if (event.key === "Enter") {
-
-                unlockBtn.click();
-
-            }
-
+            return;
         }
-    );
 
+        if (password !== APP_PASSWORD) {
+
+            showPasswordError(
+                "गलत Password!"
+            );
+
+            return;
+        }
+
+        if (!isAllowedUser(name)) {
+
+            showPasswordError(
+                "यह नाम StudyConnect में allowed नहीं है।\n\n" +
+                "कृपया App Owner से संपर्क करें।\n" +
+                "Owner: " +
+                OWNER_NAME +
+                "\n" +
+                "Contact: " +
+                OWNER_CONTACT_NUMBER
+            );
+
+            return;
+        }
+
+        localStorage.setItem(
+            "studyName",
+            name
+        );
+
+        sessionStorage.setItem(
+            "studyUnlocked",
+            "true"
+        );
+
+        if (passwordError) {
+            passwordError.style.display = "none";
+        }
+
+        showApp();
+    });
 }
 
 
 setupLogin();
 
 
-// ============================================
-// NAME
-// ============================================
+/* =========================================================
+   NAVIGATION
+   ========================================================= */
+
+function showPage(pageName) {
+
+    const pages =
+        document.querySelectorAll(".page");
+
+    pages.forEach(page => {
+
+        const pageId =
+            page.id ||
+            page.getAttribute("data-page");
+
+        const pageNameAttribute =
+            page.getAttribute("data-page");
+
+        if (
+            pageId === pageName ||
+            pageNameAttribute === pageName ||
+            page.id === pageName + "Page"
+        ) {
+            page.style.display = "";
+            page.classList.add("active");
+        } else {
+            page.style.display = "none";
+            page.classList.remove("active");
+        }
+    });
+
+    const navMenu =
+        document.getElementById("navMenu");
+
+    if (navMenu) {
+        navMenu.classList.remove("open");
+    }
+}
+
+
+function setupNavigation() {
+
+    const menuBtn =
+        document.getElementById("menuBtn");
+
+    const navMenu =
+        document.getElementById("navMenu");
+
+    if (menuBtn && navMenu) {
+
+        menuBtn.addEventListener("click", () => {
+
+            navMenu.classList.toggle("open");
+
+        });
+    }
+
+
+    document.querySelectorAll("[data-page]").forEach(item => {
+
+        item.addEventListener("click", () => {
+
+            const page =
+                item.getAttribute("data-page");
+
+            if (page) {
+                showPage(page);
+            }
+        });
+    });
+
+
+    document.querySelectorAll(".open-page").forEach(item => {
+
+        item.addEventListener("click", () => {
+
+            const page =
+                item.getAttribute("data-page");
+
+            if (page) {
+                showPage(page);
+            }
+        });
+    });
+}
+
+
+setupNavigation();
+
+
+/* =========================================================
+   HOME NAME
+   ========================================================= */
 
 const studentName =
     document.getElementById("studentName");
@@ -372,26 +409,43 @@ const saveNameBtn =
 const nameMessage =
     document.getElementById("nameMessage");
 
+const changeNameInput =
+    document.getElementById("changeNameInput");
 
-function setupName() {
+const changeNameBtn =
+    document.getElementById("changeNameBtn");
 
-    if (!studentName) return;
-
-
-    const savedName =
-        getUserName();
+const changeNameMessage =
+    document.getElementById("changeNameMessage");
 
 
-    if (savedName) {
+function loadSavedName() {
 
-        studentName.value =
-            savedName;
+    const name = getUserName();
 
+    if (!name) return;
+
+    if (studentName) {
+        studentName.value = name;
+        studentName.disabled = true;
     }
 
+    if (saveNameBtn) {
+        saveNameBtn.style.display = "none";
+    }
 
-    if (!saveNameBtn) return;
+    if (nameMessage) {
+        nameMessage.textContent =
+            "आपका नाम: " + name;
+    }
 
+    if (changeNameInput) {
+        changeNameInput.value = name;
+    }
+}
+
+
+if (saveNameBtn && studentName) {
 
     saveNameBtn.addEventListener(
         "click",
@@ -400,446 +454,436 @@ function setupName() {
             const name =
                 studentName.value.trim();
 
-
             if (!name) {
-
                 if (nameMessage) {
-
                     nameMessage.textContent =
                         "पहले नाम लिखें।";
+                }
+                return;
+            }
 
+            if (!isAllowedUser(name)) {
+
+                if (nameMessage) {
+                    nameMessage.textContent =
+                        "यह नाम allowed नहीं है। App Owner से संपर्क करें: " +
+                        OWNER_CONTACT_NUMBER;
                 }
 
                 return;
-
             }
-
 
             localStorage.setItem(
                 "studyName",
                 name
             );
 
+            studentName.disabled = true;
 
-            studentName.disabled =
-                true;
-
-
-            saveNameBtn.style.display =
-                "none";
-
+            saveNameBtn.style.display = "none";
 
             if (nameMessage) {
-
                 nameMessage.textContent =
-                    `Welcome, ${name}! 👋`;
-
+                    "नाम Save हो गया।";
             }
 
-
-            updateOnlineUser();
-
+            startOnlineStatus();
         }
     );
-
 }
 
 
-setupName();
-
-
-// ============================================
-// CHANGE NAME
-// ============================================
-
-const changeNameInput =
-    document.getElementById(
-        "changeNameInput"
-    );
-
-const changeNameBtn =
-    document.getElementById(
-        "changeNameBtn"
-    );
-
-const changeNameMessage =
-    document.getElementById(
-        "changeNameMessage"
-    );
-
-
-if (
-    changeNameBtn &&
-    changeNameInput
-) {
+if (changeNameBtn && changeNameInput) {
 
     changeNameBtn.addEventListener(
         "click",
         () => {
 
-            const name =
+            const newName =
                 changeNameInput.value.trim();
 
-
-            if (!name) {
+            if (!newName) {
 
                 if (changeNameMessage) {
-
                     changeNameMessage.textContent =
-                        "नया नाम लिखें।";
-
+                        "नाम लिखें।";
                 }
 
                 return;
-
             }
 
+            if (!isAllowedUser(newName)) {
+
+                if (changeNameMessage) {
+                    changeNameMessage.textContent =
+                        "यह नाम allowed नहीं है।";
+                }
+
+                return;
+            }
 
             localStorage.setItem(
                 "studyName",
-                name
+                newName
             );
 
-
-            if (studentName) {
-
-                studentName.value =
-                    name;
-
-                studentName.disabled =
-                    true;
-
-            }
-
-
-            if (saveNameBtn) {
-
-                saveNameBtn.style.display =
-                    "none";
-
-            }
-
-
-            changeNameInput.value =
-                "";
-
+            loadSavedName();
 
             if (changeNameMessage) {
-
                 changeNameMessage.textContent =
-                    "नाम बदल गया ✅";
-
+                    "नाम बदल दिया गया।";
             }
 
-
-            updateOnlineUser(name);
-
+            startOnlineStatus();
         }
     );
-
 }
 
 
-// ============================================
-// CHAT
-// ============================================
-
-const chatMessages =
-    document.getElementById(
-        "chatMessages"
-    );
-
-const messageInput =
-    document.getElementById(
-        "messageInput"
-    );
-
-const sendMessageBtn =
-    document.getElementById(
-        "sendMessageBtn"
-    );
-
-const emojiBtn =
-    document.getElementById(
-        "emojiBtn"
-    );
+loadSavedName();
 
 
-if (emojiBtn && messageInput) {
+/* =========================================================
+   ONLINE USERS
+   ========================================================= */
 
-    emojiBtn.addEventListener(
+const onlineCount =
+    document.getElementById("onlineCount");
+
+const onlineUsers =
+    document.getElementById("onlineUsers");
+
+let onlineHeartbeat = null;
+
+let onlineUnsubscribe = null;
+
+
+function createOnlineArrow() {
+
+    if (!onlineCount) return;
+
+    if (
+        document.getElementById(
+            "onlineArrowButton"
+        )
+    ) {
+        return;
+    }
+
+    const parent =
+        onlineCount.parentElement;
+
+    if (!parent) return;
+
+    const arrow =
+        document.createElement("button");
+
+    arrow.id = "onlineArrowButton";
+
+    arrow.type = "button";
+
+    arrow.textContent = "▼";
+
+    arrow.title = "Online students देखें";
+
+    arrow.style.border = "none";
+    arrow.style.background = "transparent";
+    arrow.style.cursor = "pointer";
+    arrow.style.fontSize = "14px";
+    arrow.style.marginLeft = "6px";
+
+    arrow.addEventListener(
         "click",
         () => {
 
-            messageInput.value +=
-                " 😊";
+            if (!onlineUsers) return;
 
-            messageInput.focus();
+            if (
+                onlineUsers.style.display === "none" ||
+                !onlineUsers.style.display
+            ) {
 
+                onlineUsers.style.display =
+                    "block";
+
+                arrow.textContent = "▲";
+
+            } else {
+
+                onlineUsers.style.display =
+                    "none";
+
+                arrow.textContent = "▼";
+            }
         }
     );
 
+    parent.appendChild(arrow);
+
+    if (onlineUsers) {
+        onlineUsers.style.display =
+            "none";
+    }
 }
 
 
-// ============================================
-// CHAT TICKS
-// ============================================
-
-function getTick(data, mine) {
-
-    if (!mine) {
-
-        return "";
-
-    }
-
-
-    if (
-        Array.isArray(data.seenBy) &&
-        data.seenBy.length > 0
-    ) {
-
-        return `
-            <span class="message-tick blue-ticks">
-                ✓✓
-            </span>
-        `;
-
-    }
-
-
-    if (data.delivered === true) {
-
-        return `
-            <span class="message-tick">
-                ✓✓
-            </span>
-        `;
-
-    }
-
-
-    return `
-        <span class="message-tick">
-            ✓
-        </span>
-    `;
-
-}
-
-
-// ============================================
-// REAL-TIME CHAT
-// ============================================
-
-let stopChatListener = null;
-
-
-function startChat() {
-
-    if (!chatMessages) return;
-
-
-    if (stopChatListener) {
-
-        stopChatListener();
-
-    }
-
-
-    const messagesQuery =
-        query(
-            collection(
-                db,
-                "messages"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
-
-
-    stopChatListener =
-        onSnapshot(
-            messagesQuery,
-            snapshot => {
-
-                chatMessages.innerHTML =
-                    "";
-
-
-                if (snapshot.empty) {
-
-                    chatMessages.innerHTML = `
-                        <div class="message other">
-                            <strong>
-                                StudyConnect
-                            </strong>
-
-                            <p>
-                                अभी कोई message नहीं है। 👋
-                            </p>
-                        </div>
-                    `;
-
-                    return;
-
-                }
-
-
-                const myName =
-                    getUserName();
-
-
-                snapshot.forEach(
-                    messageDoc => {
-
-                        const data =
-                            messageDoc.data();
-
-
-                        const name =
-                            data.name ||
-                            "Student";
-
-
-                        const message =
-                            data.message ||
-                            "";
-
-
-                        const mine =
-                            name === myName;
-
-
-                        const box =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        box.className =
-                            mine
-                                ? "message mine"
-                                : "message other";
-
-
-                        box.innerHTML = `
-
-                            <strong>
-                                ${escapeHTML(name)}
-                            </strong>
-
-                            <p>
-                                ${escapeHTML(message)}
-
-                                ${getTick(
-                                    data,
-                                    mine
-                                )}
-                            </p>
-
-                            <small>
-                                ${escapeHTML(
-                                    formatDateTime(
-                                        data.createdAt
-                                    )
-                                )}
-                            </small>
-
-                        `;
-
-
-                        chatMessages.appendChild(
-                            box
-                        );
-
-
-                        if (
-                            !mine &&
-                            !Array.isArray(
-                                data.seenBy
-                            )
-                        ) {
-
-                            markSeen(
-                                messageDoc.id
-                            );
-
-                        }
-
-                    }
-                );
-
-
-                chatMessages.scrollTop =
-                    chatMessages.scrollHeight;
-
-            },
-
-            error => {
-
-                console.error(
-                    "Chat error:",
-                    error
-                );
-
-            }
-        );
-
-}
-
-
-async function markSeen(id) {
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "messages",
-                id
-            ),
-            {
-                delivered: true,
-
-                seenBy:
-                    arrayUnion(
-                        getUserName()
-                    )
-            }
-        );
-
-    } catch (error) {
+function updateOnlineUser() {
+
+    const name = getUserName();
+
+    if (!name) return;
+
+    const id = safeId(name);
+
+    setDoc(
+        doc(db, "onlineUsers", id),
+        {
+            name: name,
+            online: true,
+            lastSeen: now()
+        },
+        {
+            merge: true
+        }
+    ).catch(error => {
 
         console.error(
-            "Seen error:",
+            "Online status error:",
             error
         );
 
-    }
-
+    });
 }
 
 
-// ============================================
-// SEND CHAT MESSAGE
-// ============================================
+function startOnlineStatus() {
+
+    if (onlineHeartbeat) {
+        clearInterval(
+            onlineHeartbeat
+        );
+    }
+
+    updateOnlineUser();
+
+    onlineHeartbeat =
+        setInterval(
+            updateOnlineUser,
+            30000
+        );
+}
+
+
+function loadRealtimeOnlineUsers() {
+
+    if (!onlineCount) return;
+
+    if (onlineUnsubscribe) {
+        onlineUnsubscribe();
+    }
+
+    onlineUnsubscribe =
+        onSnapshot(
+            collection(db, "onlineUsers"),
+            snapshot => {
+
+                const currentTime =
+                    now();
+
+                const users = [];
+
+                snapshot.forEach(item => {
+
+                    const data =
+                        item.data();
+
+                    if (
+                        data.online === true &&
+                        currentTime -
+                        Number(data.lastSeen || 0) <
+                        ONLINE_TIMEOUT
+                    ) {
+                        users.push(data.name);
+                    }
+                });
+
+                users.sort(
+                    (a, b) =>
+                        String(a).localeCompare(
+                            String(b)
+                        )
+                );
+
+                onlineCount.textContent =
+                    "🟢 Online: " +
+                    users.length;
+
+                createOnlineArrow();
+
+                if (onlineUsers) {
+
+                    onlineUsers.innerHTML = "";
+
+                    if (users.length === 0) {
+
+                        onlineUsers.innerHTML =
+                            "<div>कोई online नहीं है।</div>";
+
+                    } else {
+
+                        users.forEach(name => {
+
+                            const row =
+                                document.createElement(
+                                    "div"
+                                );
+
+                            row.style.padding =
+                                "5px 0";
+
+                            row.textContent =
+                                "🟢 " + name;
+
+                            onlineUsers.appendChild(
+                                row
+                            );
+                        });
+                    }
+                }
+            },
+            error => {
+
+                console.error(
+                    "Online users error:",
+                    error
+                );
+            }
+        );
+}
+
+
+function updateOnlineArrow() {
+
+    createOnlineArrow();
+
+    loadRealtimeOnlineUsers();
+}
+
+
+/* =========================================================
+   MAIN CHAT
+   ========================================================= */
+
+const chatMessages =
+    document.getElementById("chatMessages");
+
+const messageInput =
+    document.getElementById("messageInput");
+
+const sendMessageBtn =
+    document.getElementById("sendMessageBtn");
+
+const emojiBtn =
+    document.getElementById("emojiBtn");
+
+
+let chatUnsubscribe = null;
+
+
+function displayMessagesRealtime() {
+
+    if (!chatMessages) return;
+
+    if (chatUnsubscribe) {
+        chatUnsubscribe();
+    }
+
+    const q =
+        query(
+            collection(db, "messages"),
+            orderBy("createdAt", "asc")
+        );
+
+    chatUnsubscribe =
+        onSnapshot(
+            q,
+            snapshot => {
+
+                chatMessages.innerHTML = "";
+
+                snapshot.forEach(item => {
+
+                    const data =
+                        item.data();
+
+                    const box =
+                        document.createElement(
+                            "div"
+                        );
+
+                    const mine =
+                        data.name ===
+                        getUserName();
+
+                    box.className =
+                        mine
+                            ? "message mine"
+                            : "message";
+
+                    const ticks =
+                        mine
+                            ? "✓✓"
+                            : "";
+
+                    box.innerHTML = `
+                        <strong>
+                            ${escapeHTML(data.name || "Student")}
+                        </strong>
+
+                        <div>
+                            ${escapeHTML(data.message || "")}
+                        </div>
+
+                        <small>
+                            ${escapeHTML(
+                                formatDateTime(
+                                    data.createdAt
+                                )
+                            )}
+                            ${mine
+                                ? `<span class="message-ticks">${ticks}</span>`
+                                : ""}
+                        </small>
+                    `;
+
+                    chatMessages.appendChild(
+                        box
+                    );
+                });
+
+                chatMessages.scrollTop =
+                    chatMessages.scrollHeight;
+            },
+            error => {
+
+                console.error(
+                    "Chat realtime error:",
+                    error
+                );
+            }
+        );
+}
+
 
 async function sendMessage() {
 
     if (!messageInput) return;
 
-
-    const text =
+    const message =
         messageInput.value.trim();
-
 
     const name =
         getUserName();
-
 
     if (!name) {
 
@@ -848,57 +892,36 @@ async function sendMessage() {
         );
 
         return;
-
     }
 
-
-    if (!text) {
-
-        return;
-
-    }
-
+    if (!message) return;
 
     try {
 
         await addDoc(
-            collection(
-                db,
-                "messages"
-            ),
+            collection(db, "messages"),
             {
-
                 name: name,
-
-                message: text,
-
-                createdAt: getTime(),
-
-                delivered: false,
-
-                seenBy: []
-
+                message: message,
+                createdAt: now(),
+                deliveredTo: [],
+                seenBy: [name]
             }
         );
 
-
-        messageInput.value =
-            "";
+        messageInput.value = "";
 
     } catch (error) {
 
         console.error(
-            "Send message error:",
+            "Message send error:",
             error
         );
-
 
         alert(
             "Message send नहीं हुआ।"
         );
-
     }
-
 }
 
 
@@ -908,7 +931,6 @@ if (sendMessageBtn) {
         "click",
         sendMessage
     );
-
 }
 
 
@@ -918,332 +940,67 @@ if (messageInput) {
         "keydown",
         event => {
 
-            if (event.key === "Enter") {
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
 
                 event.preventDefault();
 
                 sendMessage();
-
             }
-
         }
     );
-
 }
 
 
-// ============================================
-// GROUPS
-// ============================================
+if (emojiBtn && messageInput) {
+
+    emojiBtn.addEventListener(
+        "click",
+        () => {
+
+            const emojis =
+                ["😀", "😂", "👍", "❤️", "🔥", "😊", "🎉"];
+
+            const emoji =
+                emojis[
+                    Math.floor(
+                        Math.random() *
+                        emojis.length
+                    )
+                ];
+
+            messageInput.value += emoji;
+
+            messageInput.focus();
+        }
+    );
+}
+
+
+/* =========================================================
+   GROUP VARIABLES
+   ========================================================= */
 
 const groupInput =
-    document.getElementById(
-        "groupInput"
-    );
+    document.getElementById("groupInput");
 
 const createGroupBtn =
-    document.getElementById(
-        "createGroupBtn"
-    );
+    document.getElementById("createGroupBtn");
 
 const groupList =
+    document.getElementById("groupList");
+
+const groupChatSection =
     document.getElementById(
-        "groupList"
+        "groupChatSection"
     );
 
-
-let stopGroupsListener = null;
-
-
-function startGroups() {
-
-    if (!groupList) return;
-
-
-    if (stopGroupsListener) {
-
-        stopGroupsListener();
-
-    }
-
-
-    const groupsQuery =
-        query(
-            collection(
-                db,
-                "groups"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
-
-
-    stopGroupsListener =
-        onSnapshot(
-            groupsQuery,
-            snapshot => {
-
-                groupList.innerHTML =
-                    "";
-
-
-                snapshot.forEach(
-                    groupDoc => {
-
-                        const data =
-                            groupDoc.data();
-
-
-                        const box =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        box.className =
-                            "group-item";
-
-
-                        const members =
-                            Array.isArray(
-                                data.members
-                            )
-                                ? data.members
-                                : [];
-
-
-                        box.innerHTML = `
-
-                            <strong>
-                                👥
-                                ${escapeHTML(
-                                    data.name ||
-                                    "Group"
-                                )}
-                            </strong>
-
-                            <p>
-                                👤
-                                ${members.length}
-                                Members
-                            </p>
-
-                            <small>
-                                Created by:
-                                ${escapeHTML(
-                                    data.owner ||
-                                    ""
-                                )}
-                            </small>
-
-                        `;
-
-
-                        box.addEventListener(
-                            "click",
-                            () => {
-
-                                openGroup(
-                                    groupDoc.id,
-                                    data
-                                );
-
-                            }
-                        );
-
-
-                        groupList.appendChild(
-                            box
-                        );
-
-                    }
-                );
-
-            },
-
-            error => {
-
-                console.error(
-                    "Groups error:",
-                    error
-                );
-
-            }
-        );
-
-}
-
-
-if (
-    createGroupBtn &&
-    groupInput
-) {
-
-    createGroupBtn.addEventListener(
-        "click",
-        async () => {
-
-            const name =
-                groupInput.value.trim();
-
-
-            const owner =
-                getUserName();
-
-
-            if (!name) {
-
-                alert(
-                    "Group का नाम लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            if (!owner) {
-
-                alert(
-                    "पहले अपना नाम Save करें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "groups"
-                    ),
-                    {
-
-                        name: name,
-
-                        owner: owner,
-
-                        members: [
-                            owner
-                        ],
-
-                        createdAt:
-                            getTime()
-
-                    }
-                );
-
-
-                groupInput.value =
-                    "";
-
-
-                alert(
-                    "Group create हो गया ✅"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Group create error:",
-                    error
-                );
-
-
-                alert(
-                    "Group create नहीं हुआ।"
-                );
-
-            }
-
-        }
+const selectedGroupName =
+    document.getElementById(
+        "selectedGroupName"
     );
-
-}
-
-
-// ============================================
-// OPEN GROUP
-// ============================================
-
-function openGroup(
-    groupId,
-    groupData
-) {
-
-    const section =
-        document.getElementById(
-            "groupChatSection"
-        );
-
-
-    const groupName =
-        document.getElementById(
-            "selectedGroupName"
-        );
-
-
-    if (section) {
-
-        section.style.display =
-            "block";
-
-    }
-
-
-    if (groupName) {
-
-        groupName.textContent =
-            groupData.name ||
-            "Group";
-
-    }
-
-
-    const members =
-        Array.isArray(
-            groupData.members
-        )
-            ? groupData.members
-            : [];
-
-
-    const memberList =
-        document.getElementById(
-            "memberList"
-        );
-
-
-    if (memberList) {
-
-        memberList.innerHTML =
-            members.map(
-                member => `
-                    <div>
-                        👤
-                        ${escapeHTML(member)}
-                    </div>
-                `
-            ).join("");
-
-    }
-
-
-    loadGroupMessages(
-        groupId
-    );
-
-}
-
-
-// ============================================
-// GROUP MEMBER ADD
-// ============================================
 
 const memberNameInput =
     document.getElementById(
@@ -1265,52 +1022,6 @@ const memberList =
         "memberList"
     );
 
-
-let currentGroupId =
-    null;
-
-
-async function addMember() {
-
-    if (!memberNameInput) return;
-
-
-    const name =
-        memberNameInput.value.trim();
-
-
-    if (!name) {
-
-        alert(
-            "Member का नाम लिखें।"
-        );
-
-        return;
-
-    }
-
-
-    alert(
-        "पहले Group खोलकर member add करना होगा।"
-    );
-
-}
-
-
-if (addMemberBtn) {
-
-    addMemberBtn.addEventListener(
-        "click",
-        addMember
-    );
-
-}
-
-
-// ============================================
-// GROUP CHAT
-// ============================================
-
 const groupMessages =
     document.getElementById(
         "groupMessages"
@@ -1327,1360 +1038,553 @@ const sendGroupMessageBtn =
     );
 
 
-function loadGroupMessages(
-    groupId
-) {
+let currentGroupId = null;
 
-    currentGroupId =
-        groupId;
+let currentGroupData = null;
 
-
-    if (!groupMessages) return;
+let groupMessageUnsubscribe = null;
 
 
-    if (stopGroupMessagesListener) {
+/* =========================================================
+   GROUP PASSWORD HASH
+   ========================================================= */
 
-        stopGroupMessagesListener();
+async function hashText(text) {
 
-    }
+    const encoder =
+        new TextEncoder();
 
+    const data =
+        encoder.encode(text);
 
-    const messagesQuery =
-        query(
-            collection(
-                db,
-                "groupMessages"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
+    const hash =
+        await crypto.subtle.digest(
+            "SHA-256",
+            data
         );
 
-
-    stopGroupMessagesListener =
-        onSnapshot(
-            messagesQuery,
-            snapshot => {
-
-                groupMessages.innerHTML =
-                    "";
-
-
-                snapshot.forEach(
-                    messageDoc => {
-
-                        const data =
-                            messageDoc.data();
-
-
-                        if (
-                            data.groupId !==
-                            groupId
-                        ) {
-
-                            return;
-
-                        }
-
-
-                        const box =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        const mine =
-                            data.name ===
-                            getUserName();
-
-
-                        box.className =
-                            mine
-                                ? "message mine"
-                                : "message other";
-
-
-                        box.innerHTML = `
-
-                            <strong>
-                                ${escapeHTML(
-                                    data.name ||
-                                    "Student"
-                                )}
-                            </strong>
-
-                            <p>
-                                ${escapeHTML(
-                                    data.message ||
-                                    ""
-                                )}
-                            </p>
-
-                            <small>
-                                ${escapeHTML(
-                                    formatDateTime(
-                                        data.createdAt
-                                    )
-                                )}
-                            </small>
-
-                        `;
-
-
-                        groupMessages.appendChild(
-                            box
-                        );
-
-                    }
-                );
-
-
-                groupMessages.scrollTop =
-                    groupMessages.scrollHeight;
-
-            }
-        );
-
-}
-
-
-let stopGroupMessagesListener =
-    null;
-
-
-async function sendGroupMessage() {
-
-    if (
-        !groupMessageInput ||
-        !currentGroupId
-    ) {
-
-        return;
-
-    }
-
-
-    const message =
-        groupMessageInput.value.trim();
-
-
-    if (!message) {
-
-        return;
-
-    }
-
-
-    const name =
-        getUserName();
-
-
-    try {
-
-        await addDoc(
-            collection(
-                db,
-                "groupMessages"
-            ),
-            {
-
-                groupId:
-                    currentGroupId,
-
-                name: name,
-
-                message: message,
-
-                createdAt:
-                    getTime()
-
-            }
-        );
-
-
-        groupMessageInput.value =
-            "";
-
-    } catch (error) {
-
-        console.error(
-            "Group message error:",
-            error
-        );
-
-
-        alert(
-            "Group message send नहीं हुआ।"
-        );
-
-    }
-
-}
-
-
-if (sendGroupMessageBtn) {
-
-    sendGroupMessageBtn.addEventListener(
-        "click",
-        sendGroupMessage
-    );
-
-}
-
-
-if (groupMessageInput) {
-
-    groupMessageInput.addEventListener(
-        "keydown",
-        event => {
-
-            if (event.key === "Enter") {
-
-                event.preventDefault();
-
-                sendGroupMessage();
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================
-// HOMEWORK
-// ============================================
-
-const homeworkDate =
-    document.getElementById(
-        "homeworkDate"
-    );
-
-const hindiHomework =
-    document.getElementById(
-        "hindiHomework"
-    );
-
-const englishHomework =
-    document.getElementById(
-        "englishHomework"
-    );
-
-const mathHomework =
-    document.getElementById(
-        "mathHomework"
-    );
-
-const scienceHomework =
-    document.getElementById(
-        "scienceHomework"
-    );
-
-const sstHomework =
-    document.getElementById(
-        "sstHomework"
-    );
-
-const computerHomework =
-    document.getElementById(
-        "computerHomework"
-    );
-
-const artHomework =
-    document.getElementById(
-        "artHomework"
-    );
-
-const addHomeworkBtn =
-    document.getElementById(
-        "addHomeworkBtn"
-    );
-
-const homeworkList =
-    document.getElementById(
-        "homeworkList"
-    );
-
-
-let stopHomeworkListener =
-    null;
-
-
-function startHomework() {
-
-    if (!homeworkList) return;
-
-
-    if (stopHomeworkListener) {
-
-        stopHomeworkListener();
-
-    }
-
-
-    const homeworkQuery =
-        query(
-            collection(
-                db,
-                "homework"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
-
-
-    stopHomeworkListener =
-        onSnapshot(
-            homeworkQuery,
-            snapshot => {
-
-                homeworkList.innerHTML =
-                    "";
-
-
-                snapshot.forEach(
-                    item => {
-
-                        const data =
-                            item.data();
-
-
-                        const box =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        box.className =
-                            "homework-item";
-
-
-                        box.innerHTML = `
-
-                            <h3>
-                                📅
-                                ${escapeHTML(
-                                    data.date ||
-                                    ""
-                                )}
-                            </h3>
-
-                            <p>
-                                📖 Hindi:
-                                ${escapeHTML(
-                                    data.hindi ||
-                                    ""
-                                )}
-                            </p>
-
-                            <p>
-                                🔤 English:
-                                ${escapeHTML(
-                                    data.english ||
-                                    ""
-                                )}
-                            </p>
-
-                            <p>
-                                ➗ Maths:
-                                ${escapeHTML(
-                                    data.maths ||
-                                    ""
-                                )}
-                            </p>
-
-                            <p>
-                                🔬 Science:
-                                ${escapeHTML(
-                                    data.science ||
-                                    ""
-                                )}
-                            </p>
-
-                            <p>
-                                🌍 SST:
-                                ${escapeHTML(
-                                    data.sst ||
-                                    ""
-                                )}
-                            </p>
-
-                            <p>
-                                💻 Computer:
-                                ${escapeHTML(
-                                    data.computer ||
-                                    ""
-                                )}
-                            </p>
-
-                            <p>
-                                🎨 Art:
-                                ${escapeHTML(
-                                    data.art ||
-                                    ""
-                                )}
-                            </p>
-
-                            <small>
-                                👤
-                                ${escapeHTML(
-                                    data.name ||
-                                    ""
-                                )}
-                            </small>
-
-                            <br>
-
-                            <small>
-                                ${escapeHTML(
-                                    formatDateTime(
-                                        data.createdAt
-                                    )
-                                )}
-                            </small>
-
-                        `;
-
-
-                        homeworkList.appendChild(
-                            box
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-}
-
-
-if (addHomeworkBtn) {
-
-    addHomeworkBtn.addEventListener(
-        "click",
-        async () => {
-
-            const date =
-                homeworkDate?.value ||
-                "";
-
-
-            const name =
-                getUserName();
-
-
-            if (!date) {
-
-                alert(
-                    "पहले Date चुनें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "homework"
-                    ),
-                    {
-
-                        date: date,
-
-                        hindi:
-                            hindiHomework?.value.trim() ||
-                            "",
-
-                        english:
-                            englishHomework?.value.trim() ||
-                            "",
-
-                        maths:
-                            mathHomework?.value.trim() ||
-                            "",
-
-                        science:
-                            scienceHomework?.value.trim() ||
-                            "",
-
-                        sst:
-                            sstHomework?.value.trim() ||
-                            "",
-
-                        computer:
-                            computerHomework?.value.trim() ||
-                            "",
-
-                        art:
-                            artHomework?.value.trim() ||
-                            "",
-
-                        name: name,
-
-                        createdAt:
-                            getTime()
-
-                    }
-                );
-
-
-                [
-                    homeworkDate,
-                    hindiHomework,
-                    englishHomework,
-                    mathHomework,
-                    scienceHomework,
-                    sstHomework,
-                    computerHomework,
-                    artHomework
-                ].forEach(
-                    input => {
-
-                        if (input) {
-
-                            input.value =
-                                "";
-
-                        }
-
-                    }
-                );
-
-
-                alert(
-                    "Homework Save हो गया ✅"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Homework error:",
-                    error
-                );
-
-
-                alert(
-                    "Homework save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================
-// SCHOOL
-// ============================================
-
-const schoolInput =
-    document.getElementById(
-        "schoolInput"
-    );
-
-const saveSchoolBtn =
-    document.getElementById(
-        "saveSchoolBtn"
-    );
-
-const schoolList =
-    document.getElementById(
-        "schoolList"
-    );
-
-
-let stopSchoolListener =
-    null;
-
-
-function startSchool() {
-
-    if (!schoolList) return;
-
-
-    if (stopSchoolListener) {
-
-        stopSchoolListener();
-
-    }
-
-
-    const schoolQuery =
-        query(
-            collection(
-                db,
-                "school"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
-
-
-    stopSchoolListener =
-        onSnapshot(
-            schoolQuery,
-            snapshot => {
-
-                schoolList.innerHTML =
-                    "";
-
-
-                snapshot.forEach(
-                    item => {
-
-                        const data =
-                            item.data();
-
-
-                        const box =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        box.className =
-                            "school-item";
-
-
-                        box.innerHTML = `
-
-                            <strong>
-                                🏫
-                                ${escapeHTML(
-                                    data.name ||
-                                    "Student"
-                                )}
-                            </strong>
-
-                            <p>
-                                ${escapeHTML(
-                                    data.update ||
-                                    ""
-                                )}
-                            </p>
-
-                            <small>
-                                ${escapeHTML(
-                                    formatDateTime(
-                                        data.createdAt
-                                    )
-                                )}
-                            </small>
-
-                        `;
-
-
-                        schoolList.appendChild(
-                            box
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-}
-
-
-if (
-    saveSchoolBtn &&
-    schoolInput
-) {
-
-    saveSchoolBtn.addEventListener(
-        "click",
-        async () => {
-
-            const update =
-                schoolInput.value.trim();
-
-
-            const name =
-                getUserName();
-
-
-            if (!update) {
-
-                alert(
-                    "School update लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "school"
-                    ),
-                    {
-
-                        name: name,
-
-                        update: update,
-
-                        createdAt:
-                            getTime(),
-
-                        seenBy: []
-
-                    }
-                );
-
-
-                schoolInput.value =
-                    "";
-
-
-                alert(
-                    "School update save हो गया ✅"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "School error:",
-                    error
-                );
-
-
-                alert(
-                    "School update save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================
-// NOTES
-// ============================================
-
-const noteInput =
-    document.getElementById(
-        "noteInput"
-    );
-
-const saveNoteBtn =
-    document.getElementById(
-        "saveNoteBtn"
-    );
-
-const notesList =
-    document.getElementById(
-        "notesList"
-    );
-
-
-let stopNotesListener =
-    null;
-
-
-function startNotes() {
-
-    if (!notesList) return;
-
-
-    if (stopNotesListener) {
-
-        stopNotesListener();
-
-    }
-
-
-    const notesQuery =
-        query(
-            collection(
-                db,
-                "notes"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
-
-
-    stopNotesListener =
-        onSnapshot(
-            notesQuery,
-            snapshot => {
-
-                notesList.innerHTML =
-                    "";
-
-
-                snapshot.forEach(
-                    item => {
-
-                        const data =
-                            item.data();
-
-
-                        const box =
-                            document.createElement(
-                                "div"
-                            );
-
-
-                        box.className =
-                            "note-item";
-
-
-                        box.innerHTML = `
-
-                            <strong>
-                                📝
-                                ${escapeHTML(
-                                    data.name ||
-                                    "Student"
-                                )}
-                            </strong>
-
-                            <p>
-                                ${escapeHTML(
-                                    data.note ||
-                                    ""
-                                )}
-                            </p>
-
-                            <small>
-                                ${escapeHTML(
-                                    formatDateTime(
-                                        data.createdAt
-                                    )
-                                )}
-                            </small>
-
-                        `;
-
-
-                        notesList.appendChild(
-                            box
-                        );
-
-                    }
-                );
-
-            }
-        );
-
-}
-
-
-if (
-    saveNoteBtn &&
-    noteInput
-) {
-
-    saveNoteBtn.addEventListener(
-        "click",
-        async () => {
-
-            const note =
-                noteInput.value.trim();
-
-
-            const name =
-                getUserName();
-
-
-            if (!note) {
-
-                alert(
-                    "Note लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "notes"
-                    ),
-                    {
-
-                        name: name,
-
-                        note: note,
-
-                        createdAt:
-                            getTime(),
-
-                        seenBy: []
-
-                    }
-                );
-
-
-                noteInput.value =
-                    "";
-
-
-                alert(
-                    "Note save हो गया ✅"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Notes error:",
-                    error
-                );
-
-
-                alert(
-                    "Note save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================
-// DARK MODE
-// ============================================
-
-const themeBtn =
-    document.getElementById(
-        "themeBtn"
-    );
-
-
-if (themeBtn) {
-
-    themeBtn.addEventListener(
-        "click",
-        () => {
-
-            document.body.classList.toggle(
-                "dark"
-            );
-
-
-            localStorage.setItem(
-                "darkMode",
-                document.body.classList.contains(
-                    "dark"
-                )
-            );
-
-        }
-    );
-
-}
-
-
-if (
-    localStorage.getItem(
-        "darkMode"
-    ) === "true"
-) {
-
-    document.body.classList.add(
-        "dark"
-    );
-
-}
-
-
-// ============================================
-// NOTIFICATIONS
-// ============================================
-
-const notificationBtn =
-    document.getElementById(
-        "notificationBtn"
-    );
-
-const notificationMessage =
-    document.getElementById(
-        "notificationMessage"
-    );
-
-
-if (notificationBtn) {
-
-    notificationBtn.addEventListener(
-        "click",
-        async () => {
-
-            if (
-                !("Notification" in window)
-            ) {
-
-                if (notificationMessage) {
-
-                    notificationMessage.textContent =
-                        "इस browser में notification support नहीं है।";
-
-                }
-
-                return;
-
-            }
-
-
-            const permission =
-                await Notification.requestPermission();
-
-
-            if (notificationMessage) {
-
-                if (
-                    permission ===
-                    "granted"
-                ) {
-
-                    notificationMessage.textContent =
-                        "Notifications ON ✅";
-
-                } else {
-
-                    notificationMessage.textContent =
-                        "Notifications allow नहीं हुई।";
-
-                }
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================
-// LANGUAGE BUTTONS
-// ============================================
-
-const hindiLanguageBtn =
-    document.getElementById(
-        "hindiLanguageBtn"
-    );
-
-const englishLanguageBtn =
-    document.getElementById(
-        "englishLanguageBtn"
-    );
-
-const languageMessage =
-    document.getElementById(
-        "languageMessage"
-    );
-
-
-if (hindiLanguageBtn) {
-
-    hindiLanguageBtn.addEventListener(
-        "click",
-        () => {
-
-            localStorage.setItem(
-                "studyLanguage",
-                "hi"
-            );
-
-
-            if (languageMessage) {
-
-                languageMessage.textContent =
-                    "भाषा हिंदी कर दी गई। 🇮🇳";
-
-            }
-
-        }
-    );
-
-}
-
-
-if (englishLanguageBtn) {
-
-    englishLanguageBtn.addEventListener(
-        "click",
-        () => {
-
-            localStorage.setItem(
-                "studyLanguage",
-                "en"
-            );
-
-
-            if (languageMessage) {
-
-                languageMessage.textContent =
-                    "Language changed to English. 🇬🇧";
-
-            }
-
-        }
-    );
-
-}
-
-
-// ============================================
-// RESET APP DATA
-// ============================================
-
-const clearDataBtn =
-    document.getElementById(
-        "clearDataBtn"
-    );
-
-const settingsMessage =
-    document.getElementById(
-        "settingsMessage"
-    );
-
-
-if (clearDataBtn) {
-
-    clearDataBtn.addEventListener(
-        "click",
-        () => {
-
-            const yes =
-                confirm(
-                    "क्या आप इस device का saved StudyConnect data हटाना चाहते हैं?"
-                );
-
-
-            if (!yes) return;
-
-
-            localStorage.clear();
-
-            sessionStorage.clear();
-
-
-            if (settingsMessage) {
-
-                settingsMessage.textContent =
-                    "Data reset हो गया।";
-
-            }
-
-
-            location.reload();
-
-        }
-    );
-
-}
-
-
-// ============================================
-// ONLINE USERS
-// ============================================
-
-const onlineCount =
-    document.getElementById(
-        "onlineCount"
-    );
-
-const onlineUsers =
-    document.getElementById(
-        "onlineUsers"
-    );
-
-
-function getSafeUserId(name) {
-
-    return encodeURIComponent(
-        name
+    return Array.from(
+        new Uint8Array(hash)
     )
-    .replace(
-        /%/g,
-        "_"
-    )
-    .replace(
-        /[^a-zA-Z0-9_-]/g,
-        ""
-    )
-    .slice(
-        0,
-        100
-    );
-
+        .map(
+            byte =>
+                byte.toString(16)
+                    .padStart(2, "0")
+        )
+        .join("");
 }
 
 
-async function updateOnlineUser(
-    name = getUserName()
-) {
+/* =========================================================
+   LOAD GROUPS
+   ========================================================= */
 
-    if (!name) return;
+let groupsUnsubscribe = null;
 
 
-    try {
+function loadGroupsRealtime() {
 
-        await addDoc(
-            collection(
-                db,
-                "onlineUsers"
-            ),
-            {
+    if (!groupList) return;
 
-                name: name,
-
-                online: true,
-
-                lastSeen:
-                    getTime()
-
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Online user error:",
-            error
-        );
-
+    if (groupsUnsubscribe) {
+        groupsUnsubscribe();
     }
 
-}
+    const q =
+        query(
+            collection(db, "groups"),
+            orderBy("createdAt", "asc")
+        );
 
+    groupsUnsubscribe =
+        onSnapshot(
+            q,
+            snapshot => {
 
-function startOnlineStatus() {
+                groupList.innerHTML = "";
 
-    if (!getUserName()) {
-
-        return;
-
-    }
-
-
-    updateOnlineUser();
-
-}
-
-
-if (onlineCount) {
-
-    onSnapshot(
-        collection(
-            db,
-            "onlineUsers"
-        ),
-        snapshot => {
-
-            const users = [];
-
-            const currentTime =
-                Date.now();
-
-
-            snapshot.forEach(
-                item => {
+                snapshot.forEach(item => {
 
                     const data =
                         item.data();
 
-
-                    const lastSeen =
-                        Number(
-                            data.lastSeen ||
-                            0
+                    const box =
+                        document.createElement(
+                            "div"
                         );
 
+                    box.className =
+                        "group-item";
 
-                    if (
-                        data.online === true &&
-                        (
-                            currentTime -
-                            lastSeen
-                        ) < 70000
-                    ) {
+                    const members =
+                        Array.isArray(
+                            data.members
+                        )
+                            ? data.members
+                            : [];
 
-                        users.push(
-                            data.name ||
-                            "Student"
-                        );
+                    box.innerHTML = `
+                        <strong>
+                            👥 ${escapeHTML(
+                                data.name ||
+                                "Group"
+                            )}
+                        </strong>
 
-                    }
+                        <p>
+                            👤 Members:
+                            ${members.length}
+                        </p>
 
-                }
-            );
+                        <small>
+                            Created by:
+                            ${escapeHTML(
+                                data.owner ||
+                                ""
+                            )}
+                        </small>
+                    `;
 
+                    box.addEventListener(
+                        "click",
+                        () => {
 
-            onlineCount.textContent =
-                users.length;
+                            openGroup(
+                                item.id,
+                                data
+                            );
+                        }
+                    );
 
+                    groupList.appendChild(
+                        box
+                    );
+                });
+            },
+            error => {
 
-            if (onlineUsers) {
-
-                onlineUsers.innerHTML =
-                    users.map(
-                        name => `
-                            <div>
-                                🟢
-                                ${escapeHTML(name)}
-                            </div>
-                        `
-                    ).join("");
-
+                console.error(
+                    "Groups realtime error:",
+                    error
+                );
             }
-
-        }
-    );
-
+        );
 }
 
 
-// ============================================
-// START APP DATA
-// ============================================
+/* =========================================================
+   CREATE GROUP
+   ========================================================= */
 
-startChat();
+if (createGroupBtn && groupInput) {
 
-startGroups();
+    createGroupBtn.addEventListener(
+        "click",
+        async () => {
 
-startHomework();
+            const name =
+                groupInput.value.trim();
 
-startSchool();
+            const owner =
+                getUserName();
 
-startNotes();
+            if (!name) {
+
+                alert(
+                    "Group का नाम लिखें।"
+                );
+
+                return;
+            }
+
+            if (!owner) {
+
+                alert(
+                    "पहले अपना नाम Save करें।"
+                );
+
+                return;
+            }
+
+            const groupPassword =
+                prompt(
+                    "इस Group का Password बनाइए:"
+                );
+
+            if (
+                groupPassword === null ||
+                groupPassword.trim() === ""
+            ) {
+
+                alert(
+                    "Group Password जरूरी है।"
+                );
+
+                return;
+            }
+
+            try {
+
+                const passwordHash =
+                    await hashText(
+                        groupPassword.trim()
+                    );
+
+                await addDoc(
+                    collection(db, "groups"),
+                    {
+                        name: name,
+                        owner: owner,
+
+                        members: [
+                            {
+                                name: owner,
+                                phone: ""
+                            }
+                        ],
+
+                        passwordHash:
+                            passwordHash,
+
+                        createdAt: now()
+                    }
+                );
+
+                groupInput.value = "";
+
+                alert(
+                    "✅ Group बन गया!"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Group create error:",
+                    error
+                );
+
+                alert(
+                    "Group create नहीं हुआ।"
+                );
+            }
+        }
+    );
+}
 
 
-// ============================================
-// FINISHED
-// ============================================
+/* =========================================================
+   OPEN GROUP
+   ========================================================= */
 
-console.log(
-    "StudyConnect loaded successfully ✅"
-);
+async function openGroup(
+    groupId,
+    groupData
+) {
+
+    if (!groupId || !groupData) {
+        return;
+    }
+
+    const currentUser =
+        getUserName();
+
+    const members =
+        Array.isArray(
+            groupData.members
+        )
+            ? groupData.members
+            : [];
+
+    const isMember =
+        members.some(member => {
+
+            if (
+                typeof member ===
+                "string"
+            ) {
+                return (
+                    member.toLowerCase() ===
+                    currentUser.toLowerCase()
+                );
+            }
+
+            return (
+                String(
+                    member.name || ""
+                ).toLowerCase() ===
+                currentUser.toLowerCase()
+            );
+        });
+
+
+    if (!isMember) {
+
+        const password =
+            prompt(
+                "यह private Group है।\nGroup Password डालें:"
+            );
+
+        if (password === null) {
+            return;
+        }
+
+        try {
+
+            const passwordHash =
+                await hashText(
+                    password.trim()
+                );
+
+            if (
+                passwordHash !==
+                groupData.passwordHash
+            ) {
+
+                alert(
+                    "❌ गलत Group Password!"
+                );
+
+                return;
+            }
+
+            await addMemberToCurrentGroup(
+                groupId,
+                groupData,
+                currentUser,
+                ""
+            );
+
+            groupData.members =
+                Array.isArray(
+                    groupData.members
+                )
+                    ? [
+                        ...groupData.members,
+                        {
+                            name: currentUser,
+                            phone: ""
+                        }
+                    ]
+                    : [
+                        {
+                            name: currentUser,
+                            phone: ""
+                        }
+                    ];
+
+        } catch (error) {
+
+            console.error(
+                "Group open error:",
+                error
+            );
+
+            alert(
+                "Group खोलने में समस्या हुई।"
+            );
+
+            return;
+        }
+    }
+
+
+    currentGroupId =
+        groupId;
+
+    currentGroupData =
+        groupData;
+
+
+    if (groupChatSection) {
+
+        groupChatSection.style.display =
+            "block";
+
+        groupChatSection.scrollIntoView({
+            behavior: "smooth",
+            block: "start"
+        });
+    }
+
+
+    if (selectedGroupName) {
+
+        selectedGroupName.textContent =
+            "👥 " +
+            (
+                groupData.name ||
+                "Group"
+            );
+    }
+
+
+    displayGroupMembers();
+
+    displayGroupMessagesRealtime();
+
+    createPersonalChatArea();
+}
+
+
+/* =========================================================
+   ADD MEMBER TO FIRESTORE
+   ========================================================= */
+
+async function addMemberToCurrentGroup(
+    groupId,
+    groupData,
+    name,
+    phone
+) {
+
+    const ref =
+        doc(
+            db,
+            "groups",
+            groupId
+        );
+
+    const members =
+        Array.isArray(
+            groupData.members
+        )
+            ? groupData.members
+            : [];
+
+    const exists =
+        members.some(member => {
+
+            const memberName =
+                typeof member === "string"
+                    ? member
+                    : member.name;
+
+            return (
+                String(
+                    memberName || ""
+                ).toLowerCase() ===
+                String(name).toLowerCase()
+            );
+        });
+
+    if (exists) {
+        return;
+    }
+
+    await updateDoc(
+        ref,
+        {
+            members: arrayUnion({
+                name: name,
+                phone: phone || ""
+            })
+        }
+    );
+}
+
+
+/* =========================================================
+   ADD MEMBER BUTTON
+   ========================================================= */
+
+if (addMemberBtn) {
+
+    addMemberBtn.addEventListener(
+        "click",
+        async () => {
+
+            if (!currentGroupId) {
+
+                alert(
+                    "पहले कोई Group खोलें।"
+                );
+
+                return;
+            }
+
+            const name =
+                memberNameInput?.value.trim();
+
+            const phone =
+                memberPhoneInput?.value.trim() ||
+                "";
+
+            if (!name) {
+
+                alert(
+                    "Member का नाम लिखें।"
+                );
+
+                return;
+            }
+
+            try {
+
+                await addMemberToCurrentGroup(
+                    currentGroupId,
+                    currentGroupData,
+                    name,
+                    phone
+                );
+
+                currentGroupData.members =
+                    Array.isArray(
+                        currentGroupData.members
+                    )
+                        ? [
+                            ...currentGroupData.members,
+                            {
+                                name: name,
+                                phone: phone
+                            }
+                        ]
+                        : [
+                            {
+                                name: name,
+                                phone: phone
+                            }
+                        ];
+
+                if (memberNameInput) {
+                    memberNameInput.value = "";
+                }
+
+                if (memberPhoneInput) {
+                    memberPhoneInput.value = "";
+                }
+
+                displayGroupMembers();
+
+                alert(
+                    "✅ Member add हो गया!"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "Add member error:",
+                    error
+                );
+
+                alert(
+                    "Member add नहीं हुआ।"
+                );
+            }
+        }
+    );
+}
+
+
+/* =========================================================
+   DISPLAY GROUP MEMBERS
+   ========================================================= */
+
+function displayGroupMembers() {
+
+    if (!memberList) return;
+
+    memberList.innerHTML = "";
+
+    if (!currentGroupData) return;
+
+    const members =
