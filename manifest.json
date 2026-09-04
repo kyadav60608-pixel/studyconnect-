@@ -1,0 +1,14 @@
+{
+  "background_color": "#ffffff",
+  "dir": "auto",
+  "display": "standalone",
+  "name": "studyconnect",
+  "orientation": "any",
+  "scope": "/studyconnect",
+  "short_name": "study connect",
+  "start_url": "/studyconnect",
+  "theme_color": "#2196f3",
+  "description": "studyConnect is a student community app for chat, groups, homework, school updates and notes.",
+  "id": "studyConnect",
+  "lang": "hi"
+}
