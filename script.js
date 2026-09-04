@@ -1,496 +1,297 @@
 
-// =====================================================
-// STUDYCONNECT - COMPLETE SCRIPT.JS
-// =====================================================
+import {
+    initializeApp,
+    getApps,
+    getApp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
-// =====================================================
-// 1. BASIC SETTINGS
-// =====================================================
+import {
+    getFirestore,
+    collection,
+    doc,
+    addDoc,
+    setDoc,
+    getDoc,
+    updateDoc,
+    query,
+    orderBy,
+    limit,
+    onSnapshot,
+    serverTimestamp,
+    arrayUnion,
+    deleteDoc
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+
+/* =====================================================
+   CONFIG
+===================================================== */
 
 const SCHOOL_PASSWORD = "123";
 const OWNER_PASSWORD = "12341";
+
 const OWNER_NAME = "Krishna Yadav";
 const OWNER_PHONE = "8738084554";
 
-let currentUser = null;
+const firebaseConfig = {
+    apiKey: "AIzaSyCquRX2YB59FObuIyiw3c3AUCdPWypag",
+    authDomain: "studyconnect-99006.firebaseapp.com",
+    projectId: "studyconnect-99006",
+    storageBucket: "studyconnect-99006.firebasestorage.app",
+    messagingSenderId: "15964627995",
+    appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
+    measurementId: "G-SYJYMREJJL"
+};
+
+
+/* =====================================================
+   FIREBASE
+===================================================== */
+
 let db = null;
-let firebaseReady = false;
-
-let unsubscribeChat = null;
-let unsubscribeOnline = null;
-let unsubscribeGroupMessages = null;
-
-let pendingProfilePhoto = null;
-
-
-// =====================================================
-// 2. HELPER FUNCTIONS
-// =====================================================
-
-function $(id) {
-    return document.getElementById(id);
-}
-
-function show(element) {
-    if (element) {
-        element.style.display = "";
-    }
-}
-
-function hide(element) {
-    if (element) {
-        element.style.display = "none";
-    }
-}
-
-function setText(id, text) {
-    const element = $(id);
-    if (element) {
-        element.textContent = text;
-    }
-}
-
-
-// =====================================================
-// 3. IMPORTANT: NEXT BUTTON
-//    THIS RUNS BEFORE FIREBASE
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const ownerNextBtn = $("ownerNextBtn");
-    const ownerStep = $("ownerStep");
-    const userDetailsStep = $("userDetailsStep");
-    const ownerNameDisplay = $("ownerNameDisplay");
-    const passwordError = $("passwordError");
-
-    console.log("StudyConnect JavaScript loaded.");
-
-    // Make sure button cannot submit a form
-    if (ownerNextBtn) {
-        ownerNextBtn.type = "button";
-
-        ownerNextBtn.addEventListener("click", function (event) {
-
-            event.preventDefault();
-            event.stopPropagation();
-
-            console.log("NEXT BUTTON CLICKED");
-
-            // Show owner name
-            if (ownerNameDisplay) {
-                ownerNameDisplay.textContent = OWNER_NAME;
-            }
-
-            // Clear old error
-            if (passwordError) {
-                passwordError.textContent = "";
-            }
-
-            // Hide owner step
-            if (ownerStep) {
-                ownerStep.style.display = "none";
-            }
-
-            // Show user details step
-            if (userDetailsStep) {
-                userDetailsStep.style.display = "block";
-            }
-
-        });
-    } else {
-        console.error("ownerNextBtn NOT FOUND");
-    }
-
-});
-
-
-// =====================================================
-// 4. FIREBASE
-// =====================================================
-
 let firebasePromise = null;
 
 async function loadFirebase() {
+
+    if (db) {
+        return db;
+    }
 
     if (firebasePromise) {
         return firebasePromise;
     }
 
-    firebasePromise = (async function () {
+    firebasePromise = Promise.resolve().then(() => {
 
-        try {
+        const app = getApps().length
+            ? getApp()
+            : initializeApp(firebaseConfig);
 
-            const firebaseApp = await import(
-                "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js"
-            );
+        db = getFirestore(app);
 
-            const firestore = await import(
-                "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js"
-            );
+        return db;
 
-            const firebaseConfig = {
-
-                apiKey: "AIzaSyCquRX2YB59FObuIyi3Wc3AUCdPWypag",
-
-                authDomain:
-                    "studyconnect-99006.firebaseapp.com",
-
-                projectId:
-                    "studyconnect-99006",
-
-                storageBucket:
-                    "studyconnect-99006.firebasestorage.app",
-
-                messagingSenderId:
-                    "15964627995",
-
-                appId:
-                    "1:15964627995:web:0e8a8cd14c175247ed04be",
-
-                measurementId:
-                    "G-SYJYMREJJL"
-            };
-
-            let app;
-
-            try {
-
-                const apps = firebaseApp.getApps();
-
-                if (apps.length > 0) {
-                    app = firebaseApp.getApp();
-                } else {
-                    app = firebaseApp.initializeApp(firebaseConfig);
-                }
-
-            } catch (error) {
-
-                console.error("Firebase initialization error:", error);
-
-                try {
-                    app = firebaseApp.getApp();
-                } catch (e) {
-                    throw error;
-                }
-            }
-
-            db = firestore.getFirestore(app);
-
-            firebaseReady = true;
-
-            console.log("Firebase connected.");
-
-            return {
-                db,
-                firestore
-            };
-
-        } catch (error) {
-
-            console.error("Firebase failed:", error);
-
-            firebaseReady = false;
-
-            return null;
-        }
-
-    })();
+    });
 
     return firebasePromise;
 }
 
 
-// =====================================================
-// 5. LOGIN SCREEN
-// =====================================================
+/* =====================================================
+   GLOBAL STATE
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+let currentUser = null;
+let pendingPhoto = "";
 
-    const unlockBtn = $("unlockBtn");
-    const appPassword = $("appPassword");
-    const passwordScreen = $("passwordScreen");
-    const schoolPasswordStep = $("schoolPasswordStep");
-    const ownerStep = $("ownerStep");
-    const userDetailsStep = $("userDetailsStep");
-    const passwordError = $("passwordError");
+let selectedGroup = null;
+let groupUnlocked = false;
 
-    if (unlockBtn) {
+let chatUnsubscribe = null;
+let onlineUnsubscribe = null;
+let groupsUnsubscribe = null;
+let groupMessagesUnsubscribe = null;
+let allowedUsersUnsubscribe = null;
 
-        unlockBtn.type = "button";
+let onlineTimer = null;
 
-        unlockBtn.addEventListener("click", async function (event) {
+let appInitialized = false;
+let chatStarted = false;
+let groupsStarted = false;
 
-            event.preventDefault();
 
-            const password = appPassword
-                ? appPassword.value.trim()
-                : "";
+/* =====================================================
+   DOM HELPERS
+===================================================== */
 
-            if (password !== SCHOOL_PASSWORD) {
+function $(id) {
+    return document.getElementById(id);
+}
 
-                if (passwordError) {
-                    passwordError.textContent =
-                        "गलत password! कृपया सही password डालें।";
-                }
 
-                return;
-            }
+function show(element) {
 
-            if (passwordError) {
-                passwordError.textContent = "";
-            }
+    if (!element) return;
 
-            if (schoolPasswordStep) {
-                schoolPasswordStep.style.display = "none";
-            }
+    element.classList.remove("hidden");
 
-            if (ownerStep) {
-                ownerStep.style.display = "block";
-            }
-
-            if (ownerNameDisplay) {
-                ownerNameDisplay.textContent = OWNER_NAME;
-            }
-
-        });
-
+    if (
+        element.id === "passwordScreen" ||
+        element.id === "contactOwnerScreen"
+    ) {
+        element.style.display = "flex";
+    } else {
+        element.style.display = "block";
     }
+}
 
-});
+
+function hide(element) {
+
+    if (!element) return;
+
+    element.classList.add("hidden");
+    element.style.display = "none";
+}
 
 
-// =====================================================
-// 6. USER LOGIN
-// =====================================================
+function message(id, text, type = "") {
 
-document.addEventListener("DOMContentLoaded", function () {
+    const element = $(id);
 
-    const enterAppBtn = $("enterAppBtn");
+    if (!element) return;
 
-    if (!enterAppBtn) {
-        return;
-    }
+    element.textContent = text;
 
-    enterAppBtn.type = "button";
+    element.className = type;
+}
 
-    enterAppBtn.addEventListener("click", async function (event) {
 
-        event.preventDefault();
+/* =====================================================
+   LOGIN - STEP 1
+===================================================== */
 
-        const nameInput = $("openUserName");
-        const phoneInput = $("openUserPhone");
+function setupPasswordLogin() {
 
-        const name = nameInput
-            ? nameInput.value.trim()
-            : "";
+    const button = $("unlockBtn");
 
-        const phone = phoneInput
-            ? phoneInput.value.trim()
-            : "";
+    if (!button) return;
 
-        const passwordError = $("passwordError");
+    button.addEventListener("click", () => {
 
-        if (!name || !phone) {
+        const password =
+            $("appPassword")?.value.trim() || "";
 
-            if (passwordError) {
-                passwordError.textContent =
-                    "कृपया अपना नाम और मोबाइल नंबर डालें।";
-            }
+        if (password !== SCHOOL_PASSWORD) {
+
+            message(
+                "passwordError",
+                "Wrong password.",
+                "error"
+            );
 
             return;
         }
 
-        if (!/^[0-9]{10}$/.test(phone)) {
+        message("passwordError", "");
 
-            if (passwordError) {
-                passwordError.textContent =
-                    "कृपया 10 अंकों का मोबाइल नंबर डालें।";
-            }
+        hide($("schoolPasswordStep"));
+        show($("ownerStep"));
 
-            return;
+        if ($("ownerNameDisplay")) {
+            $("ownerNameDisplay").textContent = OWNER_NAME;
         }
-
-        if (passwordError) {
-            passwordError.textContent = "Checking...";
-        }
-
-        await loginUser(name, phone);
 
     });
+}
 
-});
 
+/* =====================================================
+   NEXT BUTTON
+===================================================== */
 
-// =====================================================
-// 7. LOGIN CHECK
-// =====================================================
+function setupNextButton() {
 
-async function loginUser(name, phone) {
+    const button = $("ownerNextBtn");
 
-    const passwordError = $("passwordError");
+    if (!button) return;
 
-    // Owner can always enter
-    if (
-        name.toLowerCase() === OWNER_NAME.toLowerCase() &&
-        phone === OWNER_PHONE
-    ) {
+    button.addEventListener("click", () => {
 
-        currentUser = {
-            name: OWNER_NAME,
-            phone: phone,
-            isOwner: true
-        };
-
-        finishLogin();
-
-        return;
-    }
-
-    const firebase = await loadFirebase();
-
-    if (!firebase) {
-
-        if (passwordError) {
-            passwordError.textContent =
-                "Firebase connect नहीं हुआ। Internet check करें।";
+        if ($("ownerNameDisplay")) {
+            $("ownerNameDisplay").textContent = OWNER_NAME;
         }
 
-        return;
-    }
+        hide($("ownerStep"));
+        show($("userDetailsStep"));
 
-    try {
+        $("openUserName")?.focus();
 
-        const {
-            collection,
-            getDocs
-        } = firebase.firestore;
+    });
+}
 
-        const usersRef = collection(db, "allowedUsers");
 
-        const snapshot = await getDocs(usersRef);
+/* =====================================================
+   PROFILE PHOTO
+===================================================== */
 
-        let allowed = false;
+function setupProfilePhoto() {
 
-        snapshot.forEach(function (doc) {
+    const input = $("profilePhotoInput");
 
-            const data = doc.data();
+    if (!input) return;
 
-            const savedName =
-                String(data.name || "")
-                    .trim()
-                    .toLowerCase();
+    input.addEventListener("change", () => {
 
-            const savedPhone =
-                String(data.phone || "").trim();
+        const file = input.files?.[0];
 
-            if (
-                savedName === name.toLowerCase() &&
-                savedPhone === phone
-            ) {
-                allowed = true;
-            }
+        if (!file) return;
 
-        });
+        if (!file.type.startsWith("image/")) {
 
-        if (!allowed) {
+            message(
+                "loginMessage",
+                "Please select an image.",
+                "error"
+            );
 
-            showContactOwner();
-
+            input.value = "";
             return;
         }
 
-        currentUser = {
-            name: name,
-            phone: phone,
-            isOwner: false
+        const reader = new FileReader();
+
+        reader.onload = () => {
+
+            pendingPhoto = String(reader.result || "");
+
+            const preview =
+                $("profilePhotoPreview");
+
+            if (preview) {
+                preview.src = pendingPhoto;
+                preview.style.display = "block";
+            }
+
         };
 
-        finishLogin();
+        reader.readAsDataURL(file);
 
-    } catch (error) {
+    });
+}
 
-        console.error(error);
 
-        if (passwordError) {
-            passwordError.textContent =
-                "Login check में समस्या आई।";
+/* =====================================================
+   OWNER CONTACT
+===================================================== */
+
+function setupOwnerContact() {
+
+    $("callOwnerBtn")?.addEventListener(
+        "click",
+        () => {
+            window.location.href =
+                `tel:${OWNER_PHONE}`;
         }
-
-    }
-}
-
-
-// =====================================================
-// 8. FINISH LOGIN
-// =====================================================
-
-function finishLogin() {
-
-    localStorage.setItem(
-        "studyCurrentUser",
-        JSON.stringify(currentUser)
     );
 
-    const passwordScreen = $("passwordScreen");
-    const contactOwnerScreen = $("contactOwnerScreen");
-    const appContainer = $("appContainer");
 
-    hide(passwordScreen);
-    hide(contactOwnerScreen);
-    show(appContainer);
+    $("whatsappOwnerBtn")?.addEventListener(
+        "click",
+        () => {
 
-    setText("studentName", currentUser.name);
+            window.open(
+                `https://wa.me/91${OWNER_PHONE}`,
+                "_blank"
+            );
 
-    loadSavedSettings();
-
-    startOnlinePresence();
-
-    startChatRealtime();
-
-    updateOnlineUsers();
-
-    if (currentUser.isOwner) {
-        const ownerSection = $("ownerSettingsSection");
-
-        if (ownerSection) {
-            show(ownerSection);
         }
-    }
-
-}
-
-
-// =====================================================
-// 9. CONTACT OWNER
-// =====================================================
-
-function showContactOwner() {
-
-    hide($("passwordScreen"));
-    show($("contactOwnerScreen"));
-
-    setText(
-        "contactOwnerTitle",
-        "Owner से संपर्क करें"
     );
 
-    setText(
-        "contactOwnerText",
-        "आपका नाम और मोबाइल नंबर अभी allowed users में नहीं है।"
-    );
 
-}
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const backBtn = $("backToLoginBtn");
-
-    if (backBtn) {
-
-        backBtn.type = "button";
-
-        backBtn.addEventListener("click", function () {
+    $("backToLoginBtn")?.addEventListener(
+        "click",
+        () => {
 
             hide($("contactOwnerScreen"));
             show($("passwordScreen"));
@@ -499,571 +300,618 @@ document.addEventListener("DOMContentLoaded", function () {
             hide($("ownerStep"));
             hide($("userDetailsStep"));
 
-        });
-
-    }
-
-});
-
-
-// =====================================================
-// 10. NAVIGATION
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const menuBtn = $("menuBtn");
-    const navMenu = $("navMenu");
-
-    if (menuBtn) {
-
-        menuBtn.type = "button";
-
-        menuBtn.addEventListener("click", function () {
-
-            if (!navMenu) {
-                return;
+            if ($("appPassword")) {
+                $("appPassword").value = "";
             }
 
-            if (
-                navMenu.style.display === "none" ||
-                navMenu.style.display === ""
-            ) {
-                navMenu.style.display = "block";
-            } else {
-                navMenu.style.display = "none";
+            if ($("openUserName")) {
+                $("openUserName").value = "";
             }
 
-        });
+            if ($("openUserPhone")) {
+                $("openUserPhone").value = "";
+            }
 
-    }
+            pendingPhoto = "";
 
-    const navButtons = document.querySelectorAll(
-        "[data-page]"
+            message("loginMessage", "");
+            message("passwordError", "");
+
+        }
     );
-
-    navButtons.forEach(function (button) {
-
-        button.addEventListener("click", function () {
-
-            const pageName =
-                button.getAttribute("data-page");
-
-            document.querySelectorAll(".page").forEach(
-                function (page) {
-                    page.style.display = "none";
-                }
-            );
-
-            const selectedPage = $(pageName);
-
-            if (selectedPage) {
-                selectedPage.style.display = "block";
-            }
-
-            if (navMenu) {
-                navMenu.style.display = "none";
-            }
-
-        });
-
-    });
-
-});
+}
 
 
-// =====================================================
-// 11. HOME NAME
-// =====================================================
+/* =====================================================
+   USER LOGIN
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+async function loginUser() {
 
-    const saveNameBtn = $("saveNameBtn");
+    const name =
+        $("openUserName")?.value.trim() || "";
 
-    if (!saveNameBtn) {
+    const phone =
+        $("openUserPhone")?.value.trim() || "";
+
+    if (!name) {
+
+        message(
+            "loginMessage",
+            "Please enter your name.",
+            "error"
+        );
+
         return;
     }
 
-    saveNameBtn.type = "button";
 
-    saveNameBtn.addEventListener("click", function () {
+    if (!/^\d{10}$/.test(phone)) {
 
-        const studentName = $("studentName");
+        message(
+            "loginMessage",
+            "Please enter a valid 10 digit mobile number.",
+            "error"
+        );
 
-        if (!studentName || !currentUser) {
+        return;
+    }
+
+
+    const button = $("enterAppBtn");
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Checking...";
+    }
+
+
+    try {
+
+        const firestore =
+            await loadFirebase();
+
+        const userRef =
+            doc(
+                firestore,
+                "allowedUsers",
+                phone
+            );
+
+        const userSnap =
+            await getDoc(userRef);
+
+
+        const isOwner =
+            name.toLowerCase() ===
+                OWNER_NAME.toLowerCase() &&
+            phone === OWNER_PHONE;
+
+
+        const isAllowed =
+            userSnap.exists() || isOwner;
+
+
+        if (!isAllowed) {
+
+            hide($("passwordScreen"));
+            show($("contactOwnerScreen"));
+
             return;
         }
 
-        const newName =
-            studentName.textContent.trim();
 
-        if (!newName) {
-            return;
-        }
+        currentUser = {
 
-        currentUser.name = newName;
+            name: name,
+
+            phone: phone,
+
+            displayName: name,
+
+            photo: pendingPhoto || "",
+
+            isOwner: isOwner
+
+        };
+
 
         localStorage.setItem(
             "studyCurrentUser",
             JSON.stringify(currentUser)
         );
 
-        setText(
-            "nameMessage",
-            "Name saved successfully!"
+
+        await finishLogin();
+
+    }
+    catch (error) {
+
+        console.error(
+            "Login error:",
+            error
         );
 
-    });
+        message(
+            "loginMessage",
+            "Firebase connection failed. Check internet and Firebase settings.",
+            "error"
+        );
 
-});
+    }
+    finally {
+
+        if (button) {
+            button.disabled = false;
+            button.textContent = "Enter App";
+        }
+
+    }
+}
 
 
-// =====================================================
-// 12. PROFILE PHOTO
-// =====================================================
+/* =====================================================
+   FINISH LOGIN
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+async function finishLogin() {
 
-    const profilePhotoInput =
-        $("profilePhotoInput");
+    hide($("passwordScreen"));
+    hide($("contactOwnerScreen"));
 
-    const profilePhotoPreview =
-        $("profilePhotoPreview");
+    show($("appContainer"));
 
-    if (!profilePhotoInput) {
-        return;
+    updateProfileUI();
+
+    applySavedLanguage();
+    applySavedTheme();
+
+    await setupOnlinePresence();
+
+    await startChatRealtime();
+
+    await startGroupsRealtime();
+
+    renderHomework();
+    renderSchool();
+    renderNotes();
+
+}
+
+
+/* =====================================================
+   PROFILE UI
+===================================================== */
+
+function updateProfileUI() {
+
+    if (!currentUser) return;
+
+
+    const studentName =
+        $("studentName");
+
+    if (studentName) {
+
+        studentName.textContent =
+            currentUser.displayName ||
+            currentUser.name;
+
     }
 
-    profilePhotoInput.addEventListener(
-        "change",
-        function () {
 
-            const file =
-                profilePhotoInput.files[0];
+    const profile =
+        $("currentUserProfile");
 
-            if (!file) {
-                return;
-            }
+    if (!profile) return;
 
-            const reader =
-                new FileReader();
+    profile.innerHTML = "";
 
-            reader.onload = function (event) {
 
-                pendingProfilePhoto =
-                    event.target.result;
+    if (currentUser.photo) {
 
-                if (profilePhotoPreview) {
+        const img =
+            document.createElement("img");
 
-                    profilePhotoPreview.src =
-                        pendingProfilePhoto;
+        img.src = currentUser.photo;
 
-                    profilePhotoPreview.style.display =
-                        "block";
-                }
+        img.className =
+            "profile-preview";
 
-                if (currentUser) {
+        profile.appendChild(img);
 
-                    currentUser.profilePhoto =
-                        pendingProfilePhoto;
+    }
 
-                    localStorage.setItem(
-                        "studyCurrentUser",
-                        JSON.stringify(currentUser)
-                    );
 
-                }
+    const text =
+        document.createElement("p");
 
-            };
+    text.textContent =
+        `${currentUser.displayName || currentUser.name} • ${currentUser.phone}`;
 
-            reader.readAsDataURL(file);
+    profile.appendChild(text);
+
+}
+
+
+/* =====================================================
+   NAVIGATION
+===================================================== */
+
+function setupNavigation() {
+
+    $("menuBtn")?.addEventListener(
+        "click",
+        () => {
+
+            $("navMenu")?.classList.toggle("open");
 
         }
     );
 
-});
+
+    document
+        .querySelectorAll(".nav-item")
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                async () => {
+
+                    const page =
+                        button.dataset.page;
+
+                    if (!page) return;
 
 
-// =====================================================
-// 13. ONLINE PRESENCE
-// =====================================================
+                    document
+                        .querySelectorAll(".page")
+                        .forEach(section => {
 
-async function startOnlinePresence() {
+                            section.classList.remove(
+                                "active"
+                            );
 
-    const firebase = await loadFirebase();
+                        });
 
-    if (!firebase || !currentUser) {
-        return;
-    }
 
-    const {
-        doc,
-        setDoc
-    } = firebase.firestore;
+                    const target = $(page);
 
-    const phone = currentUser.phone;
+                    if (target) {
+                        target.classList.add("active");
+                    }
 
-    async function updateOnline() {
+
+                    $("navMenu")
+                        ?.classList.remove("open");
+
+
+                    if (page === "chat") {
+                        await markChatAsRead();
+                    }
+
+
+                    if (page === "groups") {
+                        await startGroupsRealtime();
+                    }
+
+                }
+            );
+
+        });
+
+}
+
+
+/* =====================================================
+   HOME NAME
+===================================================== */
+
+function setupHomeName() {
+
+    $("saveNameBtn")?.addEventListener(
+        "click",
+        () => {
+
+            if (!currentUser) return;
+
+
+            const input =
+                $("saveNameInput");
+
+            const name =
+                input?.value.trim() || "";
+
+
+            if (!name) {
+
+                message(
+                    "nameMessage",
+                    "Enter a name.",
+                    "error"
+                );
+
+                return;
+            }
+
+
+            currentUser.displayName = name;
+
+
+            localStorage.setItem(
+                "studyCurrentUser",
+                JSON.stringify(currentUser)
+            );
+
+
+            updateProfileUI();
+
+
+            message(
+                "nameMessage",
+                "Name saved.",
+                "success"
+            );
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   ONLINE PRESENCE
+===================================================== */
+
+async function setupOnlinePresence() {
+
+    if (!currentUser) return;
+
+
+    const firestore =
+        await loadFirebase();
+
+
+    const onlineRef =
+        doc(
+            firestore,
+            "onlineUsers",
+            currentUser.phone
+        );
+
+
+    const updateOnline = async () => {
+
+        if (!currentUser) return;
 
         try {
 
             await setDoc(
-                doc(db, "onlineUsers", phone),
+                onlineRef,
                 {
-                    name: currentUser.name,
-                    phone: phone,
-                    online: true,
-                    lastSeen: Date.now()
+
+                    name:
+                        currentUser.displayName ||
+                        currentUser.name,
+
+                    phone:
+                        currentUser.phone,
+
+                    lastSeen:
+                        serverTimestamp()
+
                 },
                 {
                     merge: true
                 }
             );
 
-        } catch (error) {
+        }
+        catch (error) {
 
             console.error(
-                "Online update error:",
+                "Online update:",
                 error
             );
 
         }
 
-    }
+    };
+
 
     await updateOnline();
 
-    setInterval(updateOnline, 30000);
 
-}
-
-
-// =====================================================
-// 14. ONLINE USERS
-// =====================================================
-
-async function updateOnlineUsers() {
-
-    const firebase = await loadFirebase();
-
-    if (!firebase) {
-        return;
+    if (onlineTimer) {
+        clearInterval(onlineTimer);
     }
 
-    if (unsubscribeOnline) {
-        unsubscribeOnline();
-        unsubscribeOnline = null;
-    }
 
-    const {
-        collection,
-        onSnapshot
-    } = firebase.firestore;
-
-    const onlineRef =
-        collection(db, "onlineUsers");
-
-    unsubscribeOnline =
-        onSnapshot(
-            onlineRef,
-            function (snapshot) {
-
-                const list =
-                    $("onlineUsers");
-
-                const count =
-                    $("onlineCount");
-
-                if (!list) {
-                    return;
-                }
-
-                list.innerHTML = "";
-
-                let onlineCount = 0;
-
-                snapshot.forEach(function (docSnap) {
-
-                    const data =
-                        docSnap.data();
-
-                    const lastSeen =
-                        Number(data.lastSeen || 0);
-
-                    const isOnline =
-                        data.online === true &&
-                        Date.now() - lastSeen < 90000;
-
-                    if (!isOnline) {
-                        return;
-                    }
-
-                    onlineCount++;
-
-                    const item =
-                        document.createElement("div");
-
-                    item.className =
-                        "online-user";
-
-                    item.textContent =
-                        "🟢 " +
-                        (data.name || "User");
-
-                    list.appendChild(item);
-
-                });
-
-                if (count) {
-                    count.textContent =
-                        onlineCount;
-                }
-
-            }
+    onlineTimer =
+        setInterval(
+            updateOnline,
+            30000
         );
 
-}
 
+    if (!onlineUnsubscribe) {
 
-// =====================================================
-// 15. ONLINE TOGGLE
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const onlineToggleBtn =
-        $("onlineToggleBtn");
-
-    if (!onlineToggleBtn) {
-        return;
-    }
-
-    onlineToggleBtn.type = "button";
-
-    onlineToggleBtn.addEventListener(
-        "click",
-        async function () {
-
-            if (!currentUser) {
-                return;
-            }
-
-            const firebase =
-                await loadFirebase();
-
-            if (!firebase) {
-                return;
-            }
-
-            const {
-                doc,
-                setDoc
-            } = firebase.firestore;
-
-            await setDoc(
-                doc(
-                    db,
-                    "onlineUsers",
-                    currentUser.phone
+        onlineUnsubscribe =
+            onSnapshot(
+                collection(
+                    firestore,
+                    "onlineUsers"
                 ),
-                {
-                    name: currentUser.name,
-                    phone: currentUser.phone,
-                    online: true,
-                    lastSeen: Date.now()
+
+                snapshot => {
+
+                    const now =
+                        Date.now();
+
+                    const users = [];
+
+
+                    snapshot.forEach(item => {
+
+                        const data =
+                            item.data();
+
+                        let lastSeen = 0;
+
+
+                        if (
+                            data.lastSeen &&
+                            typeof data.lastSeen.toMillis ===
+                                "function"
+                        ) {
+
+                            lastSeen =
+                                data.lastSeen.toMillis();
+
+                        }
+
+
+                        if (
+                            lastSeen &&
+                            now - lastSeen < 90000
+                        ) {
+
+                            users.push(data);
+
+                        }
+
+                    });
+
+
+                    if ($("onlineCount")) {
+
+                        $("onlineCount").textContent =
+                            String(users.length);
+
+                    }
+
+
+                    const container =
+                        $("onlineUsers");
+
+                    if (!container) return;
+
+
+                    container.innerHTML = "";
+
+
+                    users.forEach(user => {
+
+                        const div =
+                            document.createElement("div");
+
+                        div.textContent =
+                            `🟢 ${user.name || user.phone}`;
+
+                        container.appendChild(div);
+
+                    });
+
                 },
-                {
-                    merge: true
+
+                error => {
+
+                    console.error(
+                        "Online listener:",
+                        error
+                    );
+
                 }
+
             );
 
-            updateOnlineUsers();
-
-        }
-    );
-
-});
-
-
-// =====================================================
-// 16. MAIN CHAT - REALTIME
-// =====================================================
-
-async function startChatRealtime() {
-
-    const firebase =
-        await loadFirebase();
-
-    if (!firebase) {
-        return;
     }
-
-    const {
-        collection,
-        query,
-        orderBy,
-        limit,
-        onSnapshot,
-        addDoc,
-        serverTimestamp,
-        doc,
-        updateDoc,
-        arrayUnion
-    } = firebase.firestore;
-
-    const chatMessages =
-        $("chatMessages");
-
-    if (!chatMessages) {
-        return;
-    }
-
-    if (unsubscribeChat) {
-        unsubscribeChat();
-    }
-
-    const messagesRef =
-        collection(db, "messages");
-
-    const messagesQuery =
-        query(
-            messagesRef,
-            orderBy("createdAt", "asc"),
-            limit(100)
-        );
-
-    unsubscribeChat =
-        onSnapshot(
-            messagesQuery,
-            function (snapshot) {
-
-                chatMessages.innerHTML = "";
-
-                snapshot.forEach(function (docSnap) {
-
-                    const data =
-                        docSnap.data();
-
-                    const message =
-                        document.createElement("div");
-
-                    message.className =
-                        "chat-message";
-
-                    const text =
-                        document.createElement("div");
-
-                    text.textContent =
-                        data.text || "";
-
-                    const meta =
-                        document.createElement("small");
-
-                    const sender =
-                        data.senderName ||
-                        "User";
-
-                    let tick = "✓✓";
-
-                    const readBy =
-                        data.readBy || [];
-
-                    if (
-                        currentUser &&
-                        readBy.includes(currentUser.phone)
-                    ) {
-                        tick = "✓✓";
-                        meta.className =
-                            "read-message";
-                    }
-
-                    meta.textContent =
-                        sender +
-                        " • " +
-                        tick;
-
-                    message.appendChild(text);
-                    message.appendChild(meta);
-
-                    chatMessages.appendChild(message);
-
-                });
-
-                chatMessages.scrollTop =
-                    chatMessages.scrollHeight;
-
-            }
-        );
 
 }
 
 
-// =====================================================
-// 17. SEND CHAT MESSAGE
-// =====================================================
+/* =====================================================
+   ONLINE TOGGLE
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+function setupOnlineToggle() {
 
-    const sendMessageBtn =
-        $("sendMessageBtn");
+    let online = true;
 
-    const messageInput =
-        $("messageInput");
 
-    if (!sendMessageBtn) {
-        return;
-    }
-
-    sendMessageBtn.type = "button";
-
-    sendMessageBtn.addEventListener(
+    $("onlineToggleBtn")?.addEventListener(
         "click",
-        async function () {
+        async () => {
 
-            const text =
-                messageInput
-                    ? messageInput.value.trim()
-                    : "";
+            if (!currentUser) return;
 
-            if (!text || !currentUser) {
-                return;
+
+            online = !online;
+
+
+            const button =
+                $("onlineToggleBtn");
+
+
+            if (button) {
+
+                button.textContent =
+                    online
+                        ? "Go Offline"
+                        : "Go Online";
+
             }
 
-            const firebase =
-                await loadFirebase();
-
-            if (!firebase) {
-                return;
-            }
-
-            const {
-                collection,
-                addDoc,
-                serverTimestamp
-            } = firebase.firestore;
 
             try {
 
-                await addDoc(
-                    collection(db, "messages"),
-                    {
-                        text: text,
-                        senderName:
-                            currentUser.name,
-                        senderPhone:
-                            currentUser.phone,
-                        createdAt:
-                            serverTimestamp(),
-                        readBy: []
-                    }
-                );
+                const firestore =
+                    await loadFirebase();
 
-                messageInput.value = "";
 
-            } catch (error) {
+                const ref =
+                    doc(
+                        firestore,
+                        "onlineUsers",
+                        currentUser.phone
+                    );
+
+
+                if (online) {
+
+                    await setDoc(
+                        ref,
+                        {
+
+                            name:
+                                currentUser.displayName ||
+                                currentUser.name,
+
+                            phone:
+                                currentUser.phone,
+
+                            lastSeen:
+                                serverTimestamp()
+
+                        },
+                        {
+                            merge: true
+                        }
+                    );
+
+                }
+                else {
+
+                    await deleteDoc(ref)
+                        .catch(() => {});
+
+                }
+
+            }
+            catch (error) {
 
                 console.error(
-                    "Message send error:",
+                    "Online toggle:",
                     error
                 );
 
@@ -1072,122 +920,696 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     );
 
-});
+
+    $("onlineArrow")?.addEventListener(
+        "click",
+        () => {
+
+            $("onlineUsers")
+                ?.classList.toggle("hidden");
+
+        }
+    );
+
+}
 
 
-// =====================================================
-// 18. EMOJI BUTTON
-// =====================================================
+/* =====================================================
+   CHAT REALTIME
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+async function startChatRealtime() {
 
-    const emojiBtn = $("emojiBtn");
-    const messageInput = $("messageInput");
+    if (chatStarted) return;
 
-    if (emojiBtn && messageInput) {
+    chatStarted = true;
 
-        emojiBtn.type = "button";
 
-        emojiBtn.addEventListener(
-            "click",
-            function () {
+    const firestore =
+        await loadFirebase();
 
-                messageInput.value += " 😊";
 
-                messageInput.focus();
+    const messagesQuery =
+        query(
+            collection(
+                firestore,
+                "messages"
+            ),
+            orderBy(
+                "createdAt",
+                "asc"
+            ),
+            limit(100)
+        );
+
+
+    chatUnsubscribe =
+        onSnapshot(
+            messagesQuery,
+
+            snapshot => {
+
+                const container =
+                    $("chatMessages");
+
+                if (!container) return;
+
+
+                container.innerHTML = "";
+
+
+                snapshot.forEach(item => {
+
+                    renderMessage(
+                        container,
+                        item.data(),
+                        item.id
+                    );
+
+                });
+
+
+                container.scrollTop =
+                    container.scrollHeight;
+
+            },
+
+            error => {
+
+                console.error(
+                    "Chat:",
+                    error
+                );
 
             }
         );
 
+}
+
+
+/* =====================================================
+   RENDER MESSAGE
+===================================================== */
+
+function renderMessage(
+    container,
+    data,
+    id
+) {
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className =
+        "message";
+
+
+    const isMine =
+        currentUser &&
+        data.senderPhone ===
+            currentUser.phone;
+
+
+    if (isMine) {
+        wrapper.classList.add("mine");
     }
 
-});
+
+    const sender =
+        document.createElement("strong");
+
+    sender.textContent =
+        data.senderName || "User";
 
 
-// =====================================================
-// 19. GROUP CREATION
-// =====================================================
+    const text =
+        document.createElement("div");
 
-document.addEventListener("DOMContentLoaded", function () {
+    text.textContent =
+        data.text || "";
 
-    const createGroupBtn =
-        $("createGroupBtn");
 
-    if (!createGroupBtn) {
-        return;
+    const info =
+        document.createElement("div");
+
+    info.className =
+        "message-info";
+
+
+    let time = "";
+
+
+    if (
+        data.createdAt &&
+        typeof data.createdAt.toDate ===
+            "function"
+    ) {
+
+        time =
+            data.createdAt
+                .toDate()
+                .toLocaleTimeString(
+                    [],
+                    {
+                        hour: "2-digit",
+                        minute: "2-digit"
+                    }
+                );
+
     }
 
-    createGroupBtn.type = "button";
 
-    createGroupBtn.addEventListener(
-        "click",
-        createGroup
-    );
+    let ticks = "";
 
-});
 
-async function createGroup() {
+    if (isMine) {
 
-    if (!currentUser) {
-        return;
+        const readBy =
+            Array.isArray(data.readBy)
+                ? data.readBy
+                : [];
+
+
+        const someoneRead =
+            readBy.some(
+                phone =>
+                    phone !==
+                    currentUser.phone
+            );
+
+
+        ticks =
+            someoneRead
+                ? ` <span class="blue-tick">✓✓</span>`
+                : " <span>✓✓</span>";
+
     }
 
-    const groupName =
-        $("groupInput")
-            ? $("groupInput").value.trim()
-            : "";
 
-    const password =
-        $("groupPasswordInput")
-            ? $("groupPasswordInput").value.trim()
-            : "";
+    info.innerHTML =
+        `${time}${ticks}`;
 
-    if (!groupName || !password) {
-        return;
+
+    wrapper.appendChild(sender);
+    wrapper.appendChild(text);
+    wrapper.appendChild(info);
+
+
+    container.appendChild(wrapper);
+
+}
+
+
+/* =====================================================
+   SEND CHAT MESSAGE
+===================================================== */
+
+async function sendChatMessage() {
+
+    if (!currentUser) return;
+
+
+    const input =
+        $("messageInput");
+
+
+    const text =
+        input?.value.trim() || "";
+
+
+    if (!text) return;
+
+
+    const button =
+        $("sendMessageBtn");
+
+
+    if (button) {
+        button.disabled = true;
     }
 
-    const firebase =
-        await loadFirebase();
-
-    if (!firebase) {
-        return;
-    }
-
-    const {
-        collection,
-        addDoc,
-        serverTimestamp
-    } = firebase.firestore;
 
     try {
 
+        const firestore =
+            await loadFirebase();
+
+
         await addDoc(
-            collection(db, "groups"),
+            collection(
+                firestore,
+                "messages"
+            ),
             {
-                name: groupName,
-                password: password,
-                ownerName: currentUser.name,
-                ownerPhone: currentUser.phone,
-                members: [
-                    {
-                        name: currentUser.name,
-                        phone: currentUser.phone
-                    }
-                ],
-                createdAt: serverTimestamp()
+
+                text: text,
+
+                senderName:
+                    currentUser.displayName ||
+                    currentUser.name,
+
+                senderPhone:
+                    currentUser.phone,
+
+                createdAt:
+                    serverTimestamp(),
+
+                readBy: [
+                    currentUser.phone
+                ]
+
             }
         );
+
+
+        input.value = "";
+
+    }
+    catch (error) {
+
+        console.error(
+            "Send message:",
+            error
+        );
+
+        alert(
+            "Message send failed."
+        );
+
+    }
+    finally {
+
+        if (button) {
+            button.disabled = false;
+        }
+
+    }
+
+}
+
+
+/* =====================================================
+   CHAT BUTTONS
+===================================================== */
+
+function setupChatButtons() {
+
+    $("sendMessageBtn")?.addEventListener(
+        "click",
+        sendChatMessage
+    );
+
+
+    $("messageInput")?.addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendChatMessage();
+
+            }
+
+        }
+    );
+
+
+    $("emojiBtn")?.addEventListener(
+        "click",
+        () => {
+
+            const input =
+                $("messageInput");
+
+            if (!input) return;
+
+            input.value += "😊";
+            input.focus();
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   READ RECEIPTS
+===================================================== */
+
+async function markChatAsRead() {
+
+    if (!currentUser) return;
+
+
+    try {
+
+        const firestore =
+            await loadFirebase();
+
+
+        const messagesQuery =
+            query(
+                collection(
+                    firestore,
+                    "messages"
+                ),
+                orderBy(
+                    "createdAt",
+                    "desc"
+                ),
+                limit(100)
+            );
+
+
+        const snapshot =
+            await new Promise(
+                (resolve, reject) => {
+
+                    let unsubscribe;
+
+                    unsubscribe =
+                        onSnapshot(
+                            messagesQuery,
+                            snap => {
+
+                                unsubscribe();
+                                resolve(snap);
+
+                            },
+                            reject
+                        );
+
+                }
+            );
+
+
+        const updates = [];
+
+
+        snapshot.forEach(item => {
+
+            const data =
+                item.data();
+
+
+            if (
+                data.senderPhone !==
+                currentUser.phone
+            ) {
+
+                updates.push(
+                    updateDoc(
+                        doc(
+                            firestore,
+                            "messages",
+                            item.id
+                        ),
+                        {
+
+                            readBy:
+                                arrayUnion(
+                                    currentUser.phone
+                                )
+
+                        }
+                    )
+                );
+
+            }
+
+        });
+
+
+        await Promise.all(updates);
+
+    }
+    catch (error) {
+
+        console.error(
+            "Read receipt:",
+            error
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   GROUPS REALTIME
+===================================================== */
+
+async function startGroupsRealtime() {
+
+    if (!currentUser) return;
+
+
+    if (groupsStarted) return;
+
+    groupsStarted = true;
+
+
+    const firestore =
+        await loadFirebase();
+
+
+    groupsUnsubscribe =
+        onSnapshot(
+            collection(
+                firestore,
+                "groups"
+            ),
+
+            snapshot => {
+
+                const groups = [];
+
+
+                snapshot.forEach(item => {
+
+                    const data =
+                        item.data();
+
+
+                    const members =
+                        Array.isArray(
+                            data.members
+                        )
+                            ? data.members
+                            : [];
+
+
+                    const allowed =
+                        data.ownerPhone ===
+                            currentUser.phone ||
+
+                        members.some(
+                            member =>
+                                member.phone ===
+                                currentUser.phone
+                        );
+
+
+                    if (allowed) {
+
+                        groups.push({
+
+                            id: item.id,
+
+                            ...data
+
+                        });
+
+                    }
+
+                });
+
+
+                renderGroups(groups);
+
+            },
+
+            error => {
+
+                console.error(
+                    "Groups:",
+                    error
+                );
+
+            }
+
+        );
+
+}
+
+
+/* =====================================================
+   RENDER GROUPS
+===================================================== */
+
+function renderGroups(groups) {
+
+    const container =
+        $("groupList");
+
+    if (!container) return;
+
+
+    container.innerHTML = "";
+
+
+    if (!groups.length) {
+
+        const p =
+            document.createElement("p");
+
+        p.className = "muted";
+
+        p.textContent =
+            "No groups yet.";
+
+        container.appendChild(p);
+
+        return;
+
+    }
+
+
+    groups.forEach(group => {
+
+        const button =
+            document.createElement("button");
+
+        button.type = "button";
+
+        button.textContent =
+            `👥 ${group.name}`;
+
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                openGroup(group);
+
+            }
+        );
+
+
+        container.appendChild(button);
+
+    });
+
+}
+
+
+/* =====================================================
+   CREATE GROUP
+===================================================== */
+
+async function createGroup() {
+
+    if (!currentUser) return;
+
+
+    const name =
+        $("groupInput")?.value.trim() || "";
+
+
+    const password =
+        $("groupPasswordInput")
+            ?.value.trim() || "";
+
+
+    if (!name) {
+
+        alert(
+            "Enter group name."
+        );
+
+        return;
+    }
+
+
+    if (!password) {
+
+        alert(
+            "Enter group password."
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const firestore =
+            await loadFirebase();
+
+
+        await addDoc(
+            collection(
+                firestore,
+                "groups"
+            ),
+            {
+
+                name: name,
+
+                ownerName:
+                    currentUser.displayName ||
+                    currentUser.name,
+
+                ownerPhone:
+                    currentUser.phone,
+
+                password: password,
+
+                members: [
+
+                    {
+
+                        name:
+                            currentUser.displayName ||
+                            currentUser.name,
+
+                        phone:
+                            currentUser.phone
+
+                    }
+
+                ],
+
+                createdAt:
+                    serverTimestamp()
+
+            }
+        );
+
 
         $("groupInput").value = "";
         $("groupPasswordInput").value = "";
 
-        renderGroups();
 
-    } catch (error) {
+        alert(
+            "Group created successfully."
+        );
+
+    }
+    catch (error) {
 
         console.error(
-            "Group create error:",
+            "Create group:",
             error
+        );
+
+        alert(
+            "Group creation failed."
         );
 
     }
@@ -1195,841 +1617,937 @@ async function createGroup() {
 }
 
 
-// =====================================================
-// 20. SHOW GROUPS
-// =====================================================
+/* =====================================================
+   OPEN GROUP
+===================================================== */
 
-async function renderGroups() {
+function openGroup(group) {
 
-    const list =
-        $("groupList");
+    selectedGroup = group;
 
-    if (!list) {
-        return;
-    }
+    groupUnlocked = false;
 
-    const firebase =
-        await loadFirebase();
-
-    if (!firebase) {
-        return;
-    }
-
-    const {
-        collection,
-        onSnapshot
-    } = firebase.firestore;
-
-    onSnapshot(
-        collection(db, "groups"),
-        function (snapshot) {
-
-            list.innerHTML = "";
-
-            snapshot.forEach(function (docSnap) {
-
-                const data =
-                    docSnap.data();
-
-                const button =
-                    document.createElement("button");
-
-                button.type = "button";
-
-                button.textContent =
-                    data.name || "Group";
-
-                button.addEventListener(
-                    "click",
-                    function () {
-
-                        openGroup(
-                            docSnap.id,
-                            data
-                        );
-
-                    }
-                );
-
-                list.appendChild(button);
-
-            });
-
-        }
-    );
-
-}
-
-
-// =====================================================
-// 21. OPEN GROUP
-// =====================================================
-
-let selectedGroupId = null;
-let selectedGroupData = null;
-
-function openGroup(groupId, data) {
-
-    selectedGroupId = groupId;
-    selectedGroupData = data;
 
     show($("groupChatSection"));
 
-    setText(
-        "selectedGroupName",
-        data.name || "Group"
-    );
 
-    setText(
-        "selectedGroupOwner",
-        "Owner: " +
-        (data.ownerName || "")
-    );
+    if ($("selectedGroupName")) {
 
-    hide($("groupContent"));
+        $("selectedGroupName").textContent =
+            group.name || "Group";
+
+    }
+
+
+    if ($("selectedGroupOwner")) {
+
+        $("selectedGroupOwner").textContent =
+            `Owner: ${group.ownerName || group.ownerPhone}`;
+
+    }
+
 
     show($("groupPasswordSection"));
 
-    setText(
+    hide($("groupContent"));
+
+
+    if ($("enterGroupPasswordInput")) {
+
+        $("enterGroupPasswordInput").value = "";
+
+    }
+
+
+    message(
         "groupPasswordMessage",
         ""
     );
 
+
+    renderMembers(
+        Array.isArray(group.members)
+            ? group.members
+            : []
+    );
+
 }
 
 
-// =====================================================
-// 22. UNLOCK GROUP
-// =====================================================
+/* =====================================================
+   UNLOCK GROUP
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+function unlockGroup() {
 
-    const unlockGroupBtn =
-        $("unlockGroupBtn");
+    if (!selectedGroup) return;
 
-    if (!unlockGroupBtn) {
+
+    const password =
+        $("enterGroupPasswordInput")
+            ?.value.trim() || "";
+
+
+    if (
+        password !==
+        selectedGroup.password
+    ) {
+
+        message(
+            "groupPasswordMessage",
+            "Wrong group password.",
+            "error"
+        );
+
         return;
     }
 
-    unlockGroupBtn.type = "button";
 
-    unlockGroupBtn.addEventListener(
+    groupUnlocked = true;
+
+
+    hide($("groupPasswordSection"));
+
+    show($("groupContent"));
+
+
+    renderMembers(
+        Array.isArray(
+            selectedGroup.members
+        )
+            ? selectedGroup.members
+            : []
+    );
+
+
+    startGroupMessages();
+
+}
+
+
+/* =====================================================
+   ADD GROUP MEMBER
+===================================================== */
+
+async function addGroupMember() {
+
+    if (
+        !selectedGroup ||
+        !currentUser ||
+        !groupUnlocked
+    ) {
+        return;
+    }
+
+
+    if (
+        selectedGroup.ownerPhone !==
+        currentUser.phone
+    ) {
+
+        alert(
+            "Only the group creator can add members."
+        );
+
+        return;
+    }
+
+
+    const name =
+        $("memberNameInput")
+            ?.value.trim() || "";
+
+
+    const phone =
+        $("memberPhoneInput")
+            ?.value.trim() || "";
+
+
+    if (!name) {
+
+        alert(
+            "Enter member name."
+        );
+
+        return;
+    }
+
+
+    if (!/^\d{10}$/.test(phone)) {
+
+        alert(
+            "Enter valid 10 digit mobile number."
+        );
+
+        return;
+    }
+
+
+    const members =
+        Array.isArray(
+            selectedGroup.members
+        )
+            ? [...selectedGroup.members]
+            : [];
+
+
+    if (
+        members.some(
+            member =>
+                member.phone === phone
+        )
+    ) {
+
+        alert(
+            "This member is already in the group."
+        );
+
+        return;
+    }
+
+
+    members.push({
+
+        name: name,
+
+        phone: phone
+
+    });
+
+
+    try {
+
+        const firestore =
+            await loadFirebase();
+
+
+        await updateDoc(
+            doc(
+                firestore,
+                "groups",
+                selectedGroup.id
+            ),
+            {
+
+                members: members
+
+            }
+        );
+
+
+        selectedGroup.members =
+            members;
+
+
+        $("memberNameInput").value = "";
+        $("memberPhoneInput").value = "";
+
+
+        renderMembers(members);
+
+
+        alert(
+            "Member added successfully."
+        );
+
+    }
+    catch (error) {
+
+        console.error(
+            "Add member:",
+            error
+        );
+
+        alert(
+            "Member could not be added."
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   RENDER MEMBERS
+===================================================== */
+
+function renderMembers(members) {
+
+    const container =
+        $("memberList");
+
+    if (!container) return;
+
+
+    container.innerHTML = "";
+
+
+    const heading =
+        document.createElement("h4");
+
+    heading.textContent =
+        "Members";
+
+    container.appendChild(heading);
+
+
+    members.forEach(member => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "list-item";
+
+
+        div.textContent =
+            `${member.name} • ${member.phone}`;
+
+
+        container.appendChild(div);
+
+    });
+
+}
+
+
+/* =====================================================
+   GROUP MESSAGES
+===================================================== */
+
+async function startGroupMessages() {
+
+    if (
+        !selectedGroup ||
+        !groupUnlocked ||
+        !currentUser
+    ) {
+        return;
+    }
+
+
+    if (groupMessagesUnsubscribe) {
+
+        groupMessagesUnsubscribe();
+
+        groupMessagesUnsubscribe = null;
+
+    }
+
+
+    const firestore =
+        await loadFirebase();
+
+
+    const messagesRef =
+        collection(
+            firestore,
+            "groups",
+            selectedGroup.id,
+            "messages"
+        );
+
+
+    const messagesQuery =
+        query(
+            messagesRef,
+            orderBy(
+                "createdAt",
+                "asc"
+            ),
+            limit(100)
+        );
+
+
+    groupMessagesUnsubscribe =
+        onSnapshot(
+            messagesQuery,
+
+            snapshot => {
+
+                const container =
+                    $("groupMessages");
+
+                if (!container) return;
+
+
+                container.innerHTML = "";
+
+
+                snapshot.forEach(item => {
+
+                    renderMessage(
+                        container,
+                        item.data(),
+                        item.id
+                    );
+
+                });
+
+
+                container.scrollTop =
+                    container.scrollHeight;
+
+            },
+
+            error => {
+
+                console.error(
+                    "Group messages:",
+                    error
+                );
+
+            }
+
+        );
+
+}
+
+
+/* =====================================================
+   SEND GROUP MESSAGE
+===================================================== */
+
+async function sendGroupMessage() {
+
+    if (
+        !selectedGroup ||
+        !groupUnlocked ||
+        !currentUser
+    ) {
+        return;
+    }
+
+
+    const input =
+        $("groupMessageInput");
+
+
+    const text =
+        input?.value.trim() || "";
+
+
+    if (!text) return;
+
+
+    const button =
+        $("sendGroupMessageBtn");
+
+
+    if (button) {
+        button.disabled = true;
+    }
+
+
+    try {
+
+        const firestore =
+            await loadFirebase();
+
+
+        await addDoc(
+            collection(
+                firestore,
+                "groups",
+                selectedGroup.id,
+                "messages"
+            ),
+            {
+
+                text: text,
+
+                senderName:
+                    currentUser.displayName ||
+                    currentUser.name,
+
+                senderPhone:
+                    currentUser.phone,
+
+                createdAt:
+                    serverTimestamp(),
+
+                readBy: [
+                    currentUser.phone
+                ]
+
+            }
+        );
+
+
+        input.value = "";
+
+    }
+    catch (error) {
+
+        console.error(
+            "Group message:",
+            error
+        );
+
+        alert(
+            "Group message failed."
+        );
+
+    }
+    finally {
+
+        if (button) {
+            button.disabled = false;
+        }
+
+    }
+
+}
+
+
+/* =====================================================
+   GROUP BUTTONS
+===================================================== */
+
+function setupGroupButtons() {
+
+    $("createGroupBtn")?.addEventListener(
         "click",
-        function () {
+        createGroup
+    );
 
-            const entered =
-                $("enterGroupPasswordInput")
-                    ? $("enterGroupPasswordInput")
-                        .value
-                        .trim()
-                    : "";
+
+    $("unlockGroupBtn")?.addEventListener(
+        "click",
+        unlockGroup
+    );
+
+
+    $("addMemberBtn")?.addEventListener(
+        "click",
+        addGroupMember
+    );
+
+
+    $("sendGroupMessageBtn")?.addEventListener(
+        "click",
+        sendGroupMessage
+    );
+
+
+    $("groupMessageInput")?.addEventListener(
+        "keydown",
+        event => {
 
             if (
-                !selectedGroupData ||
-                entered !== selectedGroupData.password
+                event.key === "Enter" &&
+                !event.shiftKey
             ) {
 
-                setText(
-                    "groupPasswordMessage",
-                    "गलत group password!"
+                event.preventDefault();
+
+                sendGroupMessage();
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   HOMEWORK
+===================================================== */
+
+function getHomework() {
+
+    try {
+
+        return JSON.parse(
+            localStorage.getItem(
+                "studyHomework"
+            ) || "[]"
+        );
+
+    }
+    catch {
+
+        return [];
+
+    }
+
+}
+
+
+function saveHomeworkData(data) {
+
+    localStorage.setItem(
+        "studyHomework",
+        JSON.stringify(data)
+    );
+
+}
+
+
+function setupHomework() {
+
+    $("addHomeworkBtn")?.addEventListener(
+        "click",
+        () => {
+
+            const item = {
+
+                date:
+                    $("homeworkDate")?.value || "",
+
+                hindi:
+                    $("hindiHomework")?.value || "",
+
+                english:
+                    $("englishHomework")?.value || "",
+
+                math:
+                    $("mathHomework")?.value || "",
+
+                science:
+                    $("scienceHomework")?.value || "",
+
+                sst:
+                    $("sstHomework")?.value || "",
+
+                computer:
+                    $("computerHomework")?.value || "",
+
+                art:
+                    $("artHomework")?.value || ""
+
+            };
+
+
+            const data =
+                getHomework();
+
+
+            data.push(item);
+
+
+            saveHomeworkData(data);
+
+
+            renderHomework();
+
+        }
+    );
+
+}
+
+
+function renderHomework() {
+
+    const container =
+        $("homeworkList");
+
+    if (!container) return;
+
+
+    container.innerHTML = "";
+
+
+    getHomework().forEach(item => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "list-item";
+
+
+        div.innerHTML = `
+
+            <strong>Date:</strong>
+            ${escapeHtml(item.date)}
+
+            <br>
+
+            <strong>Hindi:</strong>
+            ${escapeHtml(item.hindi)}
+
+            <br>
+
+            <strong>English:</strong>
+            ${escapeHtml(item.english)}
+
+            <br>
+
+            <strong>Math:</strong>
+            ${escapeHtml(item.math)}
+
+            <br>
+
+            <strong>Science:</strong>
+            ${escapeHtml(item.science)}
+
+            <br>
+
+            <strong>SST:</strong>
+            ${escapeHtml(item.sst)}
+
+            <br>
+
+            <strong>Computer:</strong>
+            ${escapeHtml(item.computer)}
+
+            <br>
+
+            <strong>Art:</strong>
+            ${escapeHtml(item.art)}
+
+        `;
+
+
+        container.appendChild(div);
+
+    });
+
+}
+
+
+/* =====================================================
+   SCHOOL
+===================================================== */
+
+function getSchoolUpdates() {
+
+    try {
+
+        return JSON.parse(
+            localStorage.getItem(
+                "studySchool"
+            ) || "[]"
+        );
+
+    }
+    catch {
+
+        return [];
+
+    }
+
+}
+
+
+function renderSchool() {
+
+    const container =
+        $("schoolList");
+
+    if (!container) return;
+
+
+    container.innerHTML = "";
+
+
+    getSchoolUpdates().forEach(item => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "list-item";
+
+        div.textContent =
+            item;
+
+        container.appendChild(div);
+
+    });
+
+}
+
+
+function setupSchool() {
+
+    $("saveSchoolBtn")?.addEventListener(
+        "click",
+        () => {
+
+            const text =
+                $("schoolInput")
+                    ?.value.trim() || "";
+
+
+            if (!text) return;
+
+
+            const data =
+                getSchoolUpdates();
+
+
+            data.push(text);
+
+
+            localStorage.setItem(
+                "studySchool",
+                JSON.stringify(data)
+            );
+
+
+            $("schoolInput").value = "";
+
+
+            renderSchool();
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   NOTES
+===================================================== */
+
+function getNotes() {
+
+    try {
+
+        return JSON.parse(
+            localStorage.getItem(
+                "studyNotes"
+            ) || "[]"
+        );
+
+    }
+    catch {
+
+        return [];
+
+    }
+
+}
+
+
+function renderNotes() {
+
+    const container =
+        $("notesList");
+
+    if (!container) return;
+
+
+    container.innerHTML = "";
+
+
+    getNotes().forEach(item => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "list-item";
+
+        div.textContent =
+            item;
+
+        container.appendChild(div);
+
+    });
+
+}
+
+
+function setupNotes() {
+
+    $("saveNoteBtn")?.addEventListener(
+        "click",
+        () => {
+
+            const text =
+                $("noteInput")
+                    ?.value.trim() || "";
+
+
+            if (!text) return;
+
+
+            const data =
+                getNotes();
+
+
+            data.push(text);
+
+
+            localStorage.setItem(
+                "studyNotes",
+                JSON.stringify(data)
+            );
+
+
+            $("noteInput").value = "";
+
+
+            renderNotes();
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   CHANGE NAME
+===================================================== */
+
+function setupChangeName() {
+
+    $("changeNameBtn")?.addEventListener(
+        "click",
+        () => {
+
+            if (!currentUser) return;
+
+
+            const name =
+                $("changeNameInput")
+                    ?.value.trim() || "";
+
+
+            if (!name) {
+
+                message(
+                    "changeNameMessage",
+                    "Enter a name.",
+                    "error"
                 );
 
                 return;
             }
 
-            hide($("groupPasswordSection"));
-            show($("groupContent"));
 
-            loadGroupMembers();
+            currentUser.displayName =
+                name;
 
-            startGroupMessages();
-
-        }
-    );
-
-});
-
-
-// =====================================================
-// 23. ADD GROUP MEMBER
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const addMemberBtn =
-        $("addMemberBtn");
-
-    if (!addMemberBtn) {
-        return;
-    }
-
-    addMemberBtn.type = "button";
-
-    addMemberBtn.addEventListener(
-        "click",
-        addGroupMember
-    );
-
-});
-
-async function addGroupMember() {
-
-    if (!selectedGroupId || !currentUser) {
-        return;
-    }
-
-    if (
-        selectedGroupData.ownerPhone !==
-        currentUser.phone
-    ) {
-
-        setText(
-            "groupPasswordMessage",
-            "सिर्फ group owner member जोड़ सकता है।"
-        );
-
-        return;
-    }
-
-    const name =
-        $("memberNameInput")
-            ? $("memberNameInput").value.trim()
-            : "";
-
-    const phone =
-        $("memberPhoneInput")
-            ? $("memberPhoneInput").value.trim()
-            : "";
-
-    if (!name || !phone) {
-        return;
-    }
-
-    const firebase =
-        await loadFirebase();
-
-    if (!firebase) {
-        return;
-    }
-
-    const {
-        doc,
-        updateDoc,
-        arrayUnion
-    } = firebase.firestore;
-
-    try {
-
-        await updateDoc(
-            doc(db, "groups", selectedGroupId),
-            {
-                members: arrayUnion({
-                    name: name,
-                    phone: phone
-                })
-            }
-        );
-
-        $("memberNameInput").value = "";
-        $("memberPhoneInput").value = "";
-
-        loadGroupMembers();
-
-    } catch (error) {
-
-        console.error(
-            "Add member error:",
-            error
-        );
-
-    }
-
-}
-
-
-// =====================================================
-// 24. GROUP MEMBERS
-// =====================================================
-
-async function loadGroupMembers() {
-
-    if (!selectedGroupData) {
-        return;
-    }
-
-    const list =
-        $("memberList");
-
-    if (!list) {
-        return;
-    }
-
-    list.innerHTML = "";
-
-    const members =
-        selectedGroupData.members || [];
-
-    members.forEach(function (member) {
-
-        const item =
-            document.createElement("div");
-
-        item.textContent =
-            "👤 " +
-            member.name +
-            " - " +
-            member.phone;
-
-        list.appendChild(item);
-
-    });
-
-}
-
-
-// =====================================================
-// 25. GROUP CHAT
-// =====================================================
-
-async function startGroupMessages() {
-
-    if (!selectedGroupId) {
-        return;
-    }
-
-    const firebase =
-        await loadFirebase();
-
-    if (!firebase) {
-        return;
-    }
-
-    const {
-        collection,
-        query,
-        orderBy,
-        onSnapshot
-    } = firebase.firestore;
-
-    const messages =
-        $("groupMessages");
-
-    if (!messages) {
-        return;
-    }
-
-    if (unsubscribeGroupMessages) {
-        unsubscribeGroupMessages();
-    }
-
-    const ref =
-        collection(
-            db,
-            "groups",
-            selectedGroupId,
-            "messages"
-        );
-
-    const q =
-        query(
-            ref,
-            orderBy("createdAt", "asc")
-        );
-
-    unsubscribeGroupMessages =
-        onSnapshot(
-            q,
-            function (snapshot) {
-
-                messages.innerHTML = "";
-
-                snapshot.forEach(function (docSnap) {
-
-                    const data =
-                        docSnap.data();
-
-                    const item =
-                        document.createElement("div");
-
-                    item.textContent =
-                        (data.senderName || "User") +
-                        ": " +
-                        (data.text || "");
-
-                    messages.appendChild(item);
-
-                });
-
-                messages.scrollTop =
-                    messages.scrollHeight;
-
-            }
-        );
-
-}
-
-
-// =====================================================
-// 26. SEND GROUP MESSAGE
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const sendBtn =
-        $("sendGroupMessageBtn");
-
-    if (!sendBtn) {
-        return;
-    }
-
-    sendBtn.type = "button";
-
-    sendBtn.addEventListener(
-        "click",
-        sendGroupMessage
-    );
-
-});
-
-async function sendGroupMessage() {
-
-    if (!selectedGroupId || !currentUser) {
-        return;
-    }
-
-    const input =
-        $("groupMessageInput");
-
-    const text =
-        input
-            ? input.value.trim()
-            : "";
-
-    if (!text) {
-        return;
-    }
-
-    const firebase =
-        await loadFirebase();
-
-    if (!firebase) {
-        return;
-    }
-
-    const {
-        collection,
-        addDoc,
-        serverTimestamp
-    } = firebase.firestore;
-
-    await addDoc(
-        collection(
-            db,
-            "groups",
-            selectedGroupId,
-            "messages"
-        ),
-        {
-            text: text,
-            senderName: currentUser.name,
-            senderPhone: currentUser.phone,
-            createdAt: serverTimestamp()
-        }
-    );
-
-    input.value = "";
-
-}
-
-
-// =====================================================
-// 27. HOMEWORK
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const addHomeworkBtn =
-        $("addHomeworkBtn");
-
-    if (!addHomeworkBtn) {
-        return;
-    }
-
-    addHomeworkBtn.type = "button";
-
-    addHomeworkBtn.addEventListener(
-        "click",
-        saveHomework
-    );
-
-    loadHomework();
-
-});
-
-function saveHomework() {
-
-    const date =
-        $("homeworkDate")
-            ? $("homeworkDate").value
-            : "";
-
-    const homework = {
-
-        date: date,
-
-        hindi:
-            $("hindiHomework")
-                ? $("hindiHomework").value
-                : "",
-
-        english:
-            $("englishHomework")
-                ? $("englishHomework").value
-                : "",
-
-        math:
-            $("mathHomework")
-                ? $("mathHomework").value
-                : "",
-
-        science:
-            $("scienceHomework")
-                ? $("scienceHomework").value
-                : "",
-
-        sst:
-            $("sstHomework")
-                ? $("sstHomework").value
-                : "",
-
-        computer:
-            $("computerHomework")
-                ? $("computerHomework").value
-                : "",
-
-        art:
-            $("artHomework")
-                ? $("artHomework").value
-                : ""
-
-    };
-
-    const old =
-        JSON.parse(
-            localStorage.getItem(
-                "studyHomework"
-            ) || "[]"
-        );
-
-    old.push(homework);
-
-    localStorage.setItem(
-        "studyHomework",
-        JSON.stringify(old)
-    );
-
-    loadHomework();
-
-}
-
-function loadHomework() {
-
-    const list =
-        $("homeworkList");
-
-    if (!list) {
-        return;
-    }
-
-    const data =
-        JSON.parse(
-            localStorage.getItem(
-                "studyHomework"
-            ) || "[]"
-        );
-
-    list.innerHTML = "";
-
-    data.forEach(function (item) {
-
-        const div =
-            document.createElement("div");
-
-        div.textContent =
-            "📅 " +
-            item.date +
-            " | Hindi: " +
-            item.hindi +
-            " | English: " +
-            item.english +
-            " | Math: " +
-            item.math +
-            " | Science: " +
-            item.science +
-            " | SST: " +
-            item.sst;
-
-        list.appendChild(div);
-
-    });
-
-}
-
-
-// =====================================================
-// 28. SCHOOL UPDATES
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const btn =
-        $("saveSchoolBtn");
-
-    if (!btn) {
-        return;
-    }
-
-    btn.type = "button";
-
-    btn.addEventListener(
-        "click",
-        saveSchoolUpdate
-    );
-
-    loadSchoolUpdates();
-
-});
-
-function saveSchoolUpdate() {
-
-    const input =
-        $("schoolInput");
-
-    const text =
-        input
-            ? input.value.trim()
-            : "";
-
-    if (!text) {
-        return;
-    }
-
-    const data =
-        JSON.parse(
-            localStorage.getItem(
-                "studySchoolUpdates"
-            ) || "[]"
-        );
-
-    data.push({
-        text: text,
-        date: new Date().toLocaleString()
-    });
-
-    localStorage.setItem(
-        "studySchoolUpdates",
-        JSON.stringify(data)
-    );
-
-    input.value = "";
-
-    loadSchoolUpdates();
-
-}
-
-function loadSchoolUpdates() {
-
-    const list =
-        $("schoolList");
-
-    if (!list) {
-        return;
-    }
-
-    const data =
-        JSON.parse(
-            localStorage.getItem(
-                "studySchoolUpdates"
-            ) || "[]"
-        );
-
-    list.innerHTML = "";
-
-    data.forEach(function (item) {
-
-        const div =
-            document.createElement("div");
-
-        div.textContent =
-            "📢 " +
-            item.text +
-            " • " +
-            item.date;
-
-        list.appendChild(div);
-
-    });
-
-}
-
-
-// =====================================================
-// 29. NOTES
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const btn =
-        $("saveNoteBtn");
-
-    if (!btn) {
-        return;
-    }
-
-    btn.type = "button";
-
-    btn.addEventListener(
-        "click",
-        saveNote
-    );
-
-    loadNotes();
-
-});
-
-function saveNote() {
-
-    const input =
-        $("noteInput");
-
-    const text =
-        input
-            ? input.value.trim()
-            : "";
-
-    if (!text) {
-        return;
-    }
-
-    const notes =
-        JSON.parse(
-            localStorage.getItem(
-                "studyNotes"
-            ) || "[]"
-        );
-
-    notes.push({
-        text: text,
-        date: new Date().toLocaleString()
-    });
-
-    localStorage.setItem(
-        "studyNotes",
-        JSON.stringify(notes)
-    );
-
-    input.value = "";
-
-    loadNotes();
-
-}
-
-function loadNotes() {
-
-    const list =
-        $("notesList");
-
-    if (!list) {
-        return;
-    }
-
-    const notes =
-        JSON.parse(
-            localStorage.getItem(
-                "studyNotes"
-            ) || "[]"
-        );
-
-    list.innerHTML = "";
-
-    notes.forEach(function (note) {
-
-        const div =
-            document.createElement("div");
-
-        div.textContent =
-            "📝 " +
-            note.text;
-
-        list.appendChild(div);
-
-    });
-
-}
-
-
-// =====================================================
-// 30. CHANGE NAME
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const btn =
-        $("changeNameBtn");
-
-    if (!btn) {
-        return;
-    }
-
-    btn.type = "button";
-
-    btn.addEventListener(
-        "click",
-        function () {
-
-            if (!currentUser) {
-                return;
-            }
-
-            const input =
-                $("changeNameInput");
-
-            const newName =
-                input
-                    ? input.value.trim()
-                    : "";
-
-            if (!newName) {
-                return;
-            }
-
-            currentUser.name =
-                newName;
 
             localStorage.setItem(
                 "studyCurrentUser",
                 JSON.stringify(currentUser)
             );
 
-            setText(
-                "changeNameMessage",
-                "Name changed successfully!"
-            );
 
-            setText(
-                "studentName",
-                newName
+            updateProfileUI();
+
+
+            message(
+                "changeNameMessage",
+                "Name changed.",
+                "success"
             );
 
         }
     );
 
-});
+}
 
 
-// =====================================================
-// 31. LANGUAGE SYSTEM
-// =====================================================
+/* =====================================================
+   LANGUAGE
+===================================================== */
 
 const translations = {
 
@@ -2041,106 +2559,7 @@ const translations = {
         homework: "Homework",
         school: "School",
         notes: "Notes",
-        settings: "Settings",
-
-        welcome: "Welcome to StudyConnect",
-        welcomeText:
-            "Connect with your school friends.",
-
-        yourName: "Your Name",
-        saveName: "Save Name",
-
-        onlineNow: "Online Now",
-
-        chatDescription:
-            "Chat with your friends.",
-
-        groupsDescription:
-            "Create and join groups.",
-
-        schoolUpdate:
-            "School Updates",
-
-        chatTitle:
-            "Chat",
-
-        groupsTitle:
-            "Groups",
-
-        createGroup:
-            "Create Group",
-
-        createGroupButton:
-            "Create Group",
-
-        addMember:
-            "Add Member",
-
-        addMemberButton:
-            "Add Member",
-
-        send:
-            "Send",
-
-        homeworkTitle:
-            "Homework",
-
-        date:
-            "Date",
-
-        saveHomework:
-            "Save Homework",
-
-        schoolUpdateTitle:
-            "School Updates",
-
-        schoolDescription:
-            "Important school information.",
-
-        saveUpdate:
-            "Save Update",
-
-        notesTitle:
-            "Notes",
-
-        notesDescription:
-            "Save your notes here.",
-
-        saveNote:
-            "Save Note",
-
-        settingsTitle:
-            "Settings",
-
-        settingsDescription:
-            "Manage your StudyConnect settings.",
-
-        changeName:
-            "Change Name",
-
-        changeNameButton:
-            "Change Name",
-
-        language:
-            "Language",
-
-        theme:
-            "Theme",
-
-        notifications:
-            "Notifications",
-
-        enableNotifications:
-            "Enable Notifications",
-
-        appData:
-            "App Data",
-
-        resetAppData:
-            "Reset App Data",
-
-        owner:
-            "Owner"
+        settings: "Settings"
 
     },
 
@@ -2152,106 +2571,7 @@ const translations = {
         homework: "होमवर्क",
         school: "स्कूल",
         notes: "नोट्स",
-        settings: "सेटिंग्स",
-
-        welcome: "StudyConnect में आपका स्वागत है",
-        welcomeText:
-            "अपने स्कूल के दोस्तों से जुड़ें।",
-
-        yourName: "आपका नाम",
-        saveName: "नाम सेव करें",
-
-        onlineNow: "अभी ऑनलाइन",
-
-        chatDescription:
-            "अपने दोस्तों से चैट करें।",
-
-        groupsDescription:
-            "ग्रुप बनाएं और जुड़ें।",
-
-        schoolUpdate:
-            "स्कूल अपडेट",
-
-        chatTitle:
-            "चैट",
-
-        groupsTitle:
-            "ग्रुप",
-
-        createGroup:
-            "ग्रुप बनाएं",
-
-        createGroupButton:
-            "ग्रुप बनाएं",
-
-        addMember:
-            "सदस्य जोड़ें",
-
-        addMemberButton:
-            "सदस्य जोड़ें",
-
-        send:
-            "भेजें",
-
-        homeworkTitle:
-            "होमवर्क",
-
-        date:
-            "तारीख",
-
-        saveHomework:
-            "होमवर्क सेव करें",
-
-        schoolUpdateTitle:
-            "स्कूल अपडेट",
-
-        schoolDescription:
-            "स्कूल की जरूरी जानकारी।",
-
-        saveUpdate:
-            "अपडेट सेव करें",
-
-        notesTitle:
-            "नोट्स",
-
-        notesDescription:
-            "अपने नोट्स यहां सेव करें।",
-
-        saveNote:
-            "नोट सेव करें",
-
-        settingsTitle:
-            "सेटिंग्स",
-
-        settingsDescription:
-            "StudyConnect की सेटिंग्स बदलें।",
-
-        changeName:
-            "नाम बदलें",
-
-        changeNameButton:
-            "नाम बदलें",
-
-        language:
-            "भाषा",
-
-        theme:
-            "थीम",
-
-        notifications:
-            "नोटिफिकेशन",
-
-        enableNotifications:
-            "नोटिफिकेशन चालू करें",
-
-        appData:
-            "ऐप डेटा",
-
-        resetAppData:
-            "ऐप डेटा रीसेट करें",
-
-        owner:
-            "Owner"
+        settings: "सेटिंग्स"
 
     }
 
@@ -2260,357 +2580,380 @@ const translations = {
 
 function applyLanguage(language) {
 
-    const selected =
+    const data =
         translations[language] ||
         translations.en;
 
+
     document
-        .querySelectorAll("[data-i18n]")
-        .forEach(function (element) {
+        .querySelectorAll(
+            "[data-i18n]"
+        )
+        .forEach(element => {
 
             const key =
-                element.getAttribute("data-i18n");
+                element.dataset.i18n;
 
-            if (selected[key]) {
+
+            if (data[key]) {
+
                 element.textContent =
-                    selected[key];
+                    data[key];
+
             }
 
         });
+
+
+    document.documentElement.lang =
+        language === "hi"
+            ? "hi"
+            : "en";
+
 
     localStorage.setItem(
         "studyLanguage",
         language
     );
 
+
+    message(
+        "languageMessage",
+        language === "hi"
+            ? "भाषा हिन्दी कर दी गई है।"
+            : "Language changed to English.",
+        "success"
+    );
+
 }
 
 
-document.addEventListener("DOMContentLoaded", function () {
+function applySavedLanguage() {
 
-    const hindiBtn =
-        $("hindiLanguageBtn");
-
-    const englishBtn =
-        $("englishLanguageBtn");
-
-    if (hindiBtn) {
-
-        hindiBtn.type = "button";
-
-        hindiBtn.addEventListener(
-            "click",
-            function () {
-
-                applyLanguage("hi");
-
-                setText(
-                    "languageMessage",
-                    "भाषा हिंदी कर दी गई है।"
-                );
-
-            }
-        );
-
-    }
-
-    if (englishBtn) {
-
-        englishBtn.type = "button";
-
-        englishBtn.addEventListener(
-            "click",
-            function () {
-
-                applyLanguage("en");
-
-                setText(
-                    "languageMessage",
-                    "Language changed to English."
-                );
-
-            }
-        );
-
-    }
-
-    const savedLanguage =
+    const language =
         localStorage.getItem(
             "studyLanguage"
         ) || "en";
 
-    applyLanguage(savedLanguage);
 
-});
+    applyLanguage(language);
+
+}
 
 
-// =====================================================
-// 32. DARK MODE
-// =====================================================
+function setupLanguage() {
 
-document.addEventListener("DOMContentLoaded", function () {
-
-    const themeBtn =
-        $("themeBtn");
-
-    if (!themeBtn) {
-        return;
-    }
-
-    themeBtn.type = "button";
-
-    themeBtn.addEventListener(
+    $("hindiLanguageBtn")?.addEventListener(
         "click",
-        function () {
+        () => {
 
-            document.body.classList.toggle(
-                "dark-mode"
-            );
-
-            const dark =
-                document.body.classList.contains(
-                    "dark-mode"
-                );
-
-            localStorage.setItem(
-                "studyDarkMode",
-                dark ? "true" : "false"
-            );
+            applyLanguage("hi");
 
         }
     );
 
-});
+
+    $("englishLanguageBtn")?.addEventListener(
+        "click",
+        () => {
+
+            applyLanguage("en");
+
+        }
+    );
+
+}
 
 
-// =====================================================
-// 33. NOTIFICATIONS
-// =====================================================
+/* =====================================================
+   THEME
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+function applySavedTheme() {
 
-    const notificationBtn =
-        $("notificationBtn");
+    const dark =
+        localStorage.getItem(
+            "studyDarkMode"
+        ) === "true";
 
-    if (!notificationBtn) {
-        return;
+
+    document.body.classList.toggle(
+        "dark",
+        dark
+    );
+
+
+    if ($("themeBtn")) {
+
+        $("themeBtn").textContent =
+            dark
+                ? "Light Mode"
+                : "Dark Mode";
+
     }
 
-    notificationBtn.type = "button";
+}
 
-    notificationBtn.addEventListener(
+
+function setupTheme() {
+
+    $("themeBtn")?.addEventListener(
         "click",
-        async function () {
+        () => {
 
-            if (!("Notification" in window)) {
+            const dark =
+                !document.body.classList.contains(
+                    "dark"
+                );
 
-                setText(
+
+            document.body.classList.toggle(
+                "dark",
+                dark
+            );
+
+
+            localStorage.setItem(
+                "studyDarkMode",
+                String(dark)
+            );
+
+
+            $("themeBtn").textContent =
+                dark
+                    ? "Light Mode"
+                    : "Dark Mode";
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   NOTIFICATIONS
+===================================================== */
+
+function setupNotifications() {
+
+    $("notificationBtn")?.addEventListener(
+        "click",
+        async () => {
+
+            if (
+                !("Notification" in window)
+            ) {
+
+                message(
                     "notificationMessage",
-                    "इस browser में notifications available नहीं हैं।"
+                    "Notifications are not supported.",
+                    "error"
                 );
 
                 return;
             }
+
 
             try {
 
                 const permission =
                     await Notification.requestPermission();
 
-                if (permission === "granted") {
+
+                if (
+                    permission === "granted"
+                ) {
 
                     new Notification(
                         "StudyConnect",
                         {
                             body:
-                                "Notifications चालू हो गए हैं!"
+                                "Notifications are enabled."
                         }
                     );
 
-                    setText(
+
+                    message(
                         "notificationMessage",
-                        "Notifications enabled."
+                        "Notifications enabled.",
+                        "success"
                     );
 
-                } else {
+                }
+                else {
 
-                    setText(
+                    message(
                         "notificationMessage",
-                        "Notification permission नहीं मिली।"
+                        "Notification permission was not granted.",
+                        "error"
                     );
 
                 }
 
-            } catch (error) {
+            }
+            catch (error) {
 
-                console.error(error);
+                console.error(
+                    "Notification:",
+                    error
+                );
+
+
+                message(
+                    "notificationMessage",
+                    "Could not enable notifications.",
+                    "error"
+                );
 
             }
 
         }
     );
 
-});
-
-
-// =====================================================
-// 34. OWNER PANEL
-// =====================================================
-
-document.addEventListener("DOMContentLoaded", function () {
-
-    const ownerLoginBtn =
-        $("ownerLoginBtn");
-
-    if (!ownerLoginBtn) {
-        return;
-    }
-
-    ownerLoginBtn.type = "button";
-
-    ownerLoginBtn.addEventListener(
-        "click",
-        ownerLogin
-    );
-
-});
-
-function ownerLogin() {
-
-    const input =
-        $("ownerPasswordInput");
-
-    const password =
-        input
-            ? input.value.trim()
-            : "";
-
-    if (password !== OWNER_PASSWORD) {
-
-        setText(
-            "ownerPasswordMessage",
-            "गलत Owner password!"
-        );
-
-        return;
-    }
-
-    if (!currentUser || !currentUser.isOwner) {
-
-        setText(
-            "ownerPasswordMessage",
-            "सिर्फ Owner इस section को खोल सकता है।"
-        );
-
-        return;
-    }
-
-    show($("ownerPanel"));
-
-    setText(
-        "ownerPasswordMessage",
-        "Owner Panel खुल गया।"
-    );
-
-    loadAllowedUsers();
-
 }
 
 
-// =====================================================
-// 35. ALLOW USER
-// =====================================================
+/* =====================================================
+   OWNER PANEL
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+function setupOwnerPanel() {
 
-    const allowUserBtn =
-        $("allowUserBtn");
+    $("ownerLoginBtn")?.addEventListener(
+        "click",
+        async () => {
 
-    if (!allowUserBtn) {
-        return;
-    }
+            const password =
+                $("ownerPasswordInput")
+                    ?.value.trim() || "";
 
-    allowUserBtn.type = "button";
 
-    allowUserBtn.addEventListener(
+            if (
+                password !==
+                OWNER_PASSWORD
+            ) {
+
+                message(
+                    "ownerPasswordMessage",
+                    "Wrong owner password.",
+                    "error"
+                );
+
+
+                hide($("ownerPanel"));
+
+                return;
+
+            }
+
+
+            show($("ownerPanel"));
+
+
+            message(
+                "ownerPasswordMessage",
+                "Owner login successful.",
+                "success"
+            );
+
+
+            await loadAllowedUsers();
+
+        }
+    );
+
+
+    $("allowUserBtn")?.addEventListener(
         "click",
         allowUser
     );
 
-});
+}
+
+
+/* =====================================================
+   ALLOW USER
+===================================================== */
 
 async function allowUser() {
 
-    if (!currentUser || !currentUser.isOwner) {
-        return;
-    }
-
     const name =
         $("allowedUserNameInput")
-            ? $("allowedUserNameInput").value.trim()
-            : "";
+            ?.value.trim() || "";
+
 
     const phone =
         $("allowedUserPhoneInput")
-            ? $("allowedUserPhoneInput").value.trim()
-            : "";
+            ?.value.trim() || "";
 
-    if (!name || !phone) {
-        return;
-    }
 
-    if (!/^[0-9]{10}$/.test(phone)) {
+    if (!name) {
 
-        setText(
-            "settingsMessage",
-            "सही 10 अंकों का mobile number डालें।"
+        alert(
+            "Enter user name."
         );
 
         return;
     }
 
-    const firebase =
-        await loadFirebase();
 
-    if (!firebase) {
+    if (!/^\d{10}$/.test(phone)) {
+
+        alert(
+            "Enter valid 10 digit mobile."
+        );
+
         return;
     }
 
-    const {
-        collection,
-        addDoc,
-        serverTimestamp
-    } = firebase.firestore;
 
     try {
 
-        await addDoc(
-            collection(db, "allowedUsers"),
+        const firestore =
+            await loadFirebase();
+
+
+        await setDoc(
+            doc(
+                firestore,
+                "allowedUsers",
+                phone
+            ),
             {
+
                 name: name,
+
                 phone: phone,
-                addedBy: OWNER_NAME,
-                createdAt: serverTimestamp()
+
+                addedAt:
+                    serverTimestamp()
+
+            },
+            {
+                merge: true
             }
         );
+
 
         $("allowedUserNameInput").value = "";
         $("allowedUserPhoneInput").value = "";
 
-        setText(
-            "settingsMessage",
-            "User allowed successfully!"
+
+        alert(
+            "User allowed successfully."
         );
 
-        loadAllowedUsers();
+    }
+    catch (error) {
 
-    } catch (error) {
+        console.error(
+            "Allow user:",
+            error
+        );
 
-        console.error(error);
 
-        setText(
-            "settingsMessage",
-            "User add नहीं हो सका।"
+        alert(
+            "Could not allow user."
         );
 
     }
@@ -2618,95 +2961,116 @@ async function allowUser() {
 }
 
 
-// =====================================================
-// 36. SHOW ALLOWED USERS
-// =====================================================
+/* =====================================================
+   ALLOWED USERS
+===================================================== */
 
 async function loadAllowedUsers() {
 
-    const list =
-        $("allowedUsersList");
+    if (allowedUsersUnsubscribe) {
 
-    if (!list) {
-        return;
+        allowedUsersUnsubscribe();
+
+        allowedUsersUnsubscribe = null;
+
     }
 
-    const firebase =
+
+    const firestore =
         await loadFirebase();
 
-    if (!firebase) {
-        return;
-    }
 
-    const {
-        collection,
-        onSnapshot
-    } = firebase.firestore;
+    allowedUsersUnsubscribe =
+        onSnapshot(
+            collection(
+                firestore,
+                "allowedUsers"
+            ),
 
-    onSnapshot(
-        collection(db, "allowedUsers"),
-        function (snapshot) {
+            snapshot => {
 
-            list.innerHTML = "";
+                const container =
+                    $("allowedUsersList");
 
-            snapshot.forEach(function (docSnap) {
+                if (!container) return;
 
-                const data =
-                    docSnap.data();
 
-                const div =
-                    document.createElement("div");
+                container.innerHTML = "";
 
-                div.textContent =
-                    "👤 " +
-                    (data.name || "") +
-                    " - " +
-                    (data.phone || "");
 
-                list.appendChild(div);
+                const heading =
+                    document.createElement("h4");
 
-            });
+                heading.textContent =
+                    "Allowed Users";
 
-        }
-    );
+                container.appendChild(
+                    heading
+                );
+
+
+                snapshot.forEach(item => {
+
+                    const data =
+                        item.data();
+
+
+                    const div =
+                        document.createElement("div");
+
+                    div.className =
+                        "list-item";
+
+
+                    div.textContent =
+                        `${data.name || ""} • ${data.phone || item.id}`;
+
+
+                    container.appendChild(div);
+
+                });
+
+            },
+
+            error => {
+
+                console.error(
+                    "Allowed users:",
+                    error
+                );
+
+            }
+
+        );
 
 }
 
 
-// =====================================================
-// 37. RESET APP DATA
-// =====================================================
+/* =====================================================
+   RESET APP DATA
+===================================================== */
 
-document.addEventListener("DOMContentLoaded", function () {
+function setupClearData() {
 
-    const clearBtn =
-        $("clearDataBtn");
-
-    if (!clearBtn) {
-        return;
-    }
-
-    clearBtn.type = "button";
-
-    clearBtn.addEventListener(
+    $("clearDataBtn")?.addEventListener(
         "click",
-        function () {
+        () => {
 
             const confirmReset =
-                confirm(
-                    "क्या आप अपना local app data हटाना चाहते हैं?"
+                window.confirm(
+                    "Are you sure you want to reset local app data?"
                 );
 
-            if (!confirmReset) {
-                return;
-            }
+
+            if (!confirmReset) return;
+
 
             localStorage.removeItem(
                 "studyHomework"
             );
 
             localStorage.removeItem(
-                "studySchoolUpdates"
+                "studySchool"
             );
 
             localStorage.removeItem(
@@ -2714,132 +3078,176 @@ document.addEventListener("DOMContentLoaded", function () {
             );
 
             localStorage.removeItem(
-                "studyCurrentUser"
+                "studyDarkMode"
             );
 
             localStorage.removeItem(
                 "studyLanguage"
             );
 
-            setText(
-                "settingsMessage",
-                "App data reset हो गया।"
+            localStorage.removeItem(
+                "studyCurrentUser"
             );
+
+
+            location.reload();
 
         }
     );
 
-});
+}
 
 
-// =====================================================
-// 38. LOAD SAVED SETTINGS
-// =====================================================
+/* =====================================================
+   ESCAPE HTML
+===================================================== */
 
-function loadSavedSettings() {
+function escapeHtml(value) {
 
-    const dark =
+    return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+
+}
+
+
+/* =====================================================
+   LOAD SAVED USER
+===================================================== */
+
+async function loadSavedUser() {
+
+    const saved =
         localStorage.getItem(
-            "studyDarkMode"
+            "studyCurrentUser"
         );
 
-    if (dark === "true") {
 
-        document.body.classList.add(
-            "dark-mode"
-        );
-
+    if (!saved) {
+        return false;
     }
 
-    if (currentUser) {
-
-        const photo =
-            currentUser.profilePhoto;
-
-        const preview =
-            $("profilePhotoPreview");
-
-        if (photo && preview) {
-
-            preview.src = photo;
-
-            preview.style.display =
-                "block";
-
-        }
-
-    }
-
-}
-
-
-// =====================================================
-// 39. SERVICE WORKER / PWA
-// =====================================================
-
-function registerServiceWorker() {
-
-    if (
-        "serviceWorker" in navigator
-    ) {
-
-        navigator.serviceWorker
-            .register("service-worker.js")
-            .then(function () {
-
-                console.log(
-                    "Service Worker registered."
-                );
-
-            })
-            .catch(function (error) {
-
-                console.error(
-                    "Service Worker error:",
-                    error
-                );
-
-            });
-
-    }
-
-}
-
-
-// =====================================================
-// 40. RESTORE USER
-// =====================================================
-
-function restoreUser() {
 
     try {
-
-        const saved =
-            localStorage.getItem(
-                "studyCurrentUser"
-            );
-
-        if (!saved) {
-            return;
-        }
 
         const user =
             JSON.parse(saved);
 
+
         if (
-            user &&
-            user.name &&
-            user.phone
+            !user ||
+            !user.name ||
+            !user.phone
         ) {
 
-            currentUser = user;
+            localStorage.removeItem(
+                "studyCurrentUser"
+            );
+
+            return false;
 
         }
 
-    } catch (error) {
+
+        const firestore =
+            await loadFirebase();
+
+
+        const userRef =
+            doc(
+                firestore,
+                "allowedUsers",
+                user.phone
+            );
+
+
+        const snap =
+            await getDoc(userRef);
+
+
+        const isOwner =
+            user.name.toLowerCase() ===
+                OWNER_NAME.toLowerCase() &&
+            user.phone === OWNER_PHONE;
+
+
+        if (
+            !snap.exists() &&
+            !isOwner
+        ) {
+
+            localStorage.removeItem(
+                "studyCurrentUser"
+            );
+
+            return false;
+
+        }
+
+
+        currentUser = {
+
+            ...user,
+
+            isOwner: isOwner
+
+        };
+
+
+        return true;
+
+    }
+    catch (error) {
 
         console.error(
-            "Restore user error:",
+            "Saved user:",
+            error
+        );
+
+
+        localStorage.removeItem(
+            "studyCurrentUser"
+        );
+
+
+        return false;
+
+    }
+
+}
+
+
+/* =====================================================
+   SERVICE WORKER / PWA
+===================================================== */
+
+async function registerServiceWorker() {
+
+    if (
+        !("serviceWorker" in navigator)
+    ) {
+        return;
+    }
+
+
+    try {
+
+        await navigator.serviceWorker.register(
+            "service-worker.js"
+        );
+
+        console.log(
+            "Service Worker registered."
+        );
+
+    }
+    catch (error) {
+
+        console.error(
+            "Service Worker:",
             error
         );
 
@@ -2848,50 +3256,90 @@ function restoreUser() {
 }
 
 
-// =====================================================
-// 41. INITIAL START
-// =====================================================
+/* =====================================================
+   INITIALIZATION
+===================================================== */
 
-document.addEventListener(
-    "DOMContentLoaded",
-    function () {
+async function initializeAppUI() {
 
-        restoreUser();
+    if (appInitialized) return;
 
-        registerServiceWorker();
+    appInitialized = true;
 
-        // Load groups after Firebase
-        loadFirebase().then(
-            function () {
 
-                renderGroups();
+    setupPasswordLogin();
 
-            }
+    setupNextButton();
+
+    setupProfilePhoto();
+
+    setupOwnerContact();
+
+    setupNavigation();
+
+    setupHomeName();
+
+    setupOnlineToggle();
+
+    setupChatButtons();
+
+    setupGroupButtons();
+
+    setupHomework();
+
+    setupSchool();
+
+    setupNotes();
+
+    setupChangeName();
+
+    setupLanguage();
+
+    setupTheme();
+
+    setupNotifications();
+
+    setupOwnerPanel();
+
+    setupClearData();
+
+
+    const loggedIn =
+        await loadSavedUser();
+
+
+    if (loggedIn) {
+
+        await finishLogin();
+
+    }
+
+
+    registerServiceWorker();
+
+}
+
+
+/* =====================================================
+   ENTER APP BUTTON
+===================================================== */
+
+$("enterAppBtn")?.addEventListener(
+    "click",
+    loginUser
+);
+
+
+/* =====================================================
+   START APP
+===================================================== */
+
+initializeAppUI()
+    .catch(error => {
+
+        console.error(
+            "StudyConnect startup error:",
+            error
         );
 
-    }
-);
-
-
-// =====================================================
-// 42. PAGE EXIT
-// =====================================================
-
-window.addEventListener(
-    "beforeunload",
-    function () {
-
-        if (unsubscribeChat) {
-            unsubscribeChat();
-        }
-
-        if (unsubscribeOnline) {
-            unsubscribeOnline();
-        }
-
-        if (unsubscribeGroupMessages) {
-            unsubscribeGroupMessages();
-        }
-
-    }
-);
+    });
