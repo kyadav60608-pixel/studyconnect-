@@ -1,9 +1,8 @@
-// ============================================================
+// ======================================================
 // STUDYCONNECT - COMPLETE JAVASCRIPT
-// ============================================================
-// Login + Firebase + Realtime Chat + Groups + Online Users
-// Homework + School + Notes + Settings
-// ============================================================
+// LOGIN + PERMISSION + CHAT + BLUE TICK + ONLINE USERS
+// GROUPS + HOMEWORK + SCHOOL + NOTES + SETTINGS
+// ======================================================
 
 import { initializeApp } from
     "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
@@ -20,19 +19,19 @@ import {
     doc,
     query,
     orderBy,
+    where,
     onSnapshot,
-    serverTimestamp,
-    arrayUnion
+    serverTimestamp
 } from
     "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
-// ============================================================
+// ======================================================
 // FIREBASE
-// ============================================================
+// ======================================================
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3AUCdPWypag",
+    apiKey: "AIzaSyCquRX2YB59FObuIyi3Wc3AUCdPWypag",
     authDomain: "studyconnect-99006.firebaseapp.com",
     projectId: "studyconnect-99006",
     storageBucket: "studyconnect-99006.firebasestorage.app",
@@ -47,149 +46,107 @@ const db = getFirestore(app);
 console.log("StudyConnect Firebase connected.");
 
 
-// ============================================================
-// SETTINGS
-// ============================================================
-
-const APP_PASSWORD = "123";
+// ======================================================
+// MAIN SETTINGS
+// ======================================================
 
 const OWNER_NAME = "Krishna Yadav";
-const OWNER_SHORT_NAME = "Krishna";
-
-const OWNER_SETTINGS_PASSWORD = "12341";
-
 const OWNER_PHONE = "8738084554";
 
+// App खोलने का password
+const APP_PASSWORD = "1234";
 
-// ============================================================
-// GLOBAL VARIABLES
-// ============================================================
+// Settings में Allow User बदलने का password
+const ALLOW_PASSWORD = "1234";
 
-let currentUserName = "";
+// शुरुआत में allowed phone
+const DEFAULT_ALLOWED_PHONE = "8738084554";
 
-let currentGroupId = null;
-let currentGroupData = null;
-
-let chatUnsubscribe = null;
-let groupUnsubscribe = null;
-let groupsUnsubscribe = null;
+let currentChatUnsubscribe = null;
+let currentGroupUnsubscribe = null;
 let onlineUnsubscribe = null;
-
 let onlineHeartbeat = null;
 
-let loginStep = 1;
+let currentGroupId = null;
 
 
-// ============================================================
+// ======================================================
 // HELPER FUNCTIONS
-// ============================================================
-
-function escapeHTML(value) {
-
-    const div = document.createElement("div");
-
-    div.textContent = value ?? "";
-
-    return div.innerHTML;
-}
-
+// ======================================================
 
 function getUserName() {
-
     return localStorage.getItem("studyName") || "";
 }
 
-
-function setUserName(name) {
-
-    currentUserName = name;
-
-    localStorage.setItem("studyName", name);
+function getUserPhone() {
+    return localStorage.getItem("studyPhone") || "";
 }
 
-
-function getCurrentUser() {
-
-    return currentUserName || getUserName();
+function escapeHTML(text) {
+    const div = document.createElement("div");
+    div.textContent = text ?? "";
+    return div.innerHTML;
 }
-
-
-function getNow() {
-
-    return Date.now();
-}
-
 
 function formatDateTime(value) {
 
-    if (!value) {
-        return "";
-    }
+    if (!value) return "";
 
     let date;
 
     if (typeof value === "number") {
-
         date = new Date(value);
-
     } else if (value && typeof value.toDate === "function") {
-
         date = value.toDate();
-
     } else {
-
         date = new Date(value);
     }
 
     if (Number.isNaN(date.getTime())) {
-
         return "";
     }
 
     return date.toLocaleString("en-IN", {
-
         day: "2-digit",
-
         month: "short",
-
         year: "numeric",
-
         hour: "2-digit",
-
         minute: "2-digit"
     });
 }
 
+function getSafeId(value) {
 
-// ============================================================
-// PAGE NAVIGATION
-// ============================================================
+    return btoa(
+        unescape(
+            encodeURIComponent(value)
+        )
+    ).replace(/[^a-zA-Z0-9]/g, "");
+}
+
+
+// ======================================================
+// NAVIGATION
+// ======================================================
 
 function showPage(pageId) {
 
     document.querySelectorAll(".page").forEach(page => {
-
         page.classList.remove("active");
-
     });
 
     const page = document.getElementById(pageId);
 
     if (page) {
-
         page.classList.add("active");
     }
 
     const navMenu = document.getElementById("navMenu");
 
     if (navMenu) {
-
         navMenu.classList.remove("show");
     }
 }
-
-
-// Navigation buttons
 
 document.querySelectorAll("[data-page]").forEach(button => {
 
@@ -198,14 +155,10 @@ document.querySelectorAll("[data-page]").forEach(button => {
         const page = button.getAttribute("data-page");
 
         if (page) {
-
             showPage(page);
         }
     });
 });
-
-
-// Home cards
 
 document.querySelectorAll(".open-page").forEach(card => {
 
@@ -214,406 +167,415 @@ document.querySelectorAll(".open-page").forEach(card => {
         const page = card.getAttribute("data-page");
 
         if (page) {
-
             showPage(page);
         }
     });
 });
 
-
-// Menu
-
 const menuBtn = document.getElementById("menuBtn");
-
 const navMenu = document.getElementById("navMenu");
 
 if (menuBtn && navMenu) {
 
     menuBtn.addEventListener("click", () => {
-
         navMenu.classList.toggle("show");
-
     });
 }
 
 
-// ============================================================
-// LOGIN
-// ============================================================
+// ======================================================
+// LOGIN SCREEN
 // IMPORTANT:
-// Existing HTML IDs are used.
+// EXISTING HTML IDs ARE USED
 // passwordScreen
 // openUserName
 // appPassword
 // unlockBtn
 // passwordError
-// ============================================================
+// ======================================================
 
 function setupLogin() {
 
     const screen = document.getElementById("passwordScreen");
-
     const nameInput = document.getElementById("openUserName");
-
     const passwordInput = document.getElementById("appPassword");
-
     const unlockBtn = document.getElementById("unlockBtn");
+    const error = document.getElementById("passwordError");
 
-    const errorBox = document.getElementById("passwordError");
-
-
-    if (
-        !screen ||
-        !nameInput ||
-        !passwordInput ||
-        !unlockBtn
-    ) {
-
-        console.error(
-            "StudyConnect login elements नहीं मिले।"
-        );
-
+    if (!screen || !nameInput || !passwordInput || !unlockBtn) {
+        console.error("Login elements नहीं मिले।");
         return;
     }
 
+    // --------------------------------------------------
+    // Phone input dynamically add होगा
+    // index.html बदलने की जरूरत नहीं
+    // --------------------------------------------------
 
-    const savedName = getUserName();
+    let phoneInput = document.getElementById("openUserPhone");
 
+    if (!phoneInput) {
 
-    // --------------------------------------------------------
-    // FIRST OPEN
-    // --------------------------------------------------------
+        phoneInput = document.createElement("input");
 
-    if (!savedName) {
+        phoneInput.type = "tel";
+        phoneInput.id = "openUserPhone";
+        phoneInput.placeholder = "मोबाइल नंबर लिखें";
+        phoneInput.maxLength = 10;
+        phoneInput.inputMode = "numeric";
 
-        nameInput.style.display = "block";
-
-        passwordInput.style.display = "none";
-
-        unlockBtn.textContent = "Next →";
-
-        if (errorBox) {
-
-            errorBox.textContent = "";
-        }
-
-        loginStep = 1;
-
-    } else {
-
-        // ----------------------------------------------------
-        // RETURNING USER
-        // ----------------------------------------------------
-
-        nameInput.value = savedName;
-
-        nameInput.style.display = "none";
-
-        passwordInput.style.display = "block";
-
-        unlockBtn.textContent = "Next →";
-
-        loginStep = 2;
-
+        passwordInput.parentNode.insertBefore(
+            phoneInput,
+            passwordInput
+        );
     }
 
+    // --------------------------------------------------
+    // पहले से saved user
+    // --------------------------------------------------
 
-    unlockBtn.addEventListener("click", async () => {
+    const savedName = getUserName();
+    const savedPhone = getUserPhone();
 
-        // ====================================================
+    if (savedName) {
+        nameInput.value = savedName;
+    }
+
+    if (savedPhone) {
+        phoneInput.value = savedPhone;
+    }
+
+    // --------------------------------------------------
+    // Password field initially hidden
+    // --------------------------------------------------
+
+    passwordInput.style.display = "none";
+    phoneInput.style.display = "block";
+
+    let step = 1;
+
+    unlockBtn.textContent = "Next →";
+
+    // --------------------------------------------------
+    // LOGIN BUTTON
+    // --------------------------------------------------
+
+    unlockBtn.onclick = async function () {
+
+        // ==============================================
         // STEP 1 - NAME
-        // ====================================================
+        // ==============================================
 
-        if (loginStep === 1) {
+        if (step === 1) {
 
             const name = nameInput.value.trim();
-
+            const phone = phoneInput.value.trim();
 
             if (!name) {
 
-                if (errorBox) {
-
-                    errorBox.textContent =
+                if (error) {
+                    error.textContent =
                         "पहले अपना नाम लिखें।";
                 }
+
+                nameInput.focus();
+                return;
+            }
+
+            if (!/^\d{10}$/.test(phone)) {
+
+                if (error) {
+                    error.textContent =
+                        "सही 10 अंकों का मोबाइल नंबर डालें।";
+                }
+
+                phoneInput.focus();
+                return;
+            }
+
+            localStorage.setItem("studyName", name);
+            localStorage.setItem("studyPhone", phone);
+
+            // Owner हमेशा allowed
+            if (phone === OWNER_PHONE) {
+
+                localStorage.setItem(
+                    "studyPermission",
+                    "allowed"
+                );
+
+                showPasswordStep();
+
+                step = 2;
 
                 return;
             }
 
+            // Firebase से permission check
+            try {
 
-            setUserName(name);
+                const permissionRef =
+                    doc(db, "allowedUsers", phone);
 
+                const permissionSnap =
+                    await getDoc(permissionRef);
 
-            nameInput.style.display = "none";
+                if (
+                    !permissionSnap.exists() ||
+                    permissionSnap.data().allowed !== true
+                ) {
 
-            passwordInput.style.display = "block";
+                    if (error) {
 
-            passwordInput.value = "";
+                        error.innerHTML =
+                            "❌ इस मोबाइल नंबर को अभी अनुमति नहीं है।<br>" +
+                            "Settings में Owner द्वारा Allow करना जरूरी है।";
+                    }
 
-            passwordInput.focus();
+                    return;
+                }
 
-            unlockBtn.textContent = "Next →";
+                localStorage.setItem(
+                    "studyPermission",
+                    "allowed"
+                );
 
-            if (errorBox) {
+                showPasswordStep();
 
-                errorBox.textContent = "";
+                step = 2;
+
+            } catch (firebaseError) {
+
+                console.error(
+                    "Permission check error:",
+                    firebaseError
+                );
+
+                if (error) {
+                    error.textContent =
+                        "Permission check में समस्या आई।";
+                }
             }
-
-            loginStep = 2;
 
             return;
         }
 
 
-        // ====================================================
+        // ==============================================
         // STEP 2 - PASSWORD
-        // ====================================================
+        // ==============================================
 
-        if (loginStep === 2) {
+        if (step === 2) {
 
-            const password = passwordInput.value;
-
+            const password =
+                passwordInput.value.trim();
 
             if (password !== APP_PASSWORD) {
 
-                if (errorBox) {
-
-                    errorBox.textContent =
-                        "गलत password ❌";
+                if (error) {
+                    error.textContent =
+                        "❌ गलत password।";
                 }
 
                 passwordInput.value = "";
-
                 passwordInput.focus();
 
                 return;
             }
 
+            // Password सही
+            showOwnerStep();
 
-            passwordInput.style.display = "none";
-
-
-            if (errorBox) {
-
-                errorBox.textContent = "";
-            }
-
-
-            unlockBtn.textContent = "Next →";
-
-
-            // Owner screen
-
-            const parent = unlockBtn.parentElement;
-
-            if (parent) {
-
-                const oldOwnerText =
-                    parent.querySelector(".study-owner-login");
-
-                if (oldOwnerText) {
-
-                    oldOwnerText.remove();
-                }
-
-
-                const ownerText =
-                    document.createElement("div");
-
-                ownerText.className =
-                    "study-owner-login";
-
-                ownerText.style.margin = "12px 0";
-
-                ownerText.innerHTML =
-                    `
-                    <h3>👑 App Owner</h3>
-                    <p>
-                        Owner:
-                        <strong>
-                            ${escapeHTML(OWNER_NAME)}
-                        </strong>
-                    </p>
-                    <p>
-                        StudyConnect खोलने के लिए
-                        Next दबाएँ।
-                    </p>
-                    `;
-
-                parent.insertBefore(
-                    ownerText,
-                    unlockBtn
-                );
-            }
-
-
-            loginStep = 3;
+            step = 3;
 
             return;
         }
 
 
-        // ====================================================
-        // STEP 3 - OWNER NAME / NEXT
-        // ====================================================
+        // ==============================================
+        // STEP 3 - OWNER
+        // ==============================================
 
-        if (loginStep === 3) {
+        if (step === 3) {
 
-            if (errorBox) {
+            const name = getUserName();
 
-                errorBox.textContent = "";
+            if (error) {
+                error.textContent = "";
             }
 
+            const title =
+                screen.querySelector("h2");
+
+            const text =
+                screen.querySelector("p");
+
+            if (title) {
+                title.textContent =
+                    "💬 StudyConnect";
+            }
+
+            if (text) {
+
+                text.innerHTML =
+                    `Welcome, <strong>${escapeHTML(name)}</strong>! 👋<br>` +
+                    `<small>Owner: ${escapeHTML(OWNER_NAME)}</small>`;
+            }
 
             unlockBtn.textContent =
                 "Open StudyConnect";
 
-            loginStep = 4;
+            step = 4;
 
             return;
         }
 
 
-        // ====================================================
-        // STEP 4 - OPEN STUDYCONNECT
-        // ====================================================
+        // ==============================================
+        // STEP 4 - OPEN APP
+        // ==============================================
 
-        if (loginStep === 4) {
+        if (step === 4) {
 
             screen.style.display = "none";
 
-
-            currentUserName = getUserName();
-
-
-            const studentName =
-                document.getElementById("studentName");
-
-            if (studentName) {
-
-                studentName.value =
-                    currentUserName;
-            }
-
-
-            // Home खोलो
-
             showPage("home");
 
+            startOnlineStatus();
 
-            // Realtime systems शुरू करो
+            startOnlineUsersListener();
 
-            startRealtimeSystems();
+            startChatListener();
 
+            loadHomework();
 
-            console.log(
-                "StudyConnect successfully opened."
-            );
+            loadSchool();
+
+            loadNotes();
+
+            loadGroups();
         }
+    };
 
-    });
 
-
-    // Enter key
+    // --------------------------------------------------
+    // ENTER KEY
+    // --------------------------------------------------
 
     nameInput.addEventListener("keydown", event => {
 
         if (event.key === "Enter") {
-
-            event.preventDefault();
-
             unlockBtn.click();
         }
     });
 
+    phoneInput.addEventListener("keydown", event => {
+
+        if (event.key === "Enter") {
+            unlockBtn.click();
+        }
+    });
 
     passwordInput.addEventListener("keydown", event => {
 
         if (event.key === "Enter") {
-
-            event.preventDefault();
-
             unlockBtn.click();
         }
     });
-}
 
 
-// ============================================================
-// REALTIME SYSTEMS
-// ============================================================
+    function showPasswordStep() {
 
-function startRealtimeSystems() {
+        nameInput.style.display = "none";
 
-    const name = getCurrentUser();
+        phoneInput.style.display = "none";
 
-    if (!name) {
+        passwordInput.style.display = "block";
 
-        return;
+        passwordInput.value = "";
+
+        passwordInput.focus();
+
+        const title =
+            screen.querySelector("h2");
+
+        const text =
+            screen.querySelector("p");
+
+        if (title) {
+            title.textContent = "🔐 Password";
+        }
+
+        if (text) {
+            text.textContent =
+                "StudyConnect password डालें।";
+        }
+
+        unlockBtn.textContent =
+            "Next →";
+
+        if (error) {
+            error.textContent = "";
+        }
     }
 
 
-    currentUserName = name;
+    function showOwnerStep() {
 
+        passwordInput.style.display = "none";
 
-    startOnlineSystem();
+        const title =
+            screen.querySelector("h2");
 
-    startRealtimeChat();
+        const text =
+            screen.querySelector("p");
 
-    startRealtimeGroups();
+        if (title) {
+            title.textContent =
+                "👑 App Owner";
+        }
 
-    startRealtimeHomework();
+        if (text) {
 
-    startRealtimeSchool();
+            text.innerHTML =
+                `Owner: <strong>${escapeHTML(OWNER_NAME)}</strong><br>` +
+                `<small>StudyConnect</small>`;
+        }
 
-    startRealtimeNotes();
+        unlockBtn.textContent =
+            "Next →";
+    }
 }
 
 
-// ============================================================
-// ONLINE USERS
-// ============================================================
+// ======================================================
+// ONLINE STATUS
+// ======================================================
 
-function makeSafeId(name) {
+async function setOnlineStatus(isOnline) {
 
-    return encodeURIComponent(name)
-        .replace(/\./g, "%2E");
-}
+    const name = getUserName();
+    const phone = getUserPhone();
 
-
-async function updateOnlineStatus() {
-
-    const name = getCurrentUser();
-
-    if (!name) {
-
+    if (!name || !phone) {
         return;
     }
 
-
-    const safeId = makeSafeId(name);
-
+    const userId = getSafeId(phone);
 
     try {
 
         await setDoc(
-
-            doc(db, "onlineUsers", safeId),
-
+            doc(db, "onlineUsers", userId),
             {
-
                 name: name,
-
-                online: true,
-
-                lastSeen: getNow()
-
+                phone: phone,
+                online: isOnline,
+                lastSeen: Date.now()
             },
-
             {
                 merge: true
             }
-
         );
 
     } catch (error) {
@@ -626,893 +588,91 @@ async function updateOnlineStatus() {
 }
 
 
-function startOnlineSystem() {
-
-    updateOnlineStatus();
-
+function startOnlineStatus() {
 
     if (onlineHeartbeat) {
-
         clearInterval(onlineHeartbeat);
     }
 
+    setOnlineStatus(true);
 
-    onlineHeartbeat = setInterval(() => {
+    onlineHeartbeat =
+        setInterval(() => {
 
-        updateOnlineStatus();
+            setOnlineStatus(true);
 
-    }, 30000);
+        }, 30000);
 
 
+    // Page close होने पर offline
     window.addEventListener(
         "beforeunload",
         () => {
 
-            const name = getCurrentUser();
-
-            if (!name) {
-
-                return;
-            }
-
-
-            const safeId =
-                makeSafeId(name);
-
-
-            updateDoc(
-
-                doc(
-                    db,
-                    "onlineUsers",
-                    safeId
-                ),
-
-                {
-
-                    online: false,
-
-                    lastSeen: getNow()
-
-                }
-
-            ).catch(() => {});
+            setOnlineStatus(false);
 
         }
     );
 
 
-    startOnlineListener();
+    // Tab hidden होने पर भी status update
+    document.addEventListener(
+        "visibilitychange",
+        () => {
+
+            if (document.visibilityState === "visible") {
+
+                setOnlineStatus(true);
+
+            } else {
+
+                setOnlineStatus(false);
+            }
+        }
+    );
 }
 
 
-// ------------------------------------------------------------
-// ONLINE LISTENER
-// ------------------------------------------------------------
+// ======================================================
+// ONLINE USERS LIST
+// ======================================================
 
-function startOnlineListener() {
-
-    const countBox =
-        document.getElementById("onlineCount");
-
-    const usersBox =
-        document.getElementById("onlineUsers");
-
-
-    if (!countBox || !usersBox) {
-
-        return;
-    }
-
-
-    // Arrow बनाओ
-
-    let arrow = document.getElementById(
-        "onlineArrowButton"
-    );
-
-
-    if (!arrow) {
-
-        arrow =
-            document.createElement("button");
-
-        arrow.type = "button";
-
-        arrow.id = "onlineArrowButton";
-
-        arrow.textContent = "▾";
-
-        arrow.style.border = "none";
-
-        arrow.style.background =
-            "transparent";
-
-        arrow.style.cursor = "pointer";
-
-        arrow.style.fontSize = "16px";
-
-        arrow.style.marginLeft = "5px";
-
-
-        countBox.parentNode.insertBefore(
-
-            arrow,
-
-            countBox.nextSibling
-        );
-
-
-        arrow.addEventListener(
-            "click",
-            () => {
-
-                const hidden =
-                    usersBox.style.display ===
-                    "none";
-
-
-                usersBox.style.display =
-                    hidden ? "block" : "none";
-
-
-                arrow.textContent =
-                    hidden ? "▴" : "▾";
-            }
-        );
-    }
-
-
-    usersBox.style.display = "none";
-
+function startOnlineUsersListener() {
 
     if (onlineUnsubscribe) {
-
         onlineUnsubscribe();
     }
 
+    const onlineUsersBox =
+        document.getElementById("onlineUsers");
 
-    onlineUnsubscribe = onSnapshot(
+    const onlineCount =
+        document.getElementById("onlineCount");
 
-        collection(db, "onlineUsers"),
-
-        snapshot => {
-
-            const now = getNow();
-
-            const users = [];
-
-
-            snapshot.forEach(item => {
-
-                const data = item.data();
-
-
-                if (
-                    data.online === true &&
-                    data.lastSeen &&
-                    now - data.lastSeen < 70000
-                ) {
-
-                    users.push(data.name);
-                }
-            });
-
-
-            users.sort(
-                (a, b) =>
-                    a.localeCompare(
-                        b,
-                        "hi"
-                    )
-            );
-
-
-            countBox.textContent =
-                `🟢 Online: ${users.length}`;
-
-
-            // Arrow दोबारा बनाना पड़ सकता है
-
-            if (!document.getElementById(
-                "onlineArrowButton"
-            )) {
-
-                startOnlineListener();
-
-                return;
-            }
-
-
-            usersBox.innerHTML = "";
-
-
-            if (users.length === 0) {
-
-                usersBox.innerHTML =
-                    "<p>कोई user online नहीं है।</p>";
-
-                return;
-            }
-
-
-            users.forEach(name => {
-
-                const user =
-                    document.createElement("div");
-
-                user.style.padding = "6px 0";
-
-                user.innerHTML =
-                    `
-                    <span>🟢</span>
-                    <strong>
-                        ${escapeHTML(name)}
-                    </strong>
-                    `;
-
-                usersBox.appendChild(user);
-            });
-
-        },
-
-        error => {
-
-            console.error(
-                "Online users listener error:",
-                error
-            );
-        }
-    );
-}
-
-
-// ============================================================
-// MAIN CHAT
-// ============================================================
-
-const messageInput =
-    document.getElementById("messageInput");
-
-const sendMessageBtn =
-    document.getElementById("sendMessageBtn");
-
-const chatMessages =
-    document.getElementById("chatMessages");
-
-const emojiBtn =
-    document.getElementById("emojiBtn");
-
-
-// Emoji
-
-if (emojiBtn && messageInput) {
-
-    emojiBtn.addEventListener(
-        "click",
-        () => {
-
-            messageInput.value += " 😊";
-
-            messageInput.focus();
-
-        }
-    );
-}
-
-
-// ============================================================
-// MESSAGE TICKS
-// ============================================================
-
-function getTickHTML(data, mine) {
-
-    if (!mine) {
-
-        return "";
-    }
-
-
-    const seenBy =
-        Array.isArray(data.seenBy)
-            ? data.seenBy
-            : [];
-
-
-    if (seenBy.length > 0) {
-
-        return `
-            <span
-                class="message-tick blue-ticks"
-                style="color:#2196f3;"
-                title="Seen"
-            >
-                ✓✓
-            </span>
-        `;
-    }
-
-
-    if (data.delivered === true) {
-
-        return `
-            <span
-                class="message-tick"
-                title="Delivered"
-            >
-                ✓✓
-            </span>
-        `;
-    }
-
-
-    return `
-        <span
-            class="message-tick"
-            title="Sent"
-        >
-            ✓
-        </span>
-    `;
-}
-
-
-// ============================================================
-// MARK MESSAGE SEEN
-// ============================================================
-
-async function markMessageSeen(
-    messageId,
-    data
-) {
-
-    const myName = getCurrentUser();
-
-    if (!myName) {
-
+    if (!onlineUsersBox) {
         return;
     }
 
+    const usersRef =
+        collection(db, "onlineUsers");
 
-    if (data.name === myName) {
+    onlineUnsubscribe =
+        onSnapshot(
+            usersRef,
+            snapshot => {
 
-        return;
-    }
+                const users = [];
 
+                const currentTime =
+                    Date.now();
 
-    const seenBy =
-        Array.isArray(data.seenBy)
-            ? data.seenBy
-            : [];
+                snapshot.forEach(item => {
 
+                    const data = item.data();
 
-    if (seenBy.includes(myName)) {
+                    const lastSeen =
+                        data.lastSeen || 0;
 
-        return;
-    }
-
-
-    try {
-
-        await updateDoc(
-
-            doc(
-                db,
-                "messages",
-                messageId
-            ),
-
-            {
-
-                delivered: true,
-
-                seenBy: arrayUnion(myName)
-
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Seen update error:",
-            error
-        );
-    }
-}
-
-
-// ============================================================
-// REALTIME CHAT
-// ============================================================
-
-function startRealtimeChat() {
-
-    if (!chatMessages) {
-
-        return;
-    }
-
-
-    if (chatUnsubscribe) {
-
-        chatUnsubscribe();
-    }
-
-
-    const q = query(
-
-        collection(db, "messages"),
-
-        orderBy("createdAt", "asc")
-    );
-
-
-    chatUnsubscribe = onSnapshot(
-
-        q,
-
-        snapshot => {
-
-            chatMessages.innerHTML = "";
-
-
-            if (snapshot.empty) {
-
-                chatMessages.innerHTML = `
-                    <div class="message other">
-                        <strong>
-                            StudyConnect
-                        </strong>
-
-                        <p>
-                            अभी कोई message नहीं है। 👋
-                        </p>
-                    </div>
-                `;
-
-                return;
-            }
-
-
-            const myName =
-                getCurrentUser();
-
-
-            snapshot.forEach(item => {
-
-                const data = item.data();
-
-
-                const sender =
-                    data.name || "Student";
-
-
-                const text =
-                    data.message || "";
-
-
-                const mine =
-                    sender === myName;
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                box.className =
-                    mine
-                        ? "message mine"
-                        : "message other";
-
-
-                box.innerHTML = `
-
-                    <strong>
-                        ${escapeHTML(sender)}
-                    </strong>
-
-                    <p>
-
-                        ${escapeHTML(text)}
-
-                        ${getTickHTML(
-                            data,
-                            mine
-                        )}
-
-                    </p>
-
-                    <small
-                        class="message-time"
-                    >
-                        ${escapeHTML(
-                            formatDateTime(
-                                data.createdAt
-                            )
-                        )}
-                    </small>
-
-                    ${
-                        mine &&
-                        Array.isArray(
-                            data.seenBy
-                        ) &&
-                        data.seenBy.length > 0
-
-                        ?
-
-                        `
-                        <small>
-                            👀 Seen by:
-                            ${escapeHTML(
-                                data.seenBy.join(
-                                    ", "
-                                )
-                            )}
-                        </small>
-                        `
-
-                        :
-
-                        ""
-                    }
-
-                `;
-
-
-                if (!mine) {
-
-                    markMessageSeen(
-                        item.id,
-                        data
-                    );
-                }
-
-
-                chatMessages.appendChild(
-                    box
-                );
-
-            });
-
-
-            chatMessages.scrollTop =
-                chatMessages.scrollHeight;
-        },
-
-        error => {
-
-            console.error(
-                "Realtime chat error:",
-                error
-            );
-        }
-    );
-}
-
-
-// ============================================================
-// SEND MAIN CHAT MESSAGE
-// ============================================================
-
-async function sendMessage() {
-
-    if (!messageInput) {
-
-        return;
-    }
-
-
-    const text =
-        messageInput.value.trim();
-
-
-    const name =
-        getCurrentUser();
-
-
-    if (!text) {
-
-        return;
-    }
-
-
-    if (!name) {
-
-        alert(
-            "पहले StudyConnect खोलें।"
-        );
-
-        return;
-    }
-
-
-    try {
-
-        await addDoc(
-
-            collection(
-                db,
-                "messages"
-            ),
-
-            {
-
-                name: name,
-
-                message: text,
-
-                createdAt: getNow(),
-
-                delivered: false,
-
-                seenBy: []
-
-            }
-        );
-
-
-        messageInput.value = "";
-
-
-    } catch (error) {
-
-        console.error(
-            "Message sending error:",
-            error
-        );
-
-        alert(
-            "Message send नहीं हुआ।"
-        );
-    }
-}
-
-
-if (sendMessageBtn) {
-
-    sendMessageBtn.addEventListener(
-        "click",
-        sendMessage
-    );
-}
-
-
-if (messageInput) {
-
-    messageInput.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter"
-            ) {
-
-                event.preventDefault();
-
-                sendMessage();
-            }
-        }
-    );
-}
-
-
-// ============================================================
-// GROUPS
-// ============================================================
-
-const groupInput =
-    document.getElementById("groupInput");
-
-const createGroupBtn =
-    document.getElementById(
-        "createGroupBtn"
-    );
-
-const groupList =
-    document.getElementById("groupList");
-
-
-// ============================================================
-// GROUP REALTIME LISTENER
-// ============================================================
-
-function startRealtimeGroups() {
-
-    if (!groupList) {
-
-        return;
-    }
-
-
-    if (groupsUnsubscribe) {
-
-        groupsUnsubscribe();
-    }
-
-
-    const q = query(
-
-        collection(db, "groups"),
-
-        orderBy("createdAt", "asc")
-    );
-
-
-    groupsUnsubscribe = onSnapshot(
-
-        q,
-
-        snapshot => {
-
-            groupList.innerHTML = "";
-
-
-            snapshot.forEach(item => {
-
-                const data =
-                    item.data();
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                box.className =
-                    "group-item";
-
-
-                const members =
-                    Array.isArray(
-                        data.members
-                    )
-                        ? data.members
-                        : [];
-
-
-                box.innerHTML = `
-
-                    <strong>
-                        👥
-                        ${escapeHTML(
-                            data.name ||
-                            "Group"
-                        )}
-                    </strong>
-
-                    <p>
-                        👤 Members:
-                        ${members.length}
-                    </p>
-
-                    <small>
-                        Created by:
-                        ${escapeHTML(
-                            data.owner ||
-                            ""
-                        )}
-                    </small>
-
-                `;
-
-
-                box.addEventListener(
-                    "click",
-                    () => {
-
-                        openGroup(
-                            item.id,
-                            data
-                        );
-
-                    }
-                );
-
-
-                groupList.appendChild(
-                    box
-                );
-
-            });
-
-        },
-
-        error => {
-
-            console.error(
-                "Groups realtime error:",
-                error
-            );
-        }
-    );
-}
-
-
-// ============================================================
-// CREATE GROUP
-// ============================================================
-
-if (
-    createGroupBtn &&
-    groupInput
-) {
-
-    createGroupBtn.addEventListener(
-        "click",
-        async () => {
-
-            const name =
-                groupInput.value.trim();
-
-
-            const owner =
-                getCurrentUser();
-
-
-            if (!name) {
-
-                alert(
-                    "Group का नाम लिखें।"
-                );
-
-                return;
-            }
-
-
-            if (!owner) {
-
-                alert(
-                    "पहले StudyConnect खोलें।"
-                );
-
-                return;
-            }
-
-
-            // Group password
-
-            const groupPassword =
-                prompt(
-                    "इस Group के लिए password बनाइए:"
-                );
-
-
-            if (
-                groupPassword === null
-            ) {
-
-                return;
-            }
-
-
-            if (
-                groupPassword.trim()
-                    .length < 1
-            ) {
-
-                alert(
-                    "Group password खाली नहीं हो सकता।"
-                );
-
-                return;
-            }
-
-
-            try {
-
-                await addDoc(
-
-                    collection(
-                        db,
-                        "groups"
-                    ),
-
-                    {
-
-                        name: name,
-
-                        owner
+                    // 90 seconds तक online माना जाएगा
+                    const isReallyOnline =
+                        data.online === true &&
