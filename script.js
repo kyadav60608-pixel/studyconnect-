@@ -1,3120 +1,758 @@
-// ==================================================
-// STUDYCONNECT
-// FIREBASE JAVASCRIPT
-// ==================================================
+// ============================================================
+// StudyConnect - Real-Time Script
+// ============================================================
 
-
-// ==================================================
-// FIREBASE IMPORT
-// ==================================================
-
-import {
-    initializeApp
-} from
-"https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-
+// Firebase
+import { initializeApp } from
+    "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
 import {
     getFirestore,
     collection,
     addDoc,
-    getDocs,
+    deleteDoc,
+    doc,
     query,
     orderBy,
-    deleteDoc,
-    doc
+    onSnapshot,
+    updateDoc,
+    arrayUnion,
+    serverTimestamp
 } from
-"https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+    "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+
+import {
+    getAuth,
+    signInAnonymously
+} from
+    "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
 
-// ==================================================
+// ============================================================
 // FIREBASE CONFIG
-// ==================================================
+// ============================================================
 
 const firebaseConfig = {
-
-    apiKey:
-        "AIzaSyCquRX2YB59FObuIyi3SwWc3aUCdPWypag",
-
-    authDomain:
-        "studyconnect-99006.firebaseapp.com",
-
-    projectId:
-        "studyconnect-99006",
-
-    storageBucket:
-        "studyconnect-99006.firebasestorage.app",
-
-    messagingSenderId:
-        "15964627995",
-
-    appId:
-        "1:15964627995:web:0e8a8cd14c175247ed04be",
-
-    measurementId:
-        "G-SYJYMREJJL"
-
+    apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3AUCdPWypag",
+    authDomain: "studyconnect-99006.firebaseapp.com",
+    projectId: "studyconnect-99006",
+    storageBucket: "studyconnect-99006.firebasestorage.app",
+    messagingSenderId: "15964627995",
+    appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
+    measurementId: "G-SYJYMREJJL"
 };
 
 
-const app =
-    initializeApp(firebaseConfig);
+// ============================================================
+// FIREBASE START
+// ============================================================
+
+const app = initializeApp(firebaseConfig);
+
+const db = getFirestore(app);
+const auth = getAuth(app);
 
 
-const db =
-    getFirestore(app);
+// ============================================================
+// APP SETTINGS
+// ============================================================
 
-
-console.log(
-    "Firebase connected successfully!"
-);
-
-
-// ==================================================
-// OPEN STUDYCONNECT
-// ==================================================
-
-const passwordScreen =
-    document.getElementById(
-        "passwordScreen"
-    );
-
-
-const openUserName =
-    document.getElementById(
-        "openUserName"
-    );
-
-
-const appPassword =
-    document.getElementById(
-        "appPassword"
-    );
-
-
-const unlockBtn =
-    document.getElementById(
-        "unlockBtn"
-    );
-
-
-const passwordError =
-    document.getElementById(
-        "passwordError"
-    );
-
-
-// PASSWORD
 const APP_PASSWORD = "123";
 
-
-// OPEN FUNCTION
-
-function openStudyConnect() {
-
-    if (
-        !openUserName ||
-        !appPassword
-    ) {
-
-        return;
-
-    }
+let currentUser = null;
+let currentGroup = null;
+let unsubscribeChat = null;
+let unsubscribeGroups = null;
+let unsubscribeGroupMessages = null;
+let unsubscribeHomework = null;
+let unsubscribeSchool = null;
+let unsubscribeNotes = null;
 
 
-    const name =
-        openUserName.value.trim();
+// ============================================================
+// BASIC HELPERS
+// ============================================================
 
-
-    const password =
-        appPassword.value.trim();
-
-
-    if (name === "") {
-
-        if (passwordError) {
-
-            passwordError.textContent =
-                "❌ पहले अपना नाम लिखें।";
-
-        }
-
-        openUserName.focus();
-
-        return;
-
-    }
-
-
-    if (password === "") {
-
-        if (passwordError) {
-
-            passwordError.textContent =
-                "❌ Password डालें।";
-
-        }
-
-        appPassword.focus();
-
-        return;
-
-    }
-
-
-    if (password !== APP_PASSWORD) {
-
-        if (passwordError) {
-
-            passwordError.textContent =
-                "❌ गलत password।";
-
-        }
-
-        appPassword.value = "";
-
-        appPassword.focus();
-
-        return;
-
-    }
-
-
-    // NAME SAVE
-
-    localStorage.setItem(
-        "studyName",
-        name
-    );
-
-
-    // OPEN APP
-
-    if (passwordScreen) {
-
-        passwordScreen.style.display =
-            "none";
-
-    }
-
-
-    if (passwordError) {
-
-        passwordError.textContent =
-            "";
-
-    }
-
-
-    loadSavedName();
-
-
-    console.log(
-        "StudyConnect opened."
-    );
-
+function $(id) {
+    return document.getElementById(id);
 }
 
-
-// BUTTON CLICK
-
-if (unlockBtn) {
-
-    unlockBtn.addEventListener(
-        "click",
-        openStudyConnect
-    );
-
-}
-
-
-// ENTER KEY
-
-if (appPassword) {
-
-    appPassword.addEventListener(
-        "keydown",
-        function(event) {
-
-            if (event.key === "Enter") {
-
-                openStudyConnect();
-
-            }
-
-        }
-    );
-
-}
-
-
-if (openUserName) {
-
-    openUserName.addEventListener(
-        "keydown",
-        function(event) {
-
-            if (event.key === "Enter") {
-
-                if (appPassword) {
-
-                    appPassword.focus();
-
-                }
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// HTML ESCAPE
-// ==================================================
-
-function escapeHTML(text) {
-
-    const div =
-        document.createElement("div");
-
-    div.textContent =
-        text || "";
-
+function escapeHTML(value) {
+    const div = document.createElement("div");
+    div.textContent = value ?? "";
     return div.innerHTML;
-
 }
 
+function getUserName() {
+    return localStorage.getItem("studyName") || "Student";
+}
 
-// ==================================================
-// DATE + TIME
-// ==================================================
+function showMessage(element, text, type = "") {
+    if (!element) return;
+
+    element.textContent = text;
+    element.className = type;
+
+    setTimeout(() => {
+        element.textContent = "";
+    }, 3000);
+}
 
 function formatDateTime(timestamp) {
+    if (!timestamp) return "";
 
-    if (!timestamp) {
+    let date;
 
-        return "";
-
+    if (timestamp?.toDate) {
+        date = timestamp.toDate();
+    } else if (timestamp?.seconds) {
+        date = new Date(timestamp.seconds * 1000);
+    } else {
+        date = new Date(timestamp);
     }
 
+    if (isNaN(date.getTime())) return "";
 
-    const date =
-        new Date(timestamp);
-
-
-    return date.toLocaleString(
-        "hi-IN",
-        {
-            dateStyle: "short",
-            timeStyle: "short"
-        }
-    );
-
+    return date.toLocaleString("hi-IN", {
+        dateStyle: "short",
+        timeStyle: "short"
+    });
 }
 
 
-// ==================================================
-// PAGE NAVIGATION
-// ==================================================
-
-const pages =
-    document.querySelectorAll(
-        ".page"
-    );
-
-
-const navButtons =
-    document.querySelectorAll(
-        "[data-page]"
-    );
-
-
-function showPage(pageId) {
-
-    pages.forEach(
-        function(page) {
-
-            page.classList.remove(
-                "active"
-            );
-
-        }
-    );
-
-
-    const page =
-        document.getElementById(
-            pageId
-        );
-
-
-    if (page) {
-
-        page.classList.add(
-            "active"
-        );
-
-    }
-
-
-    const navMenu =
-        document.getElementById(
-            "navMenu"
-        );
-
-
-    if (navMenu) {
-
-        navMenu.classList.remove(
-            "show"
-        );
-
-    }
-
-}
-
-
-navButtons.forEach(
-    function(button) {
-
-        button.addEventListener(
-            "click",
-            function() {
-
-                showPage(
-                    button.getAttribute(
-                        "data-page"
-                    )
-                );
-
-            }
-        );
-
-    }
-);
-
-
-// ==================================================
-// HOME CARDS
-// ==================================================
-
-const openPageCards =
-    document.querySelectorAll(
-        ".open-page"
-    );
-
-
-openPageCards.forEach(
-    function(card) {
-
-        card.addEventListener(
-            "click",
-            function() {
-
-                showPage(
-                    card.getAttribute(
-                        "data-page"
-                    )
-                );
-
-            }
-        );
-
-    }
-);
-
-
-// ==================================================
-// MENU
-// ==================================================
-
-const menuBtn =
-    document.getElementById(
-        "menuBtn"
-    );
-
-
-const navMenu =
-    document.getElementById(
-        "navMenu"
-    );
-
-
-if (
-    menuBtn &&
-    navMenu
-) {
-
-    menuBtn.addEventListener(
-        "click",
-        function() {
-
-            navMenu.classList.toggle(
-                "show"
-            );
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// NAME
-// ==================================================
-
-const studentName =
-    document.getElementById(
-        "studentName"
-    );
-
-
-const saveNameBtn =
-    document.getElementById(
-        "saveNameBtn"
-    );
-
-
-const nameMessage =
-    document.getElementById(
-        "nameMessage"
-    );
-
-
-function loadSavedName() {
-
-    const savedName =
-        localStorage.getItem(
-            "studyName"
-        );
-
-
-    if (!savedName) {
-
-        return;
-
-    }
-
-
-    if (studentName) {
-
-        studentName.value =
-            savedName;
-
-        studentName.disabled =
-            true;
-
-    }
-
-
-    if (saveNameBtn) {
-
-        saveNameBtn.style.display =
-            "none";
-
-    }
-
-
-    if (nameMessage) {
-
-        nameMessage.textContent =
-            "Welcome, " +
-            savedName +
-            "! 👋";
-
-    }
-
-}
-
-
-if (
-    saveNameBtn &&
-    studentName
-) {
-
-    saveNameBtn.addEventListener(
-        "click",
-        function() {
-
-            const name =
-                studentName.value.trim();
-
-
-            if (name === "") {
-
-                if (nameMessage) {
-
-                    nameMessage.textContent =
-                        "पहले अपना नाम लिखें।";
-
-                }
-
-                return;
-
-            }
-
-
-            localStorage.setItem(
-                "studyName",
-                name
-            );
-
-
-            studentName.disabled =
-                true;
-
-
-            saveNameBtn.style.display =
-                "none";
-
-
-            if (nameMessage) {
-
-                nameMessage.textContent =
-                    "Welcome, " +
-                    name +
-                    "! 👋";
-
-            }
-
-        }
-    );
-
-}
-
-
-loadSavedName();
-
-
-// ==================================================
-// LONG PRESS DELETE
-// ==================================================
-
-function addLongPressDelete(
-    element,
-    deleteFunction
-) {
-
-    let timer = null;
-
-
-    function startPress(event) {
-
-        if (
-            event.target.closest(
-                "button"
-            )
-        ) {
-
-            return;
-
-        }
-
-
-        timer =
-            setTimeout(
-                async function() {
-
-                    const answer =
-                        confirm(
-                            "🗑️ इस item को delete करना है?"
-                        );
-
-
-                    if (answer) {
-
-                        await deleteFunction();
-
-                    }
-
-                },
-                700
-            );
-
-    }
-
-
-    function cancelPress() {
-
-        if (timer) {
-
-            clearTimeout(timer);
-
-            timer = null;
-
-        }
-
-    }
-
-
-    element.addEventListener(
-        "mousedown",
-        startPress
-    );
-
-
-    element.addEventListener(
-        "mouseup",
-        cancelPress
-    );
-
-
-    element.addEventListener(
-        "mouseleave",
-        cancelPress
-    );
-
-
-    element.addEventListener(
-        "touchstart",
-        startPress,
-        {
-            passive: true
-        }
-    );
-
-
-    element.addEventListener(
-        "touchend",
-        cancelPress
-    );
-
-
-    element.addEventListener(
-        "touchmove",
-        cancelPress
-    );
-
-}
-
-
-// ==================================================
-// CHAT
-// ==================================================
-
-const messageInput =
-    document.getElementById(
-        "messageInput"
-    );
-
-
-const sendMessageBtn =
-    document.getElementById(
-        "sendMessageBtn"
-    );
-
-
-const chatMessages =
-    document.getElementById(
-        "chatMessages"
-    );
-
-
-const emojiBtn =
-    document.getElementById(
-        "emojiBtn"
-    );
-
-
-// ==================================================
-// EMOJI
-// ==================================================
-
-if (
-    emojiBtn &&
-    messageInput
-) {
-
-    emojiBtn.addEventListener(
-        "click",
-        function() {
-
-            messageInput.value +=
-                " 😊";
-
-            messageInput.focus();
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// LOAD CHAT
-// ==================================================
-
-async function displayMessages() {
-
-    if (!chatMessages) {
-
-        return;
-
-    }
-
+// ============================================================
+// AUTHENTICATION
+// ============================================================
+
+async function startAuthentication() {
 
     try {
 
-        const messagesQuery =
-            query(
-                collection(
-                    db,
-                    "messages"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
+        await signInAnonymously(auth);
+
+        currentUser = auth.currentUser;
+
+        console.log(
+            "StudyConnect Firebase Auth:",
+            currentUser?.uid
+        );
+
+    } catch (error) {
+
+        console.error("Authentication Error:", error);
+
+        alert(
+            "Firebase Authentication शुरू नहीं हो पाया।\n\n" +
+            "Firebase Console में Anonymous Authentication ON करना होगा।"
+        );
+    }
+}
 
 
-        const snapshot =
-            await getDocs(
-                messagesQuery
-            );
+// ============================================================
+// LOGIN SCREEN
+// ============================================================
+
+function setupLogin() {
+
+    const passwordScreen = $("passwordScreen");
+    const nameInput = $("openUserName");
+    const passwordInput = $("appPassword");
+    const unlockBtn = $("unlockBtn");
+    const error = $("passwordError");
+
+    if (!passwordScreen || !unlockBtn) return;
 
 
-        chatMessages.innerHTML =
-            "";
+    const savedName = localStorage.getItem("studyName");
+
+    if (savedName && nameInput) {
+
+        nameInput.value = savedName;
+
+        nameInput.style.display = "none";
+    }
 
 
-        if (snapshot.empty) {
+    unlockBtn.addEventListener("click", async () => {
 
-            chatMessages.innerHTML = `
-                <div class="message other">
+        const password = passwordInput?.value || "";
 
-                    <strong>
-                        StudyConnect
-                    </strong>
+        if (password !== APP_PASSWORD) {
 
-                    <p>
-                        अभी कोई message नहीं है। 👋
-                    </p>
-
-                </div>
-            `;
+            if (error) {
+                error.textContent = "गलत पासवर्ड!";
+            }
 
             return;
-
         }
 
 
-        const currentName =
-            localStorage.getItem(
-                "studyName"
-            ) ||
-            "Student";
+        if (!savedName) {
+
+            const name = nameInput?.value.trim();
+
+            if (!name) {
+
+                if (error) {
+                    error.textContent =
+                        "पहले अपना नाम लिखो।";
+                }
+
+                return;
+            }
+
+            localStorage.setItem("studyName", name);
+        }
 
 
-        snapshot.forEach(
-            function(item) {
+        await startAuthentication();
 
-                const data =
-                    item.data();
+        passwordScreen.style.display = "none";
 
-
-                const name =
-                    data.name ||
-                    "Student";
+        initializeAppData();
+    });
+}
 
 
-                const message =
-                    data.message ||
-                    "";
+// ============================================================
+// NAVIGATION
+// ============================================================
+
+function showPage(pageName) {
+
+    document.querySelectorAll(".page").forEach(page => {
+        page.style.display = "none";
+    });
 
 
-                const isMine =
-                    name === currentName;
+    const page = $(pageName);
+
+    if (page) {
+        page.style.display = "block";
+    }
 
 
-                const messageBox =
-                    document.createElement(
-                        "div"
-                    );
+    document.querySelectorAll(".nav-link").forEach(link => {
+
+        link.classList.remove("active");
+
+        if (link.dataset.page === pageName) {
+            link.classList.add("active");
+        }
+
+    });
 
 
-                messageBox.className =
-                    isMine
+    const menu = $("menu");
+
+    if (menu) {
+        menu.classList.remove("show");
+    }
+}
+
+
+document.addEventListener("click", event => {
+
+    const link = event.target.closest("[data-page]");
+
+    if (!link) return;
+
+    event.preventDefault();
+
+    showPage(link.dataset.page);
+});
+
+
+// ============================================================
+// MOBILE MENU
+// ============================================================
+
+function setupMenu() {
+
+    const menuBtn = $("menuBtn");
+    const menu = $("menu");
+
+    if (!menuBtn || !menu) return;
+
+    menuBtn.addEventListener("click", () => {
+
+        menu.classList.toggle("show");
+
+    });
+}
+
+
+// ============================================================
+// HOME NAME
+// ============================================================
+
+function loadName() {
+
+    const savedName = localStorage.getItem("studyName");
+
+    const studentName = $("studentName");
+    const saveNameBtn = $("saveNameBtn");
+
+    if (!studentName) return;
+
+
+    if (savedName) {
+
+        studentName.value = savedName;
+
+        studentName.disabled = true;
+
+        if (saveNameBtn) {
+            saveNameBtn.style.display = "none";
+        }
+
+    } else {
+
+        studentName.disabled = false;
+
+        if (saveNameBtn) {
+            saveNameBtn.style.display = "inline-block";
+        }
+    }
+}
+
+
+function saveName() {
+
+    const input = $("studentName");
+
+    if (!input) return;
+
+    const name = input.value.trim();
+
+    if (!name) {
+        alert("अपना नाम लिखो।");
+        return;
+    }
+
+
+    localStorage.setItem("studyName", name);
+
+    loadName();
+
+    alert("नाम सेव हो गया।");
+}
+
+
+if ($("saveNameBtn")) {
+    $("saveNameBtn").addEventListener("click", saveName);
+}
+
+
+// ============================================================
+// CHANGE / REMOVE NAME
+// ============================================================
+
+function setupChangeName() {
+
+    const changeBtn = $("changeNameBtn");
+    const input = $("changeNameInput");
+    const message = $("changeNameMessage");
+
+    if (!changeBtn) return;
+
+
+    changeBtn.addEventListener("click", () => {
+
+        const name = input?.value.trim();
+
+        if (!name) {
+
+            showMessage(
+                message,
+                "नाम लिखो।"
+            );
+
+            return;
+        }
+
+
+        localStorage.setItem("studyName", name);
+
+        loadName();
+
+        if (input) {
+            input.value = "";
+        }
+
+
+        showMessage(
+            message,
+            "नाम बदल दिया गया।"
+        );
+    });
+}
+
+
+// ============================================================
+// REAL-TIME GENERAL CHAT
+// ============================================================
+
+function startRealtimeChat() {
+
+    const messagesBox = $("chatMessages");
+
+    if (!messagesBox) return;
+
+
+    if (unsubscribeChat) {
+        unsubscribeChat();
+    }
+
+
+    const messagesQuery = query(
+        collection(db, "messages"),
+        orderBy("createdAt", "asc")
+    );
+
+
+    unsubscribeChat = onSnapshot(
+        messagesQuery,
+        snapshot => {
+
+            messagesBox.innerHTML = "";
+
+
+            snapshot.forEach(messageDoc => {
+
+                const data = messageDoc.data();
+
+                const mine =
+                    data.senderUid === currentUser?.uid ||
+                    data.name === getUserName();
+
+
+                const message = document.createElement("div");
+
+                message.className =
+                    mine
                         ? "message mine"
                         : "message other";
 
 
-                const tick =
-                    isMine
-                        ? "✓✓"
-                        : "";
+                let ticks = "";
+
+                if (mine) {
+
+                    const delivered =
+                        Array.isArray(data.deliveredTo) &&
+                        data.deliveredTo.length > 0;
+
+                    const seen =
+                        Array.isArray(data.seenBy) &&
+                        data.seenBy.length > 0;
 
 
-                messageBox.innerHTML = `
+                    if (seen) {
+                        ticks = " <span class='seen'>✓✓</span>";
+                    }
+                    else if (delivered) {
+                        ticks = " <span>✓✓</span>";
+                    }
+                    else {
+                        ticks = " <span>✓</span>";
+                    }
+                }
 
-                    <strong>
-                        ${escapeHTML(name)}
-                    </strong>
 
-                    <p>
-                        ${escapeHTML(message)}
-                    </p>
+                message.innerHTML = `
+                    <div class="message-name">
+                        ${escapeHTML(data.name || "Student")}
+                    </div>
 
-                    <small>
+                    <div class="message-text">
+                        ${escapeHTML(data.message || "")}
+                    </div>
 
-                        ${formatDateTime(
-                            data.createdAt
-                        )}
-
-                        ${tick}
-
-                    </small>
-
+                    <div class="message-time">
+                        ${formatDateTime(data.createdAt)}
+                        ${ticks}
+                    </div>
                 `;
 
 
-                addLongPressDelete(
-                    messageBox,
-                    async function() {
-
-                        try {
-
-                            await deleteDoc(
-                                doc(
-                                    db,
-                                    "messages",
-                                    item.id
-                                )
-                            );
+                messagesBox.appendChild(message);
 
 
-                            await displayMessages();
+                // Incoming message को delivered mark करो
+                if (
+                    !mine &&
+                    currentUser &&
+                    !data.deliveredTo?.includes(currentUser.uid)
+                ) {
 
-
-                        } catch (error) {
-
-                            console.error(
-                                error
-                            );
-
-                            alert(
-                                "Message delete नहीं हुआ।"
-                            );
-
+                    updateDoc(
+                        doc(db, "messages", messageDoc.id),
+                        {
+                            deliveredTo:
+                                arrayUnion(currentUser.uid)
                         }
-
-                    }
-                );
-
-
-                chatMessages.appendChild(
-                    messageBox
-                );
-
-            }
-        );
+                    ).catch(() => {});
+                }
 
 
-        chatMessages.scrollTop =
-            chatMessages.scrollHeight;
+                // Chat open होने पर seen
+                if (
+                    !mine &&
+                    currentUser &&
+                    document.visibilityState === "visible"
+                ) {
+
+                    updateDoc(
+                        doc(db, "messages", messageDoc.id),
+                        {
+                            seenBy:
+                                arrayUnion(currentUser.uid)
+                        }
+                    ).catch(() => {});
+                }
+
+            });
 
 
-    } catch (error) {
+            messagesBox.scrollTop =
+                messagesBox.scrollHeight;
+        },
 
-        console.error(
-            "Chat error:",
-            error
-        );
+        error => {
 
-
-        chatMessages.innerHTML = `
-            <p>
-                Chat load नहीं हो पाया।
-            </p>
-        `;
-
-    }
-
+            console.error(
+                "Realtime Chat Error:",
+                error
+            );
+        }
+    );
 }
 
 
-// ==================================================
-// SEND MESSAGE
-// ==================================================
+// ============================================================
+// SEND GENERAL CHAT MESSAGE
+// ============================================================
 
 async function sendMessage() {
 
-    if (!messageInput) {
+    const input = $("messageInput");
 
+    if (!input) return;
+
+    const text = input.value.trim();
+
+    if (!text) return;
+
+    if (!currentUser) {
+
+        alert("Firebase login अभी तैयार नहीं है।");
         return;
-
-    }
-
-
-    const text =
-        messageInput.value.trim();
-
-
-    if (text === "") {
-
-        return;
-
-    }
-
-
-    const name =
-        localStorage.getItem(
-            "studyName"
-        );
-
-
-    if (!name) {
-
-        alert(
-            "पहले अपना नाम Save करें।"
-        );
-
-        showPage("home");
-
-        return;
-
     }
 
 
     try {
 
-        sendMessageBtn.disabled =
-            true;
-
-
         await addDoc(
-            collection(
-                db,
-                "messages"
-            ),
+            collection(db, "messages"),
             {
-
-                name:
-                    name,
-
-                message:
-                    text,
-
-                createdAt:
-                    Date.now()
-
+                name: getUserName(),
+                senderUid: currentUser.uid,
+                message: text,
+                createdAt: serverTimestamp(),
+                deliveredTo: [],
+                seenBy: []
             }
         );
 
 
-        messageInput.value =
-            "";
-
-
-        await displayMessages();
-
+        input.value = "";
 
     } catch (error) {
 
         console.error(
-            "Send error:",
+            "Send Message Error:",
             error
         );
 
-
-        alert(
-            "Message send नहीं हुआ।"
-        );
-
-
-    } finally {
-
-        sendMessageBtn.disabled =
-            false;
-
+        alert("Message भेजा नहीं जा सका।");
     }
-
 }
 
 
-if (sendMessageBtn) {
+if ($("sendMessageBtn")) {
 
-    sendMessageBtn.addEventListener(
-        "click",
-        sendMessage
-    );
-
+    $("sendMessageBtn")
+        .addEventListener("click", sendMessage);
 }
 
 
-if (messageInput) {
+if ($("messageInput")) {
 
-    messageInput.addEventListener(
-        "keydown",
-        function(event) {
+    $("messageInput")
+        .addEventListener("keydown", event => {
 
             if (
-                event.key ===
-                "Enter"
+                event.key === "Enter" &&
+                !event.shiftKey
             ) {
 
                 event.preventDefault();
 
                 sendMessage();
-
             }
 
-        }
-    );
-
+        });
 }
 
 
-// ==================================================
-// GROUPS
-// ==================================================
+// ============================================================
+// GROUPS - REAL TIME
+// ============================================================
 
-const groupInput =
-    document.getElementById(
-        "groupInput"
-    );
+function startRealtimeGroups() {
 
+    const groupList = $("groupList");
 
-const createGroupBtn =
-    document.getElementById(
-        "createGroupBtn"
-    );
+    if (!groupList) return;
 
 
-const groupList =
-    document.getElementById(
-        "groupList"
-    );
-
-
-const groupChatSection =
-    document.getElementById(
-        "groupChatSection"
-    );
-
-
-const selectedGroupName =
-    document.getElementById(
-        "selectedGroupName"
-    );
-
-
-const memberNameInput =
-    document.getElementById(
-        "memberNameInput"
-    );
-
-
-const memberPhoneInput =
-    document.getElementById(
-        "memberPhoneInput"
-    );
-
-
-const addMemberBtn =
-    document.getElementById(
-        "addMemberBtn"
-    );
-
-
-const memberList =
-    document.getElementById(
-        "memberList"
-    );
-
-
-const groupMessageInput =
-    document.getElementById(
-        "groupMessageInput"
-    );
-
-
-const sendGroupMessageBtn =
-    document.getElementById(
-        "sendGroupMessageBtn"
-    );
-
-
-const groupMessages =
-    document.getElementById(
-        "groupMessages"
-    );
-
-
-let selectedGroupId =
-    null;
-
-
-let selectedGroupData =
-    null;
-
-
-// ==================================================
-// LOAD GROUPS
-// ==================================================
-
-async function loadGroups() {
-
-    if (!groupList) {
-
-        return;
-
+    if (unsubscribeGroups) {
+        unsubscribeGroups();
     }
 
 
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "groups"
-                )
-            );
+    const groupsQuery = query(
+        collection(db, "groups"),
+        orderBy("createdAt", "asc")
+    );
 
 
-        groupList.innerHTML =
-            "";
+    unsubscribeGroups = onSnapshot(
+        groupsQuery,
+        snapshot => {
+
+            groupList.innerHTML = "";
 
 
-        snapshot.forEach(
-            function(item) {
+            snapshot.forEach(groupDoc => {
 
-                const data =
-                    item.data();
+                const group = groupDoc.data();
 
 
-                const box =
-                    document.createElement(
-                        "div"
-                    );
+                const item =
+                    document.createElement("div");
+
+                item.className = "group-item";
 
 
-                box.className =
-                    "group-item";
+                const memberCount =
+                    Array.isArray(group.memberUids)
+                        ? group.memberUids.length
+                        : Array.isArray(group.members)
+                            ? group.members.length
+                            : 0;
 
 
-                box.innerHTML = `
+                item.innerHTML = `
+                    <div>
+                        <strong>
+                            ${escapeHTML(group.name || "Group")}
+                        </strong>
 
-                    <strong>
-                        👥 ${escapeHTML(
-                            data.name || "Group"
-                        )}
-                    </strong>
+                        <small>
+                            ${memberCount} members
+                        </small>
+                    </div>
 
-                    <small>
-                        ${formatDateTime(
-                            data.createdAt
-                        )}
-                    </small>
-
+                    <button
+                        class="open-group-btn"
+                        data-group-id="${groupDoc.id}">
+                        Open
+                    </button>
                 `;
 
 
-                box.addEventListener(
-                    "click",
-                    function() {
-
-                        openGroup(
-                            item.id,
-                            data
-                        );
-
-                    }
-                );
+                groupList.appendChild(item);
+            });
 
 
-                addLongPressDelete(
-                    box,
-                    async function() {
+            document
+                .querySelectorAll(".open-group-btn")
+                .forEach(button => {
 
-                        await deleteDoc(
-                            doc(
-                                db,
-                                "groups",
-                                item.id
-                            )
-                        );
+                    button.addEventListener(
+                        "click",
+                        () => {
 
-
-                        if (
-                            selectedGroupId ===
-                            item.id
-                        ) {
-
-                            selectedGroupId =
-                                null;
-
-                            selectedGroupData =
-                                null;
-
-
-                            if (
-                                groupChatSection
-                            ) {
-
-                                groupChatSection.style.display =
-                                    "none";
-
-                            }
+                            openGroup(
+                                button.dataset.groupId
+                            );
 
                         }
+                    );
 
+                });
 
-                        await loadGroups();
+        },
 
-                    }
-                );
+        error => {
 
-
-                groupList.appendChild(
-                    box
-                );
-
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Groups error:",
-            error
-        );
-
-    }
-
+            console.error(
+                "Realtime Groups Error:",
+                error
+            );
+        }
+    );
 }
 
 
-// ==================================================
+// ============================================================
 // CREATE GROUP
-// ==================================================
+// ============================================================
 
-if (
-    createGroupBtn &&
-    groupInput
-) {
+async function createGroup() {
 
-    createGroupBtn.addEventListener(
-        "click",
-        async function() {
+    const input = $("groupInput");
 
-            const name =
-                groupInput.value.trim();
+    if (!input) return;
 
+    const groupName = input.value.trim();
 
-            if (name === "") {
+    if (!groupName) {
 
-                alert(
-                    "Group का नाम लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            const owner =
-                localStorage.getItem(
-                    "studyName"
-                ) ||
-                "Student";
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "groups"
-                    ),
-                    {
-
-                        name:
-                            name,
-
-                        owner:
-                            owner,
-
-                        members:
-                            [
-                                {
-                                    name:
-                                        owner,
-                                    phone:
-                                        ""
-                                }
-                            ],
-
-                        createdAt:
-                            Date.now()
-
-                    }
-                );
-
-
-                groupInput.value =
-                    "";
-
-
-                await loadGroups();
-
-
-                alert(
-                    "✅ Group बन गया।"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-
-                alert(
-                    "Group create नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// OPEN GROUP
-// ==================================================
-
-async function openGroup(
-    groupId,
-    data
-) {
-
-    selectedGroupId =
-        groupId;
-
-
-    selectedGroupData =
-        data;
-
-
-    if (selectedGroupName) {
-
-        selectedGroupName.textContent =
-            "👥 " +
-            (data.name || "Group");
-
-    }
-
-
-    if (groupChatSection) {
-
-        groupChatSection.style.display =
-            "block";
-
-    }
-
-
-    displayGroupMembers(
-        data.members || []
-    );
-
-
-    await loadGroupMessages();
-
-}
-
-
-// ==================================================
-// DISPLAY MEMBERS
-// ==================================================
-
-function displayGroupMembers(
-    members
-) {
-
-    if (!memberList) {
-
+        alert("Group का नाम लिखो।");
         return;
-
     }
 
 
-    memberList.innerHTML =
-        "";
+    if (!currentUser) {
 
-
-    members.forEach(
-        function(member) {
-
-            const box =
-                document.createElement(
-                    "div"
-                );
-
-
-            box.className =
-                "member-item";
-
-
-            box.innerHTML = `
-
-                👤
-                <strong>
-                    ${escapeHTML(
-                        member.name || "Member"
-                    )}
-                </strong>
-
-                ${
-                    member.phone
-                        ? `<small>
-                            📱 ${escapeHTML(
-                                member.phone
-                            )}
-                           </small>`
-                        : ""
-                }
-
-            `;
-
-
-            memberList.appendChild(
-                box
-            );
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// ADD MEMBER
-// ==================================================
-
-if (addMemberBtn) {
-
-    addMemberBtn.addEventListener(
-        "click",
-        async function() {
-
-            if (!selectedGroupId) {
-
-                alert(
-                    "पहले कोई Group खोलें।"
-                );
-
-                return;
-
-            }
-
-
-            const name =
-                memberNameInput.value.trim();
-
-
-            const phone =
-                memberPhoneInput.value.trim();
-
-
-            if (name === "") {
-
-                alert(
-                    "Member का नाम लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                const groupRef =
-                    doc(
-                        db,
-                        "groups",
-                        selectedGroupId
-                    );
-
-
-                const snapshot =
-                    await getDocs(
-                        collection(
-                            db,
-                            "groups"
-                        )
-                    );
-
-
-                let members = [];
-
-
-                snapshot.forEach(
-                    function(item) {
-
-                        if (
-                            item.id ===
-                            selectedGroupId
-                        ) {
-
-                            members =
-                                item.data()
-                                    .members ||
-                                [];
-
-                        }
-
-                    }
-                );
-
-
-                members.push(
-                    {
-                        name:
-                            name,
-
-                        phone:
-                            phone
-                    }
-                );
-
-
-                // Firebase document update के लिए
-                // updateDoc चाहिए।
-                // इस version में member save करने के लिए
-                // पूरा group document फिर से नहीं लिखा जा रहा।
-                //
-                // इसलिए नीचे सुरक्षित तरीका:
-                //
-                // नया member collection में रखा जाएगा।
-
-                await addDoc(
-                    collection(
-                        db,
-                        "groupMembers"
-                    ),
-                    {
-
-                        groupId:
-                            selectedGroupId,
-
-                        name:
-                            name,
-
-                        phone:
-                            phone,
-
-                        createdAt:
-                            Date.now()
-
-                    }
-                );
-
-
-                memberNameInput.value =
-                    "";
-
-                memberPhoneInput.value =
-                    "";
-
-
-                await loadGroupMembers();
-
-
-            } catch (error) {
-
-                console.error(
-                    "Member error:",
-                    error
-                );
-
-
-                alert(
-                    "Member add नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// LOAD GROUP MEMBERS
-// ==================================================
-
-async function loadGroupMembers() {
-
-    if (
-        !selectedGroupId ||
-        !memberList
-    ) {
-
+        alert("Firebase login तैयार नहीं है।");
         return;
-
     }
-
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "groupMembers"
-                )
-            );
-
-
-        memberList.innerHTML =
-            "";
-
-
-        snapshot.forEach(
-            function(item) {
-
-                const data =
-                    item.data();
-
-
-                if (
-                    data.groupId !==
-                    selectedGroupId
-                ) {
-
-                    return;
-
-                }
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                box.className =
-                    "member-item";
-
-
-                box.innerHTML = `
-
-                    👤
-                    <strong>
-                        ${escapeHTML(
-                            data.name || "Member"
-                        )}
-                    </strong>
-
-                    <small>
-                        📱 ${escapeHTML(
-                            data.phone || ""
-                        )}
-                    </small>
-
-                `;
-
-
-                addLongPressDelete(
-                    box,
-                    async function() {
-
-                        await deleteDoc(
-                            doc(
-                                db,
-                                "groupMembers",
-                                item.id
-                            )
-                        );
-
-
-                        await loadGroupMembers();
-
-                    }
-                );
-
-
-                memberList.appendChild(
-                    box
-                );
-
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Member loading error:",
-            error
-        );
-
-    }
-
-}
-
-
-// ==================================================
-// GROUP CHAT
-// ==================================================
-
-async function loadGroupMessages() {
-
-    if (
-        !selectedGroupId ||
-        !groupMessages
-    ) {
-
-        return;
-
-    }
-
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "groupMessages"
-                )
-            );
-
-
-        groupMessages.innerHTML =
-            "";
-
-
-        const currentName =
-            localStorage.getItem(
-                "studyName"
-            ) ||
-            "Student";
-
-
-        snapshot.forEach(
-            function(item) {
-
-                const data =
-                    item.data();
-
-
-                if (
-                    data.groupId !==
-                    selectedGroupId
-                ) {
-
-                    return;
-
-                }
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                box.className =
-                    data.name === currentName
-                        ? "message mine"
-                        : "message other";
-
-
-                box.innerHTML = `
-
-                    <strong>
-                        ${escapeHTML(
-                            data.name || "Student"
-                        )}
-                    </strong>
-
-                    <p>
-                        ${escapeHTML(
-                            data.message || ""
-                        )}
-                    </p>
-
-                    <small>
-                        ${formatDateTime(
-                            data.createdAt
-                        )}
-
-                        ${
-                            data.name ===
-                            currentName
-                                ? " ✓✓"
-                                : ""
-                        }
-
-                    </small>
-
-                `;
-
-
-                addLongPressDelete(
-                    box,
-                    async function() {
-
-                        await deleteDoc(
-                            doc(
-                                db,
-                                "groupMessages",
-                                item.id
-                            )
-                        );
-
-
-                        await loadGroupMessages();
-
-                    }
-                );
-
-
-                groupMessages.appendChild(
-                    box
-                );
-
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Group chat error:",
-            error
-        );
-
-    }
-
-}
-
-
-// ==================================================
-// SEND GROUP MESSAGE
-// ==================================================
-
-async function sendGroupMessage() {
-
-    if (
-        !selectedGroupId ||
-        !groupMessageInput
-    ) {
-
-        alert(
-            "पहले कोई Group खोलें।"
-        );
-
-        return;
-
-    }
-
-
-    const message =
-        groupMessageInput.value.trim();
-
-
-    if (message === "") {
-
-        return;
-
-    }
-
-
-    const name =
-        localStorage.getItem(
-            "studyName"
-        ) ||
-        "Student";
 
 
     try {
 
         await addDoc(
-            collection(
-                db,
-                "groupMessages"
-            ),
+            collection(db, "groups"),
             {
+                name: groupName,
 
-                groupId:
-                    selectedGroupId,
+                ownerUid:
+                    currentUser.uid,
 
-                name:
-                    name,
+                owner:
+                    getUserName(),
 
-                message:
-                    message,
+                memberUids: [
+                    currentUser.uid
+                ],
 
-                createdAt:
-                    Date.now()
-
-            }
-        );
-
-
-        groupMessageInput.value =
-            "";
-
-
-        await loadGroupMessages();
-
-
-    } catch (error) {
-
-        console.error(
-            error
-        );
-
-
-        alert(
-            "Group message send नहीं हुआ।"
-        );
-
-    }
-
-}
-
-
-if (sendGroupMessageBtn) {
-
-    sendGroupMessageBtn.addEventListener(
-        "click",
-        sendGroupMessage
-    );
-
-}
-
-
-if (groupMessageInput) {
-
-    groupMessageInput.addEventListener(
-        "keydown",
-        function(event) {
-
-            if (
-                event.key ===
-                "Enter"
-            ) {
-
-                event.preventDefault();
-
-                sendGroupMessage();
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// HOMEWORK
-// ==================================================
-
-const homeworkDate =
-    document.getElementById(
-        "homeworkDate"
-    );
-
-
-const hindiHomework =
-    document.getElementById(
-        "hindiHomework"
-    );
-
-
-const englishHomework =
-    document.getElementById(
-        "englishHomework"
-    );
-
-
-const mathHomework =
-    document.getElementById(
-        "mathHomework"
-    );
-
-
-const scienceHomework =
-    document.getElementById(
-        "scienceHomework"
-    );
-
-
-const sstHomework =
-    document.getElementById(
-        "sstHomework"
-    );
-
-
-const computerHomework =
-    document.getElementById(
-        "computerHomework"
-    );
-
-
-const artHomework =
-    document.getElementById(
-        "artHomework"
-    );
-
-
-const addHomeworkBtn =
-    document.getElementById(
-        "addHomeworkBtn"
-    );
-
-
-const homeworkList =
-    document.getElementById(
-        "homeworkList"
-    );
-
-
-// ==================================================
-// LOAD HOMEWORK
-// ==================================================
-
-async function loadHomework() {
-
-    if (!homeworkList) {
-
-        return;
-
-    }
-
-
-    try {
-
-        const homeworkQuery =
-            query(
-                collection(
-                    db,
-                    "homework"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(
-                homeworkQuery
-            );
-
-
-        homeworkList.innerHTML =
-            "";
-
-
-        snapshot.forEach(
-            function(item) {
-
-                const data =
-                    item.data();
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                box.className =
-                    "homework-item";
-
-
-                box.innerHTML = `
-
-                    <h3>
-                        📅 ${escapeHTML(
-                            data.date || ""
-                        )}
-                    </h3>
-
-                    <p>
-                        📖 Hindi:
-                        ${escapeHTML(
-                            data.hindi || ""
-                        )}
-                    </p>
-
-                    <p>
-                        🔤 English:
-                        ${escapeHTML(
-                            data.english || ""
-                        )}
-                    </p>
-
-                    <p>
-                        ➗ Maths:
-                        ${escapeHTML(
-                            data.maths || ""
-                        )}
-                    </p>
-
-                    <p>
-                        🔬 Science:
-                        ${escapeHTML(
-                            data.science || ""
-                        )}
-                    </p>
-
-                    <p>
-                        🌍 SST:
-                        ${escapeHTML(
-                            data.sst || ""
-                        )}
-                    </p>
-
-                    <p>
-                        💻 Computer:
-                        ${escapeHTML(
-                            data.computer || ""
-                        )}
-                    </p>
-
-                    <p>
-                        🎨 Art:
-                        ${escapeHTML(
-                            data.art || ""
-                        )}
-                    </p>
-
-                    <small>
-                        ${formatDateTime(
-                            data.createdAt
-                        )}
-                    </small>
-
-                `;
-
-
-                addLongPressDelete(
-                    box,
-                    async function() {
-
-                        await deleteDoc(
-                            doc(
-                                db,
-                                "homework",
-                                item.id
-                            )
-                        );
-
-
-                        await loadHomework();
-
-                    }
-                );
-
-
-                homeworkList.appendChild(
-                    box
-                );
-
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Homework error:",
-            error
-        );
-
-    }
-
-}
-
-
-// ==================================================
-// SAVE HOMEWORK
-// ==================================================
-
-if (addHomeworkBtn) {
-
-    addHomeworkBtn.addEventListener(
-        "click",
-        async function() {
-
-            const date =
-                homeworkDate?.value || "";
-
-
-            if (date === "") {
-
-                alert(
-                    "पहले Date चुनें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "homework"
-                    ),
+                members: [
                     {
-
-                        date:
-                            date,
-
-                        hindi:
-                            hindiHomework?.value.trim() || "",
-
-                        english:
-                            englishHomework?.value.trim() || "",
-
-                        maths:
-                            mathHomework?.value.trim() || "",
-
-                        science:
-                            scienceHomework?.value.trim() || "",
-
-                        sst:
-                            sstHomework?.value.trim() || "",
-
-                        computer:
-                            computerHomework?.value.trim() || "",
-
-                        art:
-                            artHomework?.value.trim() || "",
-
-                        createdAt:
-                            Date.now()
-
+                        name: getUserName(),
+                        uid: currentUser.uid
                     }
-                );
-
-
-                [
-                    homeworkDate,
-                    hindiHomework,
-                    englishHomework,
-                    mathHomework,
-                    scienceHomework,
-                    sstHomework,
-                    computerHomework,
-                    artHomework
-                ].forEach(
-                    function(input) {
-
-                        if (input) {
-
-                            input.value =
-                                "";
-
-                        }
-
-                    }
-                );
-
-
-                await loadHomework();
-
-
-                alert(
-                    "✅ Homework saved!"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-
-                alert(
-                    "Homework save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// SCHOOL UPDATE
-// ==================================================
-
-const schoolInput =
-    document.getElementById(
-        "schoolInput"
-    );
-
-
-const saveSchoolBtn =
-    document.getElementById(
-        "saveSchoolBtn"
-    );
-
-
-const schoolList =
-    document.getElementById(
-        "schoolList"
-    );
-
-
-// ==================================================
-// LOAD SCHOOL
-// ==================================================
-
-async function loadSchool() {
-
-    if (!schoolList) {
-
-        return;
-
-    }
-
-
-    try {
-
-        const schoolQuery =
-            query(
-                collection(
-                    db,
-                    "school"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(
-                schoolQuery
-            );
-
-
-        schoolList.innerHTML =
-            "";
-
-
-        snapshot.forEach(
-            function(item) {
-
-                const data =
-                    item.data();
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                box.className =
-                    "school-item";
-
-
-                box.innerHTML = `
-
-                    <strong>
-                        👤 ${escapeHTML(
-                            data.name || "Student"
-                        )}
-                    </strong>
-
-                    <p>
-                        ${escapeHTML(
-                            data.update || ""
-                        )}
-                    </p>
-
-                    <small>
-                        ${formatDateTime(
-                            data.createdAt
-                        )}
-                    </small>
-
-                `;
-
-
-                addLongPressDelete(
-                    box,
-                    async function() {
-
-                        await deleteDoc(
-                            doc(
-                                db,
-                                "school",
-                                item.id
-                            )
-                        );
-
-
-                        await loadSchool();
-
-                    }
-                );
-
-
-                schoolList.appendChild(
-                    box
-                );
-
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            error
-        );
-
-    }
-
-}
-
-
-// ==================================================
-// SAVE SCHOOL
-// ==================================================
-
-if (
-    saveSchoolBtn &&
-    schoolInput
-) {
-
-    saveSchoolBtn.addEventListener(
-        "click",
-        async function() {
-
-            const update =
-                schoolInput.value.trim();
-
-
-            if (update === "") {
-
-                alert(
-                    "School update लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            const name =
-                localStorage.getItem(
-                    "studyName"
-                ) ||
-                "Student";
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "school"
-                    ),
-                    {
-
-                        name:
-                            name,
-
-                        update:
-                            update,
-
-                        createdAt:
-                            Date.now()
-
-                    }
-                );
-
-
-                schoolInput.value =
-                    "";
-
-
-                await loadSchool();
-
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-
-                alert(
-                    "School update save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// NOTES
-// ==================================================
-
-const noteInput =
-    document.getElementById(
-        "noteInput"
-    );
-
-
-const saveNoteBtn =
-    document.getElementById(
-        "saveNoteBtn"
-    );
-
-
-const notesList =
-    document.getElementById(
-        "notesList"
-    );
-
-
-// ==================================================
-// LOAD NOTES
-// ==================================================
-
-async function loadNotes() {
-
-    if (!notesList) {
-
-        return;
-
-    }
-
-
-    try {
-
-        const notesQuery =
-            query(
-                collection(
-                    db,
-                    "notes"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(
-                notesQuery
-            );
-
-
-        notesList.innerHTML =
-            "";
-
-
-        snapshot.forEach(
-            function(item) {
-
-                const data =
-                    item.data();
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                box.className =
-                    "note-item";
-
-
-                box.innerHTML = `
-
-                    <strong>
-                        👤 ${escapeHTML(
-                            data.name || "Student"
-                        )}
-                    </strong>
-
-                    <p>
-                        ${escapeHTML(
-                            data.note || ""
-                        )}
-                    </p>
-
-                    <small>
-                        ${formatDateTime(
-                            data.createdAt
-                        )}
-                    </small>
-
-                `;
-
-
-                addLongPressDelete(
-                    box,
-                    async function() {
-
-                        await deleteDoc(
-                            doc(
-                                db,
-                                "notes",
-                                item.id
-                            )
-                        );
-
-
-                        await loadNotes();
-
-                    }
-                );
-
-
-                notesList.appendChild(
-                    box
-                );
-
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            error
-        );
-
-    }
-
-}
-
-
-// ==================================================
-// SAVE NOTE
-// ==================================================
-
-if (
-    saveNoteBtn &&
-    noteInput
-) {
-
-    saveNoteBtn.addEventListener(
-        "click",
-        async function() {
-
-            const note =
-                noteInput.value.trim();
-
-
-            if (note === "") {
-
-                alert(
-                    "Note लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            const name =
-                localStorage.getItem(
-                    "studyName"
-                ) ||
-                "Student";
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "notes"
-                    ),
-                    {
-
-                        name:
-                            name,
-
-                        note:
-                            note,
-
-                        createdAt:
-                            Date.now()
-
-                    }
-                );
-
-
-                noteInput.value =
-                    "";
-
-
-                await loadNotes();
-
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-
-                alert(
-                    "Note save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// CHANGE NAME
-// ==================================================
-
-const changeNameInput =
-    document.getElementById(
-        "changeNameInput"
-    );
-
-
-const changeNameBtn =
-    document.getElementById(
-        "changeNameBtn"
-    );
-
-
-const changeNameMessage =
-    document.getElementById(
-        "changeNameMessage"
-    );
-
-
-if (changeNameBtn) {
-
-    changeNameBtn.addEventListener(
-        "click",
-        function() {
-
-            const newName =
-                changeNameInput.value.trim();
-
-
-            if (newName === "") {
-
-                if (changeNameMessage) {
-
-                    changeNameMessage.textContent =
-                        "पहले नया नाम लिखें।";
-
-                }
-
-                return;
-
-            }
-
-
-            localStorage.setItem(
-                "studyName",
-                newName
-            );
-
-
-            if (changeNameMessage) {
-
-                changeNameMessage.textContent =
-                    "✅ नाम बदल गया।";
-
-            }
-
-
-            loadSavedName();
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// LANGUAGE
-// ==================================================
-
-const hindiLanguageBtn =
-    document.getElementById(
-        "hindiLanguageBtn"
-    );
-
-
-const englishLanguageBtn =
-    document.getElementById(
-        "englishLanguageBtn"
-    );
-
-
-const languageMessage =
-    document.getElementById(
-        "languageMessage"
-    );
-
-
-if (hindiLanguageBtn) {
-
-    hindiLanguageBtn.addEventListener(
-        "click",
-        function() {
-
-            localStorage.setItem(
-                "studyLanguage",
-                "hi"
-            );
-
-
-            if (languageMessage) {
-
-                languageMessage.textContent =
-                    "🇮🇳 हिंदी चुनी गई।";
-
-            }
-
-        }
-    );
-
-}
-
-
-if (englishLanguageBtn) {
-
-    englishLanguageBtn.addEventListener(
-        "click",
-        function() {
-
-            localStorage.setItem(
-                "studyLanguage",
-                "en"
-            );
-
-
-            if (languageMessage) {
-
-                languageMessage.textContent =
-                    "🇬🇧 English selected.";
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// DARK MODE
-// ==================================================
-
-const themeBtn =
-    document.getElementById(
-        "themeBtn"
-    );
-
-
-if (themeBtn) {
-
-    themeBtn.addEventListener(
-        "click",
-        function() {
-
-            document.body.classList.toggle(
-                "dark"
-            );
-
-
-            const dark =
-                document.body.classList.contains(
-                    "dark"
-                );
-
-
-            localStorage.setItem(
-                "darkMode",
-                dark
-            );
-
-        }
-    );
-
-}
-
-
-if (
-    localStorage.getItem(
-        "darkMode"
-    ) === "true"
-) {
-
-    document.body.classList.add(
-        "dark"
-    );
-
-}
-
-
-// ==================================================
-// NOTIFICATIONS
-// ==================================================
-
-const notificationBtn =
-    document.getElementById(
-        "notificationBtn"
-    );
-
-
-const notificationMessage =
-    document.getElementById(
-        "notificationMessage"
-    );
-
-
-if (notificationBtn) {
-
-    notificationBtn.addEventListener(
-        "click",
-        async function() {
-
-            if (
-                !("Notification" in window)
-            ) {
-
-                if (notificationMessage) {
-
-                    notificationMessage.textContent =
-                        "इस browser में notifications उपलब्ध नहीं हैं।";
-
-                }
-
-                return;
-
-            }
-
-
-            const permission =
-                await Notification.requestPermission();
-
-
-            if (notificationMessage) {
-
-                if (
-                    permission ===
-                    "granted"
-                ) {
-
-                    notificationMessage.textContent =
-                        "🔔 Notifications enabled.";
-
-                } else {
-
-                    notificationMessage.textContent =
-                        "Notifications allow नहीं किए गए।";
-
-                }
-
-            }
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// RESET
-// ==================================================
-
-const clearDataBtn =
-    document.getElementById(
-        "clearDataBtn"
-    );
-
-
-if (clearDataBtn) {
-
-    clearDataBtn.addEventListener(
-        "click",
-        function() {
-
-            const answer =
-                confirm(
-                    "क्या local app data reset करना है?"
-                );
-
-
-            if (!answer) {
-
-                return;
-
-            }
-
-
-            localStorage.clear();
-
-            sessionStorage.clear();
-
-            location.reload();
-
-        }
-    );
-
-}
-
-
-// ==================================================
-// START
-// ==================================================
-
-displayMessages();
-
-loadGroups();
-
-loadHomework();
-
-loadSchool();
-
-loadNotes();
-
-
-console.log(
-    "StudyConnect loaded successfully."
-);
