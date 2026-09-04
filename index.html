@@ -5,1102 +5,1066 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
     <meta name="theme-color" content="#ffffff">
+    <meta name="mobile-web-app-capable" content="yes">
+
+    <link rel="manifest" href="manifest.json">
 
     <title>StudyConnect</title>
 
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #ffffff;
-            color: #111111;
-            min-height: 100vh;
-        }
-
-        button,
-        input {
-            font-family: inherit;
-        }
-
-        button {
-            cursor: pointer;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* =========================
-           LOGIN SCREEN
-        ========================= */
-
-        .screen {
-            min-height: 100vh;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            background: #ffffff;
-        }
-
-        .login-card {
-            width: 100%;
-            max-width: 430px;
-            background: #ffffff;
-            border: 1px solid #dddddd;
-            border-radius: 24px;
-            padding: 35px 28px;
-            box-shadow: 0 10px 35px rgba(0,0,0,0.08);
-            text-align: center;
-        }
-
-        .logo-circle {
-            width: 75px;
-            height: 75px;
-            margin: 0 auto 18px;
-            border-radius: 22px;
-            background: #111111;
-            color: #ffffff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 38px;
-        }
-
-        .app-title {
-            font-size: 30px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-
-        .app-subtitle {
-            color: #777777;
-            font-size: 14px;
-            margin-bottom: 32px;
-        }
-
-        .step {
-            width: 100%;
-        }
-
-        .step-title {
-            font-size: 22px;
-            margin-bottom: 8px;
-        }
-
-        .step-text {
-            color: #777777;
-            font-size: 14px;
-            margin-bottom: 22px;
-            line-height: 1.5;
-        }
-
-        .input-box {
-            width: 100%;
-            height: 52px;
-            border: 1px solid #cccccc;
-            border-radius: 12px;
-            padding: 0 15px;
-            font-size: 16px;
-            outline: none;
-            background: #ffffff;
-            color: #111111;
-            margin-bottom: 13px;
-        }
-
-        .input-box:focus {
-            border-color: #111111;
-        }
-
-        .main-button {
-            width: 100%;
-            height: 52px;
-            border: none;
-            border-radius: 12px;
-            background: #111111;
-            color: #ffffff;
-            font-size: 16px;
-            font-weight: 600;
-            margin-top: 5px;
-        }
-
-        .main-button:hover {
-            background: #333333;
-        }
-
-        .main-button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .error-message {
-            color: #d00000;
-            font-size: 14px;
-            margin-top: 13px;
-            min-height: 20px;
-        }
-
-        .success-message {
-            color: #16803c;
-            font-size: 14px;
-            margin-top: 13px;
-            min-height: 20px;
-        }
-
-        /* OWNER */
-
-        .owner-card {
-            border: 1px solid #e1e1e1;
-            border-radius: 16px;
-            padding: 20px;
-            margin: 20px 0;
-            background: #fafafa;
-        }
-
-        .owner-avatar {
-            width: 58px;
-            height: 58px;
-            margin: 0 auto 10px;
-            border-radius: 50%;
-            background: #111111;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            font-weight: bold;
-        }
-
-        .owner-name {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .owner-label {
-            color: #777777;
-            font-size: 13px;
-            margin-top: 5px;
-        }
-
-        /* CONTACT */
-
-        .contact-icon {
-            font-size: 48px;
-            margin-bottom: 15px;
-        }
-
-        .contact-card h2 {
-            margin: 12px 0;
-        }
-
-        .contact-card p {
-            color: #666666;
-            line-height: 1.5;
-            margin-bottom: 20px;
-        }
-
-        .contact-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 100%;
-            height: 50px;
-            border-radius: 12px;
-            text-decoration: none;
-            background: #111111;
-            color: #ffffff;
-            font-weight: 600;
-            margin-top: 10px;
-        }
-
-        .back-button {
-            width: 100%;
-            height: 48px;
-            border: 1px solid #cccccc;
-            border-radius: 12px;
-            background: #ffffff;
-            color: #111111;
-            margin-top: 15px;
-            font-size: 15px;
-        }
-
-        /* =========================
-           MAIN APP
-        ========================= */
-
-        #appScreen {
-            min-height: 100vh;
-            background: #f7f7f7;
-        }
-
-        .topbar {
-            height: 65px;
-            background: #ffffff;
-            border-bottom: 1px solid #e5e5e5;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 20px;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-
-        .brand {
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        .logout {
-            border: 1px solid #dddddd;
-            background: #ffffff;
-            color: #111111;
-            border-radius: 9px;
-            padding: 9px 14px;
-        }
-
-        .app-content {
-            max-width: 1000px;
-            margin: auto;
-            padding: 25px 18px;
-        }
-
-        .welcome-card {
-            background: #ffffff;
-            border-radius: 18px;
-            padding: 25px;
-            border: 1px solid #e5e5e5;
-            margin-bottom: 18px;
-        }
-
-        .welcome-card h2 {
-            margin-bottom: 8px;
-        }
-
-        .welcome-card p {
-            color: #777777;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }
-
-        .feature-card {
-            background: #ffffff;
-            border: 1px solid #e5e5e5;
-            border-radius: 16px;
-            padding: 22px;
-        }
-
-        .feature-icon {
-            font-size: 28px;
-            margin-bottom: 12px;
-        }
-
-        .feature-card h3 {
-            margin-bottom: 7px;
-        }
-
-        .feature-card p {
-            color: #777777;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-
-        @media (max-width: 650px) {
-            .login-card {
-                padding: 28px 20px;
-            }
-
-            .feature-grid {
-                grid-template-columns: 1fr;
-            }
-
-            .topbar {
-                padding: 0 14px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <!-- =================================
-         LOGIN
-    ================================== -->
+<!-- ==================================================
+     LOGIN SCREEN
+================================================== -->
 
-    <section id="loginScreen" class="screen">
+<div id="passwordScreen">
 
-        <div class="login-card">
+    <div class="login-box">
 
-            <div class="logo-circle">💬</div>
+        <div class="login-logo">💬</div>
 
-            <div class="app-title">
+        <h1>StudyConnect</h1>
+
+        <p class="login-subtitle">
+            Student Community
+        </p>
+
+        <!-- STEP 1 -->
+
+        <div id="schoolPasswordStep" class="login-step active">
+
+            <h2>🔐 Enter your password</h2>
+
+            <p>
+                StudyConnect खोलने के लिए password डालें।
+            </p>
+
+            <input
+                id="appPassword"
+                type="password"
+                placeholder="Enter password"
+                autocomplete="off"
+            >
+
+            <button
+                id="unlockBtn"
+                type="button"
+            >
+                Next →
+            </button>
+
+            <div id="passwordError"></div>
+
+        </div>
+
+
+        <!-- STEP 2 -->
+
+        <div id="ownerStep" class="login-step">
+
+            <div class="owner-avatar">
+                K
+            </div>
+
+            <h2>Welcome 👋</h2>
+
+            <p>
+                StudyConnect Owner
+            </p>
+
+            <h3>
+                Krishna Yadav
+            </h3>
+
+            <button
+                id="ownerNextBtn"
+                type="button"
+            >
+                Next →
+            </button>
+
+        </div>
+
+
+        <!-- STEP 3 -->
+
+        <div id="userDetailsStep" class="login-step">
+
+            <h2>👤 Your Details</h2>
+
+            <p>
+                अपना नाम और मोबाइल नंबर डालें।
+            </p>
+
+            <input
+                id="openUserName"
+                type="text"
+                placeholder="Your Name"
+                autocomplete="name"
+            >
+
+            <input
+                id="openUserPhone"
+                type="tel"
+                inputmode="numeric"
+                maxlength="10"
+                placeholder="Mobile Number"
+                autocomplete="tel"
+            >
+
+            <button
+                id="enterAppBtn"
+                type="button"
+            >
+                Open StudyConnect →
+            </button>
+
+            <div id="loginMessage"></div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- ==================================================
+     CONTACT OWNER
+================================================== -->
+
+<div
+    id="contactOwnerScreen"
+    class="contact-screen"
+>
+
+    <div class="contact-box">
+
+        <div class="big-icon">
+            🔒
+        </div>
+
+        <h1>
+            Access Not Allowed
+        </h1>
+
+        <p>
+            आपका नाम और मोबाइल नंबर Owner की अनुमति सूची में नहीं है।
+        </p>
+
+        <div class="owner-contact-card">
+
+            <strong>
+                Krishna Yadav
+            </strong>
+
+            <span>
+                StudyConnect Owner
+            </span>
+
+        </div>
+
+        <a
+            id="callOwnerBtn"
+            class="contact-action"
+            href="tel:8738084554"
+        >
+            📞 Call Owner
+        </a>
+
+        <a
+            id="whatsappOwnerBtn"
+            class="contact-action"
+            href="https://wa.me/918738084554"
+            target="_blank"
+            rel="noopener"
+        >
+            💬 WhatsApp Owner
+        </a>
+
+        <button
+            id="backToLoginBtn"
+            type="button"
+            class="back-login"
+        >
+            ← वापस जाएँ
+        </button>
+
+    </div>
+
+</div>
+
+
+<!-- ==================================================
+     MAIN APP
+================================================== -->
+
+<div
+    id="appContainer"
+    class="app-container"
+>
+
+
+    <!-- HEADER -->
+
+    <header class="topbar">
+
+        <div class="brand">
+            <span class="brand-icon">💬</span>
+
+            <span>
                 StudyConnect
-            </div>
+            </span>
+        </div>
 
-            <div class="app-subtitle">
-                Student Community
-            </div>
+        <button
+            id="menuBtn"
+            class="menu-button"
+            type="button"
+        >
+            ☰
+        </button>
+
+    </header>
 
 
-            <!-- STEP 1 -->
+    <!-- NAVIGATION -->
 
-            <div id="step1" class="step">
+    <nav id="navMenu" class="nav-menu">
 
-                <h2 class="step-title">
-                    Enter your password
-                </h2>
+        <button
+            type="button"
+            data-page="home"
+        >
+            🏠 Home
+        </button>
 
-                <p class="step-text">
-                    StudyConnect खोलने के लिए password डालें।
+        <button
+            type="button"
+            data-page="chat"
+        >
+            💬 Chat
+        </button>
+
+        <button
+            type="button"
+            data-page="groups"
+        >
+            👥 Groups
+        </button>
+
+        <button
+            type="button"
+            data-page="homework"
+        >
+            📚 Homework
+        </button>
+
+        <button
+            type="button"
+            data-page="school"
+        >
+            🏫 School
+        </button>
+
+        <button
+            type="button"
+            data-page="notes"
+        >
+            📝 Notes
+        </button>
+
+        <button
+            type="button"
+            data-page="settings"
+        >
+            ⚙️ Settings
+        </button>
+
+    </nav>
+
+
+    <!-- ==================================================
+         HOME
+    ================================================== -->
+
+    <main
+        id="home"
+        class="page active"
+    >
+
+        <section class="hero-card">
+
+            <div>
+
+                <p class="small-label">
+                    STUDYCONNECT
                 </p>
 
+                <h2>
+                    Welcome back! 👋
+                </h2>
+
+                <p id="homeWelcome">
+                    आपकी student community एक जगह।
+                </p>
+
+            </div>
+
+        </section>
+
+
+        <!-- USER -->
+
+        <section class="card">
+
+            <h3>
+                👤 Your Profile
+            </h3>
+
+            <input
+                id="studentName"
+                type="text"
+                placeholder="अपना नाम लिखें"
+            >
+
+            <button
+                id="saveNameBtn"
+                type="button"
+            >
+                Save Name
+            </button>
+
+            <p id="nameMessage"></p>
+
+            <div
+                id="currentUserProfile"
+                class="profile-info"
+            ></div>
+
+        </section>
+
+
+        <!-- ONLINE -->
+
+        <section class="card online-card">
+
+            <div class="online-header">
+
+                <div>
+                    <strong>
+                        🟢 Online Now
+                    </strong>
+
+                    <span id="onlineCount">
+                        0
+                    </span>
+                </div>
+
+                <button
+                    id="onlineToggleBtn"
+                    type="button"
+                >
+                    Show
+                </button>
+
+            </div>
+
+            <button
+                id="onlineArrow"
+                class="online-arrow"
+                type="button"
+            >
+                ▼
+            </button>
+
+            <div
+                id="onlineUsers"
+                class="online-users"
+            ></div>
+
+        </section>
+
+
+        <!-- QUICK ACCESS -->
+
+        <section class="quick-grid">
+
+            <div
+                class="feature-card open-page"
+                data-page="chat"
+            >
+                <span>💬</span>
+
+                <h3>
+                    Chat
+                </h3>
+
+                <p>
+                    दोस्तों से बात करें।
+                </p>
+
+            </div>
+
+
+            <div
+                class="feature-card open-page"
+                data-page="groups"
+            >
+                <span>👥</span>
+
+                <h3>
+                    Groups
+                </h3>
+
+                <p>
+                    Study groups बनाएँ।
+                </p>
+
+            </div>
+
+
+            <div
+                class="feature-card open-page"
+                data-page="homework"
+            >
+                <span>📚</span>
+
+                <h3>
+                    Homework
+                </h3>
+
+                <p>
+                    Homework देखें।
+                </p>
+
+            </div>
+
+
+            <div
+                class="feature-card open-page"
+                data-page="school"
+            >
+                <span>🏫</span>
+
+                <h3>
+                    School
+                </h3>
+
+                <p>
+                    School updates।
+                </p>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ==================================================
+         CHAT
+    ================================================== -->
+
+    <main
+        id="chat"
+        class="page"
+    >
+
+        <section class="page-header">
+
+            <h2>
+                💬 Chat
+            </h2>
+
+            <p>
+                StudyConnect के students के साथ realtime chat।
+            </p>
+
+        </section>
+
+
+        <section class="chat-box">
+
+            <div
+                id="chatMessages"
+                class="chat-messages"
+            ></div>
+
+
+            <div class="chat-input-area">
+
+                <button
+                    id="emojiBtn"
+                    type="button"
+                >
+                    😊
+                </button>
+
                 <input
-                    id="appPassword"
-                    class="input-box"
-                    type="password"
-                    placeholder="Enter password"
+                    id="messageInput"
+                    type="text"
+                    placeholder="Message लिखें..."
                     autocomplete="off"
                 >
 
                 <button
-                    id="nextPasswordBtn"
-                    class="main-button"
+                    id="sendMessageBtn"
                     type="button"
                 >
-                    Next
-                </button>
-
-                <div
-                    id="passwordError"
-                    class="error-message"
-                ></div>
-
-            </div>
-
-
-            <!-- STEP 2 -->
-
-            <div
-                id="step2"
-                class="step hidden"
-            >
-
-                <h2 class="step-title">
-                    Welcome
-                </h2>
-
-                <p class="step-text">
-                    आप StudyConnect के Owner से जुड़ रहे हैं।
-                </p>
-
-                <div class="owner-card">
-
-                    <div class="owner-avatar">
-                        K
-                    </div>
-
-                    <div class="owner-name">
-                        Krishna Yadav
-                    </div>
-
-                    <div class="owner-label">
-                        StudyConnect Owner
-                    </div>
-
-                </div>
-
-                <button
-                    id="nextOwnerBtn"
-                    class="main-button"
-                    type="button"
-                >
-                    Next
+                    Send
                 </button>
 
             </div>
 
+        </section>
 
-            <!-- STEP 3 -->
-
-            <div
-                id="step3"
-                class="step hidden"
-            >
-
-                <h2 class="step-title">
-                    Enter your details
-                </h2>
-
-                <p class="step-text">
-                    अपना नाम और मोबाइल नंबर डालें।
-                </p>
-
-                <input
-                    id="userName"
-                    class="input-box"
-                    type="text"
-                    placeholder="Your Name"
-                    autocomplete="name"
-                >
-
-                <input
-                    id="userPhone"
-                    class="input-box"
-                    type="tel"
-                    inputmode="numeric"
-                    maxlength="10"
-                    placeholder="Mobile Number"
-                    autocomplete="tel"
-                >
-
-                <button
-                    id="openAppBtn"
-                    class="main-button"
-                    type="button"
-                >
-                    Open StudyConnect
-                </button>
-
-                <div
-                    id="loginMessage"
-                    class="error-message"
-                ></div>
-
-            </div>
-
-        </div>
-
-    </section>
+    </main>
 
 
-    <!-- =================================
-         CONTACT OWNER
-    ================================== -->
+    <!-- ==================================================
+         GROUPS
+    ================================================== -->
 
-    <section
-        id="contactScreen"
-        class="screen hidden"
+    <main
+        id="groups"
+        class="page"
     >
 
-        <div class="login-card contact-card">
-
-            <div class="contact-icon">
-                🔒
-            </div>
-
-            <h1>
-                Access Not Allowed
-            </h1>
-
-            <p>
-                आपका नाम और मोबाइल नंबर Owner की अनुमति सूची में नहीं है।
-            </p>
+        <section class="page-header">
 
             <h2>
-                Krishna Yadav
+                👥 Groups
             </h2>
 
             <p>
-                StudyConnect में प्रवेश के लिए Owner से संपर्क करें।
+                अपना private study group बनाएँ।
             </p>
 
-            <a
-                class="contact-button"
-                href="tel:8738084554"
-            >
-                📞 Call Krishna
-            </a>
+        </section>
 
-            <a
-                class="contact-button"
-                href="https://wa.me/918738084554"
-                target="_blank"
-                rel="noopener"
+
+        <section class="card">
+
+            <h3>
+                Create New Group
+            </h3>
+
+            <input
+                id="groupInput"
+                type="text"
+                placeholder="Group name"
             >
-                💬 WhatsApp Krishna
-            </a>
+
+            <input
+                id="groupPasswordInput"
+                type="password"
+                placeholder="Private group password"
+            >
 
             <button
-                id="backBtn"
-                class="back-button"
+                id="createGroupBtn"
                 type="button"
             >
-                वापस जाएँ
+                ➕ Create Group
             </button>
 
-        </div>
-
-    </section>
+        </section>
 
 
-    <!-- =================================
-         MAIN APP
-    ================================== -->
+        <section class="card">
 
-    <section
-        id="appScreen"
-        class="hidden"
+            <h3>
+                Your Groups
+            </h3>
+
+            <div
+                id="groupList"
+                class="list"
+            ></div>
+
+        </section>
+
+
+        <!-- GROUP CHAT -->
+
+        <section
+            id="groupChatSection"
+            class="card hidden"
+        >
+
+            <h3 id="selectedGroupName">
+                Group
+            </h3>
+
+            <p id="selectedGroupOwner"></p>
+
+
+            <div id="groupPasswordSection">
+
+                <input
+                    id="enterGroupPasswordInput"
+                    type="password"
+                    placeholder="Group password"
+                >
+
+                <button
+                    id="unlockGroupBtn"
+                    type="button"
+                >
+                    Unlock Group
+                </button>
+
+                <p id="groupPasswordMessage"></p>
+
+            </div>
+
+
+            <div
+                id="groupContent"
+                class="hidden"
+            >
+
+                <h4>
+                    Members
+                </h4>
+
+                <input
+                    id="memberNameInput"
+                    type="text"
+                    placeholder="Member name"
+                >
+
+                <input
+                    id="memberPhoneInput"
+                    type="tel"
+                    inputmode="numeric"
+                    maxlength="10"
+                    placeholder="Member mobile number"
+                >
+
+                <button
+                    id="addMemberBtn"
+                    type="button"
+                >
+                    Add Member
+                </button>
+
+                <div
+                    id="memberList"
+                    class="member-list"
+                ></div>
+
+
+                <div
+                    id="groupMessages"
+                    class="group-messages"
+                ></div>
+
+
+                <div class="chat-input-area">
+
+                    <input
+                        id="groupMessageInput"
+                        type="text"
+                        placeholder="Group message..."
+                    >
+
+                    <button
+                        id="sendGroupMessageBtn"
+                        type="button"
+                    >
+                        Send
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ==================================================
+         HOMEWORK
+    ================================================== -->
+
+    <main
+        id="homework"
+        class="page"
     >
 
-        <header class="topbar">
+        <section class="page-header">
 
-            <div class="brand">
-                💬 StudyConnect
-            </div>
+            <h2>
+                📚 Homework
+            </h2>
+
+            <p>
+                आज का homework यहाँ देखें।
+            </p>
+
+        </section>
+
+
+        <section class="card">
+
+            <input
+                id="homeworkDate"
+                type="date"
+            >
+
+            <input
+                id="hindiHomework"
+                placeholder="Hindi Homework"
+            >
+
+            <input
+                id="englishHomework"
+                placeholder="English Homework"
+            >
+
+            <input
+                id="mathHomework"
+                placeholder="Maths Homework"
+            >
+
+            <input
+                id="scienceHomework"
+                placeholder="Science Homework"
+            >
+
+            <input
+                id="sstHomework"
+                placeholder="SST Homework"
+            >
+
+            <input
+                id="computerHomework"
+                placeholder="Computer Homework"
+            >
+
+            <input
+                id="artHomework"
+                placeholder="Art Homework"
+            >
 
             <button
-                id="logoutBtn"
-                class="logout"
+                id="addHomeworkBtn"
                 type="button"
             >
-                Logout
+                💾 Save Homework
             </button>
 
-        </header>
+        </section>
 
 
-        <main class="app-content">
+        <section
+            id="homeworkList"
+            class="list"
+        ></section>
 
-            <div class="welcome-card">
+    </main>
 
-                <h2>
-                    Welcome to StudyConnect 👋
-                </h2>
 
-                <p id="welcomeUser">
-                    Welcome!
-                </p>
+    <!-- ==================================================
+         SCHOOL
+    ================================================== -->
+
+    <main
+        id="school"
+        class="page"
+    >
+
+        <section class="page-header">
+
+            <h2>
+                🏫 School
+            </h2>
+
+            <p>
+                School updates और announcements।
+            </p>
+
+        </section>
+
+
+        <section class="card">
+
+            <textarea
+                id="schoolInput"
+                placeholder="School update लिखें..."
+            ></textarea>
+
+            <button
+                id="saveSchoolBtn"
+                type="button"
+            >
+                💾 Save Update
+            </button>
+
+        </section>
+
+
+        <section
+            id="schoolList"
+            class="list"
+        ></section>
+
+    </main>
+
+
+    <!-- ==================================================
+         NOTES
+    ================================================== -->
+
+    <main
+        id="notes"
+        class="page"
+    >
+
+        <section class="page-header">
+
+            <h2>
+                📝 Notes
+            </h2>
+
+            <p>
+                Important notes save करें।
+            </p>
+
+        </section>
+
+
+        <section class="card">
+
+            <textarea
+                id="noteInput"
+                placeholder="अपना note लिखें..."
+            ></textarea>
+
+            <button
+                id="saveNoteBtn"
+                type="button"
+            >
+                💾 Save Note
+            </button>
+
+        </section>
+
+
+        <section
+            id="notesList"
+            class="list"
+        ></section>
+
+    </main>
+
+
+    <!-- ==================================================
+         SETTINGS
+    ================================================== -->
+
+    <main
+        id="settings"
+        class="page"
+    >
+
+        <section class="page-header">
+
+            <h2>
+                ⚙️ Settings
+            </h2>
+
+            <p>
+                StudyConnect को अपनी जरूरत के अनुसार सेट करें।
+            </p>
+
+        </section>
+
+
+        <section class="settings-box card">
+
+            <h3>
+                👤 Name
+            </h3>
+
+            <input
+                id="changeNameInput"
+                placeholder="नया नाम"
+            >
+
+            <button
+                id="changeNameBtn"
+                type="button"
+            >
+                Change Name
+            </button>
+
+            <p id="changeNameMessage"></p>
+
+
+            <hr>
+
+
+            <h3>
+                🌐 Language
+            </h3>
+
+            <button
+                id="hindiLanguageBtn"
+                type="button"
+            >
+                🇮🇳 हिंदी
+            </button>
+
+            <button
+                id="englishLanguageBtn"
+                type="button"
+            >
+                🇬🇧 English
+            </button>
+
+            <p id="languageMessage"></p>
+
+
+            <hr>
+
+
+            <h3>
+                🎨 Theme
+            </h3>
+
+            <button
+                id="themeBtn"
+                type="button"
+            >
+                Toggle Dark Mode
+            </button>
+
+
+            <hr>
+
+
+            <h3>
+                🔔 Notifications
+            </h3>
+
+            <button
+                id="notificationBtn"
+                type="button"
+            >
+                Enable Notifications
+            </button>
+
+            <p id="notificationMessage"></p>
+
+
+            <hr>
+
+
+            <!-- OWNER -->
+
+            <h3>
+                👑 Owner
+            </h3>
+
+            <p>
+                Owner: <strong>Krishna Yadav</strong>
+            </p>
+
+            <p>
+                Owner settings खोलने के लिए password डालें।
+            </p>
+
+            <div id="ownerSettingsSection">
+
+                <input
+                    id="ownerPasswordInput"
+                    type="password"
+                    placeholder="Owner Password"
+                >
+
+                <button
+                    id="ownerLoginBtn"
+                    type="button"
+                >
+                    Open Owner Panel
+                </button>
+
+                <p id="ownerPasswordMessage"></p>
 
             </div>
 
 
-            <div class="feature-grid">
+            <!-- OWNER PANEL -->
 
-                <div class="feature-card">
+            <div
+                id="ownerPanel"
+                class="hidden owner-panel"
+            >
 
-                    <div class="feature-icon">
-                        💬
-                    </div>
+                <h3>
+                    👑 Owner Panel
+                </h3>
 
-                    <h3>
-                        Chat
-                    </h3>
+                <input
+                    id="allowedUserNameInput"
+                    placeholder="Allowed user name"
+                >
 
-                    <p>
-                        दोस्तों और classmates के साथ chat करें।
-                    </p>
+                <input
+                    id="allowedUserPhoneInput"
+                    type="tel"
+                    inputmode="numeric"
+                    maxlength="10"
+                    placeholder="Allowed user mobile"
+                >
 
-                </div>
+                <button
+                    id="allowUserBtn"
+                    type="button"
+                >
+                    ✅ Allow User
+                </button>
 
-
-                <div class="feature-card">
-
-                    <div class="feature-icon">
-                        👥
-                    </div>
-
-                    <h3>
-                        Groups
-                    </h3>
-
-                    <p>
-                        अपने study groups बनाएँ और members जोड़ें।
-                    </p>
-
-                </div>
-
-
-                <div class="feature-card">
-
-                    <div class="feature-icon">
-                        📚
-                    </div>
-
-                    <h3>
-                        Study
-                    </h3>
-
-                    <p>
-                        Homework, notes और school updates एक जगह रखें।
-                    </p>
-
-                </div>
+                <div
+                    id="allowedUsersList"
+                    class="list"
+                ></div>
 
             </div>
 
-        </main>
 
-    </section>
+            <hr>
 
 
-    <!-- =================================
-         JAVASCRIPT
-    ================================== -->
+            <h3>
+                🗑️ App Data
+            </h3>
 
-    <script type="module">
+            <button
+                id="clearDataBtn"
+                type="button"
+                class="danger-button"
+            >
+                Reset App Data
+            </button>
 
-        import {
-            initializeApp
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+            <p id="settingsMessage"></p>
 
-        import {
-            getFirestore,
-            doc,
-            getDoc
-        } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        </section>
 
+    </main>
 
-        /* =========================
-           FIREBASE
-        ========================= */
 
-        const firebaseConfig = {
+</div>
 
-            apiKey: "AIzaSyCquRX2YB59FObuIyiw3c3AUCdPWypag",
 
-            authDomain:
-                "studyconnect-99006.firebaseapp.com",
-
-            projectId:
-                "studyconnect-99006",
-
-            storageBucket:
-                "studyconnect-99006.firebasestorage.app",
-
-            messagingSenderId:
-                "15964627995",
-
-            appId:
-                "1:15964627995:web:0e8a8cd14c175247ed04be",
-
-            measurementId:
-                "G-SYJYMREJJL"
-        };
-
-
-        const firebaseApp =
-            initializeApp(firebaseConfig);
-
-        const db =
-            getFirestore(firebaseApp);
-
-
-        /* =========================
-           SETTINGS
-        ========================= */
-
-        const SCHOOL_PASSWORD = "123";
-
-        const OWNER_NAME =
-            "Krishna Yadav";
-
-        const OWNER_PHONE =
-            "8738084554";
-
-
-        /* =========================
-           ELEMENTS
-        ========================= */
-
-        const loginScreen =
-            document.getElementById("loginScreen");
-
-        const contactScreen =
-            document.getElementById("contactScreen");
-
-        const appScreen =
-            document.getElementById("appScreen");
-
-        const step1 =
-            document.getElementById("step1");
-
-        const step2 =
-            document.getElementById("step2");
-
-        const step3 =
-            document.getElementById("step3");
-
-        const appPassword =
-            document.getElementById("appPassword");
-
-        const userName =
-            document.getElementById("userName");
-
-        const userPhone =
-            document.getElementById("userPhone");
-
-        const passwordError =
-            document.getElementById("passwordError");
-
-        const loginMessage =
-            document.getElementById("loginMessage");
-
-        const welcomeUser =
-            document.getElementById("welcomeUser");
-
-
-        /* =========================
-           STEP CONTROL
-        ========================= */
-
-        function showStep(number) {
-
-            step1.classList.add("hidden");
-            step2.classList.add("hidden");
-            step3.classList.add("hidden");
-
-            if (number === 1) {
-                step1.classList.remove("hidden");
-            }
-
-            if (number === 2) {
-                step2.classList.remove("hidden");
-            }
-
-            if (number === 3) {
-                step3.classList.remove("hidden");
-            }
-        }
-
-
-        /* =========================
-           STEP 1
-        ========================= */
-
-        document
-            .getElementById("nextPasswordBtn")
-            .addEventListener("click", () => {
-
-                const password =
-                    appPassword.value.trim();
-
-                if (password === SCHOOL_PASSWORD) {
-
-                    passwordError.textContent = "";
-
-                    showStep(2);
-
-                } else {
-
-                    passwordError.textContent =
-                        "❌ Password गलत है।";
-                }
-
-            });
-
-
-        /* =========================
-           STEP 2
-        ========================= */
-
-        document
-            .getElementById("nextOwnerBtn")
-            .addEventListener("click", () => {
-
-                showStep(3);
-
-                userName.focus();
-
-            });
-
-
-        /* =========================
-           OPEN APP
-        ========================= */
-
-        document
-            .getElementById("openAppBtn")
-            .addEventListener("click", async () => {
-
-                const name =
-                    userName.value.trim();
-
-                const phone =
-                    userPhone.value.trim();
-
-
-                loginMessage.className =
-                    "error-message";
-
-                loginMessage.textContent = "";
-
-
-                if (name.length < 2) {
-
-                    loginMessage.textContent =
-                        "❌ अपना नाम लिखें।";
-
-                    return;
-                }
-
-
-                if (!/^[0-9]{10}$/.test(phone)) {
-
-                    loginMessage.textContent =
-                        "❌ 10 अंकों का मोबाइल नंबर डालें।";
-
-                    return;
-                }
-
-
-                /*
-                   OWNER DIRECT ACCESS
-
-                   अगर Krishna Yadav + 8738084554
-                   डाला गया है तो सीधे allowed.
-                */
-
-                if (
-                    name.toLowerCase() ===
-                    OWNER_NAME.toLowerCase()
-                    &&
-                    phone === OWNER_PHONE
-                ) {
-
-                    saveUser(name, phone);
-
-                    showApp(name);
-
-                    return;
-                }
-
-
-                /* =========================
-                   FIREBASE ALLOW CHECK
-                ========================= */
-
-                const button =
-                    document.getElementById("openAppBtn");
-
-                button.disabled = true;
-
-                button.textContent =
-                    "Checking...";
-
-
-                try {
-
-                    const userRef =
-                        doc(
-                            db,
-                            "allowedUsers",
-                            phone
-                        );
-
-                    const userSnapshot =
-                        await getDoc(userRef);
-
-
-                    if (!userSnapshot.exists()) {
-
-                        showContact();
-
-                        return;
-                    }
-
-
-                    const data =
-                        userSnapshot.data();
-
-
-                    const allowedName =
-                        String(data.name || "")
-                            .trim()
-                            .toLowerCase();
-
-
-                    if (
-                        allowedName !==
-                        name.toLowerCase()
-                    ) {
-
-                        showContact();
-
-                        return;
-                    }
-
-
-                    saveUser(name, phone);
-
-                    showApp(name);
-
-
-                } catch (error) {
-
-                    console.error(
-                        "Firebase error:",
-                        error
-                    );
-
-                    loginMessage.textContent =
-                        "❌ Firebase connection में समस्या है।";
-
-                } finally {
-
-                    button.disabled = false;
-
-                    button.textContent =
-                        "Open StudyConnect";
-                }
-
-            });
-
-
-        /* =========================
-           SAVE USER
-        ========================= */
-
-        function saveUser(name, phone) {
-
-            localStorage.setItem(
-                "studyUserName",
-                name
-            );
-
-            localStorage.setItem(
-                "studyUserPhone",
-                phone
-            );
-
-        }
-
-
-        /* =========================
-           SHOW APP
-        ========================= */
-
-        function showApp(name) {
-
-            loginScreen.classList.add("hidden");
-
-            contactScreen.classList.add("hidden");
-
-            appScreen.classList.remove("hidden");
-
-            welcomeUser.textContent =
-                "Welcome, " + name + " 👋";
-
-        }
-
-
-        /* =========================
-           CONTACT
-        ========================= */
-
-        function showContact() {
-
-            loginScreen.classList.add("hidden");
-
-            appScreen.classList.add("hidden");
-
-            contactScreen.classList.remove("hidden");
-
-        }
-
-
-        /* =========================
-           BACK
-        ========================= */
-
-        document
-            .getElementById("backBtn")
-            .addEventListener("click", () => {
-
-                contactScreen.classList.add("hidden");
-
-                loginScreen.classList.remove("hidden");
-
-                appPassword.value = "";
-                userName.value = "";
-                userPhone.value = "";
-
-                showStep(1);
-
-            });
-
-
-        /* =========================
-           LOGOUT
-        ========================= */
-
-        document
-            .getElementById("logoutBtn")
-            .addEventListener("click", () => {
-
-                localStorage.removeItem(
-                    "studyUserName"
-                );
-
-                localStorage.removeItem(
-                    "studyUserPhone"
-                );
-
-                appScreen.classList.add("hidden");
-
-                loginScreen.classList.remove("hidden");
-
-                appPassword.value = "";
-                userName.value = "";
-                userPhone.value = "";
-
-                showStep(1);
-
-            });
-
-
-        /* =========================
-           ENTER KEY
-        ========================= */
-
-        appPassword.addEventListener(
-            "keydown",
-            (event) => {
-
-                if (event.key === "Enter") {
-
-                    document
-                        .getElementById("nextPasswordBtn")
-                        .click();
-
-                }
-
-            }
-        );
-
-
-        userPhone.addEventListener(
-            "keydown",
-            (event) => {
-
-                if (event.key === "Enter") {
-
-                    document
-                        .getElementById("openAppBtn")
-                        .click();
-
-                }
-
-            }
-        );
-
-
-        /* =========================
-           START
-        ========================= */
-
-        showStep(1);
-
-    </script>
+<script type="module" src="script.js"></script>
 
 </body>
 </html>
