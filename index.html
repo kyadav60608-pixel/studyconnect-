@@ -1,1400 +1,1662 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <meta name="theme-color" content="#075e54">
-    <meta name="description" content="StudyConnect - Student Community App">
-
-    <link rel="manifest" href="manifest.json">
-
-    <title>StudyConnect</title>
-
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: #f2f2f2;
-            color: #222;
-            min-height: 100vh;
-        }
-
-        button,
-        input,
-        textarea {
-            font: inherit;
-        }
-
-        button {
-            cursor: pointer;
-        }
-
-        .hidden {
-            display: none !important;
-        }
-
-        /* LOGIN */
-
-        #passwordScreen,
-        #contactOwnerScreen {
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            background: linear-gradient(135deg, #075e54, #128c7e);
-        }
-
-        .login-card {
-            width: 100%;
-            max-width: 430px;
-            background: white;
-            border-radius: 18px;
-            padding: 28px;
-            box-shadow: 0 10px 30px rgba(0,0,0,.2);
-        }
-
-        .login-card h1 {
-            text-align: center;
-            margin-bottom: 10px;
-        }
-
-        .login-card h2 {
-            margin-bottom: 12px;
-        }
-
-        .login-card p {
-            margin-bottom: 18px;
-            line-height: 1.5;
-        }
-
-        .login-card input {
-            width: 100%;
-            padding: 13px;
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            margin-bottom: 12px;
-            outline: none;
-        }
-
-        .login-card button,
-        .primary-btn {
-            width: 100%;
-            padding: 13px;
-            border: none;
-            border-radius: 10px;
-            background: #075e54;
-            color: white;
-            font-weight: bold;
-            margin-top: 8px;
-        }
-
-        .secondary-btn {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #075e54;
-            border-radius: 10px;
-            background: white;
-            color: #075e54;
-            font-weight: bold;
-            margin-top: 8px;
-        }
-
-        .error {
-            color: #d32f2f;
-            margin-top: 10px;
-        }
-
-        .success {
-            color: #188038;
-            margin-top: 10px;
-        }
-
-        .profile-upload {
-            text-align: center;
-            margin: 15px 0;
-        }
-
-        #profilePhotoPreview {
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            object-fit: cover;
-            display: none;
-            margin: 10px auto;
-        }
-
-        /* APP */
-
-        #appContainer {
-            min-height: 100vh;
-        }
-
-        .topbar {
-            height: 60px;
-            background: #075e54;
-            color: white;
-            display: flex;
-            align-items: center;
-            padding: 0 15px;
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        #menuBtn {
-            border: none;
-            background: transparent;
-            color: white;
-            font-size: 25px;
-            margin-right: 12px;
-        }
-
-        .app-title {
-            font-size: 20px;
-            font-weight: bold;
-        }
-
-        #navMenu {
-            position: fixed;
-            top: 60px;
-            left: 0;
-            width: 240px;
-            min-height: calc(100vh - 60px);
-            background: white;
-            box-shadow: 5px 0 15px rgba(0,0,0,.15);
-            transform: translateX(-105%);
-            transition: .2s;
-            z-index: 999;
-            padding: 10px;
-        }
-
-        #navMenu.open {
-            transform: translateX(0);
-        }
-
-        .nav-item {
-            width: 100%;
-            border: none;
-            background: transparent;
-            text-align: left;
-            padding: 14px;
-            border-radius: 8px;
-            margin-bottom: 4px;
-        }
-
-        .nav-item:hover {
-            background: #eee;
-        }
-
-        main {
-            padding: 15px;
-            max-width: 1000px;
-            margin: auto;
-        }
-
-        .page {
-            display: none;
-        }
-
-        .page.active {
-            display: block;
-        }
-
-        .card {
-            background: white;
-            padding: 18px;
-            border-radius: 14px;
-            margin-bottom: 15px;
-            box-shadow: 0 2px 8px rgba(0,0,0,.08);
-        }
-
-        .card h2,
-        .card h3 {
-            margin-bottom: 10px;
-        }
-
-        .card p {
-            line-height: 1.5;
-        }
-
-        input,
-        textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ccc;
-            border-radius: 9px;
-            margin: 7px 0;
-            outline: none;
-        }
-
-        textarea {
-            min-height: 100px;
-            resize: vertical;
-        }
-
-        .action-btn {
-            border: none;
-            border-radius: 9px;
-            padding: 11px 15px;
-            background: #075e54;
-            color: white;
-            font-weight: bold;
-            margin-top: 7px;
-        }
-
-        .danger-btn {
-            background: #d32f2f;
-        }
-
-        .online-box {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 12px;
-        }
-
-        #onlineArrow {
-            border: none;
-            background: transparent;
-            font-size: 18px;
-        }
-
-        #onlineUsers {
-            margin-top: 10px;
-            padding: 10px;
-            background: #f5f5f5;
-            border-radius: 9px;
-        }
-
-        .profile-preview {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            object-fit: cover;
-        }
-
-        /* CHAT */
-
-        #chatMessages,
-        #groupMessages {
-            height: 55vh;
-            overflow-y: auto;
-            background: #e5ddd5;
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 10px;
-        }
-
-        .message {
-            max-width: 80%;
-            width: fit-content;
-            background: white;
-            padding: 8px 10px;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            box-shadow: 0 1px 2px rgba(0,0,0,.1);
-        }
-
-        .message.mine {
-            margin-left: auto;
-            background: #dcf8c6;
-        }
-
-        .message-info {
-            font-size: 11px;
-            text-align: right;
-            color: #777;
-            margin-top: 4px;
-        }
-
-        .blue-tick {
-            color: #2196f3;
-            font-weight: bold;
-        }
-
-        .chat-input-row {
-            display: flex;
-            gap: 7px;
-        }
-
-        .chat-input-row input {
-            flex: 1;
-        }
-
-        .chat-input-row button {
-            width: auto;
-            white-space: nowrap;
-        }
-
-        /* GROUPS */
-
-        #groupList button {
-            width: 100%;
-            padding: 12px;
-            margin: 5px 0;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 9px;
-            text-align: left;
-        }
-
-        .list-item {
-            background: #f7f7f7;
-            padding: 12px;
-            border-radius: 9px;
-            margin: 7px 0;
-            line-height: 1.6;
-            word-break: break-word;
-        }
-
-        .muted {
-            color: #777;
-        }
-
-        /* DARK MODE */
-
-        body.dark {
-            background: #111;
-            color: #eee;
-        }
-
-        body.dark .card,
-        body.dark .login-card {
-            background: #1f1f1f;
-            color: #eee;
-        }
-
-        body.dark input,
-        body.dark textarea {
-            background: #292929;
-            color: white;
-            border-color: #555;
-        }
-
-        body.dark #navMenu {
-            background: #1f1f1f;
-        }
-
-        body.dark .nav-item {
-            color: white;
-        }
-
-        body.dark .nav-item:hover {
-            background: #333;
-        }
-
-        body.dark .list-item,
-        body.dark #onlineUsers {
-            background: #292929;
-        }
-
-        body.dark #groupList button {
-            background: #292929;
-            color: white;
-            border-color: #444;
-        }
-
-        body.dark #chatMessages,
-        body.dark #groupMessages {
-            background: #222;
-        }
-
-        /* MOBILE */
-
-        @media (max-width: 600px) {
-
-            main {
-                padding: 10px;
-            }
-
-            .login-card {
-                padding: 20px;
-            }
-
-            .message {
-                max-width: 88%;
-            }
-
-            .app-title {
-                font-size: 18px;
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <meta name="theme-color" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+
+  <link rel="manifest" href="manifest.json">
+
+  <title>StudyConnect</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      min-height: 100%;
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    button,
+    input,
+    textarea {
+      font-family: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* LOGIN */
+
+    #passwordScreen,
+    #contactOwnerScreen {
+      min-height: 100vh;
+      width: 100%;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .login-box,
+    .contact-box {
+      width: 100%;
+      max-width: 480px;
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 22px;
+      padding: 28px 22px;
+      box-shadow: 0 0 25px rgba(255,255,255,0.05);
+      text-align: center;
+    }
+
+    .logo {
+      width: 82px;
+      height: 82px;
+      margin: 0 auto 18px;
+      border-radius: 22px;
+      background: #1c1c1c;
+      border: 1px solid #333;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 42px;
+    }
+
+    .login-box h1,
+    .contact-box h1 {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .login-box p,
+    .contact-box p {
+      color: #aaa;
+      line-height: 1.5;
+      margin-bottom: 20px;
+    }
+
+    .step {
+      display: none;
+    }
+
+    .step.active {
+      display: block;
+    }
+
+    .input-group {
+      width: 100%;
+      margin-bottom: 14px;
+      text-align: left;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 7px;
+      color: #ddd;
+      font-size: 14px;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      background: #080808;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 13px;
+      padding: 14px;
+      outline: none;
+      font-size: 16px;
+    }
+
+    input:focus,
+    textarea:focus {
+      border-color: #777;
+    }
+
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .primary-btn,
+    .secondary-btn,
+    .danger-btn {
+      width: 100%;
+      border: none;
+      border-radius: 13px;
+      padding: 14px;
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+
+    .primary-btn {
+      background: #fff;
+      color: #000;
+    }
+
+    .secondary-btn {
+      background: #222;
+      color: #fff;
+      border: 1px solid #333;
+    }
+
+    .danger-btn {
+      background: #250000;
+      color: #fff;
+      border: 1px solid #600;
+    }
+
+    .error-message {
+      color: #ff6b6b;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .success-message {
+      color: #7dff9b;
+      margin-top: 12px;
+      font-size: 14px;
+    }
+
+    .owner-name {
+      font-size: 25px;
+      font-weight: bold;
+      margin: 18px 0;
+    }
+
+    .profile-preview {
+      width: 90px;
+      height: 90px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: none;
+      margin: 12px auto;
+      border: 2px solid #555;
+    }
+
+    /* CONTACT OWNER */
+
+    .contact-icon {
+      font-size: 55px;
+      margin-bottom: 15px;
+    }
+
+    .contact-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* APP */
+
+    #appContainer {
+      min-height: 100vh;
+      width: 100%;
+      background: #000;
+      display: none;
+    }
+
+    .topbar {
+      width: 100%;
+      height: 64px;
+      background: #0b0b0b;
+      border-bottom: 1px solid #252525;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .brand {
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    #menuBtn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      border: 1px solid #333;
+      background: #171717;
+      color: #fff;
+      font-size: 23px;
+    }
+
+    #navMenu {
+      position: fixed;
+      top: 64px;
+      left: 0;
+      width: 270px;
+      max-width: 85%;
+      min-height: calc(100vh - 64px);
+      background: #0b0b0b;
+      border-right: 1px solid #292929;
+      z-index: 99;
+      padding: 15px;
+      transform: translateX(-110%);
+      transition: transform 0.2s ease;
+      overflow-y: auto;
+    }
+
+    #navMenu.open {
+      transform: translateX(0);
+    }
+
+    .nav-item {
+      width: 100%;
+      padding: 14px;
+      border-radius: 12px;
+      background: transparent;
+      border: none;
+      color: #fff;
+      text-align: left;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .nav-item:hover,
+    .nav-item.active {
+      background: #202020;
+    }
+
+    .page {
+      display: none;
+      width: 100%;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px 14px 80px;
+    }
+
+    .page.active {
+      display: block;
+    }
+
+    .page-title {
+      font-size: 28px;
+      margin-bottom: 8px;
+    }
+
+    .page-description {
+      color: #999;
+      margin-bottom: 20px;
+      line-height: 1.5;
+    }
+
+    .card {
+      width: 100%;
+      background: #111;
+      border: 1px solid #292929;
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 15px;
+    }
+
+    .card h3 {
+      margin-bottom: 8px;
+    }
+
+    .card p {
+      color: #aaa;
+      line-height: 1.5;
+    }
+
+    /* HOME */
+
+    .welcome-card {
+      text-align: center;
+      padding: 28px 18px;
+    }
+
+    .welcome-card .big-icon {
+      font-size: 55px;
+      margin-bottom: 12px;
+    }
+
+    .profile-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .profile-avatar {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: #222;
+      border: 1px solid #444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      font-size: 25px;
+    }
+
+    .profile-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .online-box {
+      margin-top: 15px;
+    }
+
+    .online-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .online-toggle {
+      width: auto;
+      padding: 10px 13px;
+      background: #1b1b1b;
+      color: #fff;
+      border: 1px solid #333;
+      border-radius: 10px;
+    }
+
+    .online-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .online-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #4cff73;
+    }
+
+    #onlineArrow {
+      display: inline-block;
+      transition: transform 0.2s;
+    }
+
+    #onlineArrow.open {
+      transform: rotate(90deg);
+    }
+
+    #onlineUsers {
+      display: none;
+      margin-top: 12px;
+      border-top: 1px solid #292929;
+      padding-top: 12px;
+    }
+
+    #onlineUsers.open {
+      display: block;
+    }
+
+    .online-user {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #222;
+    }
+
+    .online-user:last-child {
+      border-bottom: none;
+    }
+
+    .small-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .small-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    /* CHAT */
+
+    #chatMessages {
+      width: 100%;
+      min-height: 350px;
+      max-height: 60vh;
+      overflow-y: auto;
+      background: #080808;
+      border: 1px solid #292929;
+      border-radius: 17px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .message {
+      max-width: 80%;
+      padding: 10px 12px;
+      margin: 7px 0;
+      border-radius: 14px;
+      word-wrap: break-word;
+    }
+
+    .message.mine {
+      margin-left: auto;
+      background: #242424;
+    }
+
+    .message.theirs {
+      margin-right: auto;
+      background: #151515;
+      border: 1px solid #282828;
+    }
+
+    .message-name {
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    .message-text {
+      font-size: 16px;
+      white-space: pre-wrap;
+    }
+
+    .message-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 6px;
+      margin-top: 5px;
+      color: #888;
+      font-size: 10px;
+    }
+
+    .tick {
+      font-size: 13px;
+    }
+
+    .tick.read {
+      color: #39a9ff;
+    }
+
+    .chat-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .chat-input-row input {
+      flex: 1;
+    }
+
+    .emoji-btn {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: #171717;
+      color: #fff;
+      border: 1px solid #333;
+      font-size: 21px;
+    }
+
+    .send-btn {
+      width: 90px;
+      height: 48px;
+      border-radius: 12px;
+      background: #fff;
+      color: #000;
+      border: none;
+      font-weight: bold;
+    }
+
+    /* GROUPS */
+
+    .group-item {
+      padding: 14px;
+      border: 1px solid #2c2c2c;
+      border-radius: 13px;
+      margin-bottom: 9px;
+      background: #0b0b0b;
+      cursor: pointer;
+    }
+
+    .group-item strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .group-item small {
+      color: #888;
+    }
+
+    #groupMessages {
+      width: 100%;
+      min-height: 280px;
+      max-height: 55vh;
+      overflow-y: auto;
+      background: #080808;
+      border: 1px solid #292929;
+      border-radius: 15px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+
+    /* LISTS */
+
+    .list-item {
+      background: #0b0b0b;
+      border: 1px solid #292929;
+      border-radius: 13px;
+      padding: 13px;
+      margin-bottom: 9px;
+      line-height: 1.5;
+    }
+
+    .list-item strong {
+      color: #fff;
+    }
+
+    .list-item small {
+      color: #888;
+    }
+
+    /* SETTINGS */
+
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 1px solid #252525;
+    }
+
+    .setting-row:last-child {
+      border-bottom: none;
+    }
+
+    .setting-info {
+      flex: 1;
+    }
+
+    .setting-info strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .setting-info small {
+      color: #888;
+      line-height: 1.4;
+    }
+
+    .small-btn {
+      width: auto;
+      white-space: nowrap;
+      padding: 10px 13px;
+      border-radius: 10px;
+      border: 1px solid #333;
+      background: #202020;
+      color: #fff;
+    }
+
+    .owner-panel {
+      border: 1px solid #555;
+      background: #0d0d0d;
+    }
+
+    .member-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid #252525;
+    }
+
+    .member-row:last-child {
+      border-bottom: none;
+    }
+
+    /* MOBILE */
+
+    @media (max-width: 600px) {
+      .login-box,
+      .contact-box {
+        padding: 24px 17px;
+        border-radius: 18px;
+      }
+
+      .page {
+        padding: 16px 10px 70px;
+      }
+
+      .page-title {
+        font-size: 25px;
+      }
+
+      .card {
+        padding: 15px;
+        border-radius: 15px;
+      }
+
+      .chat-input-row {
+        gap: 5px;
+      }
+
+      .emoji-btn {
+        width: 43px;
+      }
+
+      .send-btn {
+        width: 72px;
+      }
+
+      .message {
+        max-width: 88%;
+      }
+
+      .setting-row {
+        align-items: flex-start;
+      }
+
+      .small-btn {
+        padding: 9px 10px;
+      }
+    }
+  </style>
 </head>
 
 <body>
 
-    <!-- LOGIN SCREEN -->
+  <!-- LOGIN SCREEN -->
+  <section id="passwordScreen">
 
-    <section id="passwordScreen">
+    <div class="login-box">
 
-        <div class="login-card">
+      <div class="logo">💬</div>
 
-            <h1>💬 StudyConnect</h1>
+      <h1>StudyConnect</h1>
+      <p>Student Community App</p>
 
-            <div id="schoolPasswordStep">
+      <!-- STEP 1 -->
+      <div id="schoolPasswordStep" class="step active">
 
-                <h2>Enter your password</h2>
-
-                <p>
-                    Enter the StudyConnect password to continue.
-                </p>
-
-                <input
-                    id="appPassword"
-                    type="password"
-                    placeholder="Enter password"
-                    autocomplete="off"
-                >
-
-                <button
-                    id="unlockBtn"
-                    type="button"
-                >
-                    Next
-                </button>
-
-                <div id="passwordError"></div>
-
-            </div>
-
-
-            <div
-                id="ownerStep"
-                class="hidden"
-            >
-
-                <h2>Owner</h2>
-
-                <p>
-                    This app belongs to:
-                </p>
-
-                <h3 id="ownerNameDisplay">
-                    Krishna Yadav
-                </h3>
-
-                <button
-                    id="ownerNextBtn"
-                    type="button"
-                >
-                    Next
-                </button>
-
-            </div>
-
-
-            <div
-                id="userDetailsStep"
-                class="hidden"
-            >
-
-                <h2>Enter your details</h2>
-
-                <input
-                    id="openUserName"
-                    type="text"
-                    placeholder="Your name"
-                    autocomplete="name"
-                >
-
-                <input
-                    id="openUserPhone"
-                    type="tel"
-                    inputmode="numeric"
-                    maxlength="10"
-                    placeholder="Mobile number"
-                    autocomplete="tel"
-                >
-
-                <div class="profile-upload">
-
-                    <label for="profilePhotoInput">
-                        Profile Photo
-                    </label>
-
-                    <input
-                        id="profilePhotoInput"
-                        type="file"
-                        accept="image/*"
-                    >
-
-                    <img
-                        id="profilePhotoPreview"
-                        alt="Profile preview"
-                    >
-
-                </div>
-
-                <button
-                    id="enterAppBtn"
-                    type="button"
-                >
-                    Enter App
-                </button>
-
-                <div id="loginMessage"></div>
-
-            </div>
-
+        <div class="input-group">
+          <label for="appPassword">Enter your password</label>
+          <input
+            id="appPassword"
+            type="password"
+            placeholder="Enter password"
+            autocomplete="off"
+          >
         </div>
 
-    </section>
+        <button id="unlockBtn" class="primary-btn" type="button">
+          Next
+        </button>
 
+      </div>
 
-    <!-- CONTACT OWNER -->
+      <!-- STEP 2 -->
+      <div id="ownerStep" class="step">
 
-    <section
-        id="contactOwnerScreen"
-        class="hidden"
-    >
+        <p>Owner of this StudyConnect app</p>
 
-        <div class="login-card">
-
-            <h1 id="contactOwnerTitle">
-                Contact Owner
-            </h1>
-
-            <p id="contactOwnerText">
-                Your name and mobile number are not allowed.
-                Please contact the owner.
-            </p>
-
-            <button
-                id="callOwnerBtn"
-                type="button"
-            >
-                📞 Call Owner
-            </button>
-
-            <button
-                id="whatsappOwnerBtn"
-                type="button"
-            >
-                💬 WhatsApp Owner
-            </button>
-
-            <button
-                id="backToLoginBtn"
-                type="button"
-                class="secondary-btn"
-            >
-                Back
-            </button>
-
+        <div id="ownerNameDisplay" class="owner-name">
+          Krishna Yadav
         </div>
 
-    </section>
-
-
-    <!-- MAIN APP -->
-
-    <div
-        id="appContainer"
-        class="hidden"
-    >
-
-        <header class="topbar">
-
-            <button
-                id="menuBtn"
-                type="button"
-            >
-                ☰
-            </button>
-
-            <div class="app-title">
-                💬 StudyConnect
-            </div>
-
-        </header>
-
-
-        <nav id="navMenu">
-
-            <button
-                class="nav-item"
-                data-page="home"
-                data-i18n="home"
-                type="button"
-            >
-                Home
-            </button>
-
-            <button
-                class="nav-item"
-                data-page="chat"
-                data-i18n="chat"
-                type="button"
-            >
-                Chat
-            </button>
-
-            <button
-                class="nav-item"
-                data-page="groups"
-                data-i18n="groups"
-                type="button"
-            >
-                Groups
-            </button>
-
-            <button
-                class="nav-item"
-                data-page="homework"
-                data-i18n="homework"
-                type="button"
-            >
-                Homework
-            </button>
-
-            <button
-                class="nav-item"
-                data-page="school"
-                data-i18n="school"
-                type="button"
-            >
-                School
-            </button>
-
-            <button
-                class="nav-item"
-                data-page="notes"
-                data-i18n="notes"
-                type="button"
-            >
-                Notes
-            </button>
-
-            <button
-                class="nav-item"
-                data-page="settings"
-                data-i18n="settings"
-                type="button"
-            >
-                Settings
-            </button>
-
-        </nav>
-
-
-        <main>
-
-            <!-- HOME -->
-
-            <section
-                id="home"
-                class="page active"
-            >
-
-                <div class="card">
-
-                    <h2 data-i18n="welcome">
-                        Welcome to StudyConnect
-                    </h2>
-
-                    <p data-i18n="welcomeText">
-                        Connect with your school friends,
-                        share messages and study together.
-                    </p>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3>
-                        Your Name
-                    </h3>
-
-                    <input
-                        id="saveNameInput"
-                        type="text"
-                        placeholder="Enter your name"
-                    >
-
-                    <button
-                        id="saveNameBtn"
-                        class="action-btn"
-                        type="button"
-                        data-i18n="saveName"
-                    >
-                        Save Name
-                    </button>
-
-                    <div id="nameMessage"></div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3>
-                        Profile
-                    </h3>
-
-                    <div id="currentUserProfile"></div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <div class="online-box">
-
-                        <strong data-i18n="onlineNow">
-                            Online Now:
-                        </strong>
-
-                        <span id="onlineCount">
-                            0
-                        </span>
-
-                        <button
-                            id="onlineArrow"
-                            type="button"
-                            aria-label="Show online users"
-                        >
-                            ▾
-                        </button>
-
-                    </div>
-
-                    <div
-                        id="onlineUsers"
-                        class="hidden"
-                    ></div>
-
-                    <button
-                        id="onlineToggleBtn"
-                        class="action-btn"
-                        type="button"
-                    >
-                        Go Offline
-                    </button>
-
-                </div>
-
-            </section>
-
-
-            <!-- CHAT -->
-
-            <section
-                id="chat"
-                class="page"
-            >
-
-                <div class="card">
-
-                    <h2 data-i18n="chatTitle">
-                        Chat
-                    </h2>
-
-                    <p data-i18n="chatDescription">
-                        Real-time StudyConnect chat.
-                    </p>
-
-                </div>
-
-
-                <div class="card">
-
-                    <div id="chatMessages"></div>
-
-                    <div class="chat-input-row">
-
-                        <button
-                            id="emojiBtn"
-                            class="action-btn"
-                            type="button"
-                        >
-                            😊
-                        </button>
-
-                        <input
-                            id="messageInput"
-                            type="text"
-                            placeholder="Type a message..."
-                            autocomplete="off"
-                        >
-
-                        <button
-                            id="sendMessageBtn"
-                            class="action-btn"
-                            type="button"
-                            data-i18n="send"
-                        >
-                            Send
-                        </button>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- GROUPS -->
-
-            <section
-                id="groups"
-                class="page"
-            >
-
-                <div class="card">
-
-                    <h2 data-i18n="groupsTitle">
-                        Groups
-                    </h2>
-
-                    <p data-i18n="groupsDescription">
-                        Create private study groups.
-                    </p>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3 data-i18n="createGroup">
-                        Create Group
-                    </h3>
-
-                    <input
-                        id="groupInput"
-                        type="text"
-                        placeholder="Group name"
-                    >
-
-                    <input
-                        id="groupPasswordInput"
-                        type="password"
-                        placeholder="Group password"
-                    >
-
-                    <button
-                        id="createGroupBtn"
-                        class="action-btn"
-                        type="button"
-                        data-i18n="createGroupButton"
-                    >
-                        Create Group
-                    </button>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3>
-                        Your Groups
-                    </h3>
-
-                    <div id="groupList"></div>
-
-                </div>
-
-
-                <div
-                    id="groupChatSection"
-                    class="card hidden"
-                >
-
-                    <h3 id="selectedGroupName">
-                        Group
-                    </h3>
-
-                    <p id="selectedGroupOwner"></p>
-
-
-                    <div
-                        id="groupPasswordSection"
-                        class="card"
-                    >
-
-                        <input
-                            id="enterGroupPasswordInput"
-                            type="password"
-                            placeholder="Enter group password"
-                        >
-
-                        <button
-                            id="unlockGroupBtn"
-                            class="action-btn"
-                            type="button"
-                        >
-                            Open Group
-                        </button>
-
-                        <div id="groupPasswordMessage"></div>
-
-                    </div>
-
-
-                    <div
-                        id="groupContent"
-                        class="hidden"
-                    >
-
-                        <div class="card">
-
-                            <h4 data-i18n="addMember">
-                                Add Member
-                            </h4>
-
-                            <input
-                                id="memberNameInput"
-                                type="text"
-                                placeholder="Member name"
-                            >
-
-                            <input
-                                id="memberPhoneInput"
-                                type="tel"
-                                inputmode="numeric"
-                                maxlength="10"
-                                placeholder="Member mobile number"
-                            >
-
-                            <button
-                                id="addMemberBtn"
-                                class="action-btn"
-                                type="button"
-                                data-i18n="addMemberButton"
-                            >
-                                Add Member
-                            </button>
-
-                            <div id="memberList"></div>
-
-                        </div>
-
-
-                        <div id="groupMessages"></div>
-
-
-                        <div class="chat-input-row">
-
-                            <input
-                                id="groupMessageInput"
-                                type="text"
-                                placeholder="Type a group message..."
-                            >
-
-                            <button
-                                id="sendGroupMessageBtn"
-                                class="action-btn"
-                                type="button"
-                                data-i18n="send"
-                            >
-                                Send
-                            </button>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-            </section>
-
-
-            <!-- HOMEWORK -->
-
-            <section
-                id="homework"
-                class="page"
-            >
-
-                <div class="card">
-
-                    <h2 data-i18n="homeworkTitle">
-                        Homework
-                    </h2>
-
-                    <input
-                        id="homeworkDate"
-                        type="date"
-                    >
-
-                    <input
-                        id="hindiHomework"
-                        type="text"
-                        placeholder="Hindi Homework"
-                    >
-
-                    <input
-                        id="englishHomework"
-                        type="text"
-                        placeholder="English Homework"
-                    >
-
-                    <input
-                        id="mathHomework"
-                        type="text"
-                        placeholder="Math Homework"
-                    >
-
-                    <input
-                        id="scienceHomework"
-                        type="text"
-                        placeholder="Science Homework"
-                    >
-
-                    <input
-                        id="sstHomework"
-                        type="text"
-                        placeholder="SST Homework"
-                    >
-
-                    <input
-                        id="computerHomework"
-                        type="text"
-                        placeholder="Computer Homework"
-                    >
-
-                    <input
-                        id="artHomework"
-                        type="text"
-                        placeholder="Art Homework"
-                    >
-
-                    <button
-                        id="addHomeworkBtn"
-                        class="action-btn"
-                        type="button"
-                        data-i18n="saveHomework"
-                    >
-                        Save Homework
-                    </button>
-
-                </div>
-
-
-                <div class="card">
-
-                    <div id="homeworkList"></div>
-
-                </div>
-
-            </section>
-
-
-            <!-- SCHOOL -->
-
-            <section
-                id="school"
-                class="page"
-            >
-
-                <div class="card">
-
-                    <h2 data-i18n="schoolUpdateTitle">
-                        School Updates
-                    </h2>
-
-                    <p data-i18n="schoolDescription">
-                        Share important school updates.
-                    </p>
-
-                    <textarea
-                        id="schoolInput"
-                        placeholder="Write school update..."
-                    ></textarea>
-
-                    <button
-                        id="saveSchoolBtn"
-                        class="action-btn"
-                        type="button"
-                        data-i18n="saveUpdate"
-                    >
-                        Save Update
-                    </button>
-
-                </div>
-
-
-                <div class="card">
-
-                    <div id="schoolList"></div>
-
-                </div>
-
-            </section>
-
-
-            <!-- NOTES -->
-
-            <section
-                id="notes"
-                class="page"
-            >
-
-                <div class="card">
-
-                    <h2 data-i18n="notesTitle">
-                        Notes
-                    </h2>
-
-                    <p data-i18n="notesDescription">
-                        Save your important study notes.
-                    </p>
-
-                    <textarea
-                        id="noteInput"
-                        placeholder="Write your note..."
-                    ></textarea>
-
-                    <button
-                        id="saveNoteBtn"
-                        class="action-btn"
-                        type="button"
-                        data-i18n="saveNote"
-                    >
-                        Save Note
-                    </button>
-
-                </div>
-
-
-                <div class="card">
-
-                    <div id="notesList"></div>
-
-                </div>
-
-            </section>
-
-
-            <!-- SETTINGS -->
-
-            <section
-                id="settings"
-                class="page"
-            >
-
-                <div class="card">
-
-                    <h2 data-i18n="settingsTitle">
-                        Settings
-                    </h2>
-
-                    <p data-i18n="settingsDescription">
-                        Manage your StudyConnect settings.
-                    </p>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3 data-i18n="changeName">
-                        Change Name
-                    </h3>
-
-                    <input
-                        id="changeNameInput"
-                        type="text"
-                        placeholder="New name"
-                    >
-
-                    <button
-                        id="changeNameBtn"
-                        class="action-btn"
-                        type="button"
-                        data-i18n="changeNameButton"
-                    >
-                        Change Name
-                    </button>
-
-                    <div id="changeNameMessage"></div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3 data-i18n="language">
-                        Language
-                    </h3>
-
-                    <button
-                        id="hindiLanguageBtn"
-                        class="action-btn"
-                        type="button"
-                    >
-                        हिन्दी
-                    </button>
-
-                    <button
-                        id="englishLanguageBtn"
-                        class="action-btn"
-                        type="button"
-                    >
-                        English
-                    </button>
-
-                    <div id="languageMessage"></div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3 data-i18n="theme">
-                        Theme
-                    </h3>
-
-                    <button
-                        id="themeBtn"
-                        class="action-btn"
-                        type="button"
-                    >
-                        Dark Mode
-                    </button>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3 data-i18n="notifications">
-                        Notifications
-                    </h3>
-
-                    <button
-                        id="notificationBtn"
-                        class="action-btn"
-                        type="button"
-                        data-i18n="enableNotifications"
-                    >
-                        Enable Notifications
-                    </button>
-
-                    <div id="notificationMessage"></div>
-
-                </div>
-
-
-                <!-- OWNER -->
-
-                <div
-                    id="ownerSettingsSection"
-                    class="card"
-                >
-
-                    <h3 data-i18n="owner">
-                        Owner
-                    </h3>
-
-                    <input
-                        id="ownerPasswordInput"
-                        type="password"
-                        placeholder="Owner password"
-                    >
-
-                    <button
-                        id="ownerLoginBtn"
-                        class="action-btn"
-                        type="button"
-                    >
-                        Owner Login
-                    </button>
-
-                    <div id="ownerPasswordMessage"></div>
-
-
-                    <div
-                        id="ownerPanel"
-                        class="hidden"
-                    >
-
-                        <h3>
-                            Allow User
-                        </h3>
-
-                        <input
-                            id="allowedUserNameInput"
-                            type="text"
-                            placeholder="User name"
-                        >
-
-                        <input
-                            id="allowedUserPhoneInput"
-                            type="tel"
-                            inputmode="numeric"
-                            maxlength="10"
-                            placeholder="User mobile number"
-                        >
-
-                        <button
-                            id="allowUserBtn"
-                            class="action-btn"
-                            type="button"
-                        >
-                            Allow User
-                        </button>
-
-                        <div id="allowedUsersList"></div>
-
-                    </div>
-
-                </div>
-
-
-                <div class="card">
-
-                    <h3 data-i18n="appData">
-                        App Data
-                    </h3>
-
-                    <button
-                        id="clearDataBtn"
-                        class="action-btn danger-btn"
-                        type="button"
-                        data-i18n="resetAppData"
-                    >
-                        Reset App Data
-                    </button>
-
-                    <div id="settingsMessage"></div>
-
-                </div>
-
-            </section>
-
-        </main>
+        <button id="ownerNextBtn" class="primary-btn" type="button">
+          Next
+        </button>
+
+      </div>
+
+      <!-- STEP 3 -->
+      <div id="userDetailsStep" class="step">
+
+        <div class="input-group">
+          <label for="openUserName">Your Name</label>
+          <input
+            id="openUserName"
+            type="text"
+            placeholder="Enter your name"
+            autocomplete="name"
+          >
+        </div>
+
+        <div class="input-group">
+          <label for="openUserPhone">Mobile Number</label>
+          <input
+            id="openUserPhone"
+            type="tel"
+            inputmode="numeric"
+            maxlength="10"
+            placeholder="Enter mobile number"
+            autocomplete="tel"
+          >
+        </div>
+
+        <div class="input-group">
+          <label for="profilePhotoInput">Profile Photo (Optional)</label>
+          <input
+            id="profilePhotoInput"
+            type="file"
+            accept="image/*"
+          >
+        </div>
+
+        <img
+          id="profilePhotoPreview"
+          class="profile-preview"
+          alt="Profile Preview"
+        >
+
+        <button id="enterAppBtn" class="primary-btn" type="button">
+          Enter / Open
+        </button>
+
+      </div>
+
+      <div id="passwordError" class="error-message"></div>
 
     </div>
 
-
-    <script
-        type="module"
-        src="script.js"
-    ></script>
+  </section>
 
 
-    <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker.register("service-worker.js")
-                    .catch(error => {
-                        console.error(
-                            "Service Worker registration failed:",
-                            error
-                        );
-                    });
-            });
-        }
-    </script>
+  <!-- CONTACT OWNER SCREEN -->
+  <section id="contactOwnerScreen" class="hidden">
+
+    <div class="contact-box">
+
+      <div class="contact-icon">🔒</div>
+
+      <h1 id="contactOwnerTitle">
+        Contact Owner
+      </h1>
+
+      <p id="contactOwnerText">
+        You are not allowed to use this app yet. Please contact the owner.
+      </p>
+
+      <div class="contact-buttons">
+
+        <button id="callOwnerBtn" class="primary-btn" type="button">
+          📞 Call Owner
+        </button>
+
+        <button id="whatsappOwnerBtn" class="secondary-btn" type="button">
+          💬 WhatsApp Owner
+        </button>
+
+        <button id="backToLoginBtn" class="secondary-btn" type="button">
+          ← Back
+        </button>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <!-- MAIN APP -->
+  <main id="appContainer">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+
+      <div class="brand">
+        💬 StudyConnect
+      </div>
+
+      <button id="menuBtn" type="button">
+        ☰
+      </button>
+
+    </header>
+
+
+    <!-- NAVIGATION -->
+    <nav id="navMenu">
+
+      <button
+        class="nav-item active"
+        data-page="home"
+        type="button"
+        data-i18n="home"
+      >
+        🏠 Home
+      </button>
+
+      <button
+        class="nav-item"
+        data-page="chat"
+        type="button"
+        data-i18n="chat"
+      >
+        💬 Chat
+      </button>
+
+      <button
+        class="nav-item"
+        data-page="groups"
+        type="button"
+        data-i18n="groups"
+      >
+        👥 Groups
+      </button>
+
+      <button
+        class="nav-item"
+        data-page="homework"
+        type="button"
+        data-i18n="homework"
+      >
+        📚 Homework
+      </button>
+
+      <button
+        class="nav-item"
+        data-page="school"
+        type="button"
+        data-i18n="school"
+      >
+        🏫 School
+      </button>
+
+      <button
+        class="nav-item"
+        data-page="notes"
+        type="button"
+        data-i18n="notes"
+      >
+        📝 Notes
+      </button>
+
+      <button
+        class="nav-item"
+        data-page="settings"
+        type="button"
+        data-i18n="settings"
+      >
+        ⚙️ Settings
+      </button>
+
+    </nav>
+
+
+    <!-- HOME -->
+    <section id="home" class="page active">
+
+      <div class="card welcome-card">
+
+        <div class="big-icon">🎓</div>
+
+        <h1 data-i18n="welcome">
+          Welcome to StudyConnect
+        </h1>
+
+        <p data-i18n="welcomeText">
+          Connect with your classmates, groups, homework and school updates.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3 data-i18n="yourName">
+          Your Name
+        </h3>
+
+        <div class="input-group">
+          <input
+            id="studentName"
+            type="text"
+            placeholder="Enter your name"
+          >
+        </div>
+
+        <button
+          id="saveNameBtn"
+          class="primary-btn"
+          type="button"
+          data-i18n="saveName"
+        >
+          Save Name
+        </button>
+
+        <div id="nameMessage"></div>
+
+      </div>
+
+
+      <div id="currentUserProfile" class="card profile-card">
+
+        <div class="profile-avatar">
+          👤
+        </div>
+
+        <div>
+          <strong id="currentUserName">
+            Student
+          </strong>
+          <div id="currentUserPhone" style="color:#888;margin-top:4px;">
+          </div>
+        </div>
+
+      </div>
+
+
+      <div class="card online-box">
+
+        <div class="online-header">
+
+          <div class="online-title">
+
+            <span class="online-dot"></span>
+
+            <strong data-i18n="onlineNow">
+              Online Now
+            </strong>
+
+            <span>
+              (<span id="onlineCount">0</span>)
+            </span>
+
+            <span id="onlineArrow">›</span>
+
+          </div>
+
+          <button
+            id="onlineToggleBtn"
+            class="online-toggle"
+            type="button"
+          >
+            View
+          </button>
+
+        </div>
+
+        <div id="onlineUsers"></div>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>💬 Chat</h3>
+
+        <p data-i18n="chatDescription">
+          Send realtime messages to other allowed students.
+        </p>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>👥 Groups</h3>
+
+        <p data-i18n="groupsDescription">
+          Create private groups and add allowed members.
+        </p>
+
+      </div>
+
+    </section>
+
+
+    <!-- CHAT -->
+    <section id="chat" class="page">
+
+      <h1 class="page-title" data-i18n="chatTitle">
+        Chat
+      </h1>
+
+      <p class="page-description">
+        Realtime student chat
+      </p>
+
+      <div id="chatMessages"></div>
+
+      <div class="chat-input-row">
+
+        <button
+          id="emojiBtn"
+          class="emoji-btn"
+          type="button"
+        >
+          😊
+        </button>
+
+        <input
+          id="messageInput"
+          type="text"
+          placeholder="Type a message..."
+          autocomplete="off"
+        >
+
+        <button
+          id="sendMessageBtn"
+          class="send-btn"
+          type="button"
+          data-i18n="send"
+        >
+          Send
+        </button>
+
+      </div>
+
+    </section>
+
+
+    <!-- GROUPS -->
+    <section id="groups" class="page">
+
+      <h1 class="page-title" data-i18n="groupsTitle">
+        Groups
+      </h1>
+
+      <p class="page-description">
+        Create and join private student groups.
+      </p>
+
+
+      <div class="card">
+
+        <h3 data-i18n="createGroup">
+          Create Group
+        </h3>
+
+        <div class="input-group">
+          <input
+            id="groupInput"
+            type="text"
+            placeholder="Group name"
+          >
+        </div>
+
+        <div class="input-group">
+          <input
+            id="groupPasswordInput"
+            type="password"
+            placeholder="Private group password"
+          >
+        </div>
+
+        <button
+          id="createGroupBtn"
+          class="primary-btn"
+          type="button"
+          data-i18n="createGroupButton"
+        >
+          Create Group
+        </button>
+
+      </div>
+
+
+      <div class="card">
+
+        <h3>My Groups</h3>
+
+        <div id="groupList"></div>
+
+      </div>
+
+
+      <div id="groupChatSection" class="card hidden">
+
+        <h2 id="selectedGroupName">
+          Group
+        </h2>
+
+        <p id="selectedGroupOwner" style="color:#888;margin:7px 0 15px;">
+        </p>
+
+
+        <div id="groupPasswordSection">
+
+          <div class="input-group">
+
+            <input
+              id="enterGroupPasswordInput"
+              type="password"
+              placeholder="Enter group password"
+            >
+
+          </div>
+
+          <button
+            id="unlockGroupBtn"
+            class="primary-btn"
+            type="button"
+          >
+            Open Group
+          </button>
+
+          <div id="groupPasswordMessage"></div>
+
+        </div>
+
+
+        <div id="groupContent" class="hidden">
+
+          <div class="card">
+
+            <h3 data-i18n="addMember">
+              Add Member
+            </h3>
+
+            <div class="input-group">
+              <input
+                id="memberNameInput"
+                type="text"
+                placeholder="Member name"
+              >
+            </div>
+
+            <div class="input-group">
+              <input
+                id="memberPhoneInput"
+                type="tel"
+                inputmode="numeric"
+                maxlength="10"
+                placeholder="Member mobile number"
+              >
+            </div>
+
+            <button
+              id="addMemberBtn"
+              class="primary-btn"
+              type="button"
+              data-i18n="addMemberButton"
+            >
+              Add Member
+            </button>
+
+            <div id="memberList"></div>
+
+          </div>
+
+
+          <div id="groupMessages"></div>
+
+          <div class="chat-input-row">
+
+            <input
+              id="groupMessageInput"
+              type="text"
+              placeholder="Type group message..."
+              autocomplete="off"
+            >
+
+            <button
+              id="sendGroupMessageBtn"
+              class="send-btn"
+              type="button"
+              data-i18n="send"
+            >
+              Send
+            </button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- HOMEWORK -->
+    <section id="homework" class="page">
+
+      <h1 class="page-title" data-i18n="homeworkTitle">
+        Homework
+      </h1>
+
+      <p class="page-description">
+        Save your homework by subject and date.
+      </p>
+
+      <div class="card">
+
+        <div class="input-group">
+
+          <label for="homeworkDate" data-i18n="date">
+            Date
+          </label>
+
+          <input
+            id="homeworkDate"
+            type="date"
+          >
+
+        </div>
+
+
+        <div class="input-group">
+          <input id="hindiHomework" type="text" placeholder="Hindi homework">
+        </div>
+
+        <div class="input-group">
+          <input id="englishHomework" type="text" placeholder="English homework">
+        </div>
+
+        <div class="input-group">
+          <input id="mathHomework" type="text" placeholder="Math homework">
+        </div>
+
+        <div class="input-group">
+          <input id="scienceHomework" type="text" placeholder="Science homework">
+        </div>
+
+        <div class="input-group">
+          <input id="sstHomework" type="text" placeholder="SST homework">
+        </div>
+
+        <div class="input-group">
+          <input id="computerHomework" type="text" placeholder="Computer homework">
+        </div>
+
+        <div class="input-group">
+          <input id="artHomework" type="text" placeholder="Art homework">
+        </div>
+
+        <button
+          id="addHomeworkBtn"
+          class="primary-btn"
+          type="button"
+          data-i18n="saveHomework"
+        >
+          Save Homework
+        </button>
+
+      </div>
+
+
+      <div class="card">
+
+        <div id="homeworkList"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- SCHOOL -->
+    <section id="school" class="page">
+
+      <h1 class="page-title" data-i18n="schoolUpdateTitle">
+        School Updates
+      </h1>
+
+      <p class="page-description" data-i18n="schoolDescription">
+        Add important school information.
+      </p>
+
+      <div class="card">
+
+        <textarea
+          id="schoolInput"
+          placeholder="Write school update..."
+        ></textarea>
+
+        <button
+          id="saveSchoolBtn"
+          class="primary-btn"
+          type="button"
+          data-i18n="saveUpdate"
+        >
+          Save Update
+        </button>
+
+      </div>
+
+
+      <div class="card">
+
+        <div id="schoolList"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- NOTES -->
+    <section id="notes" class="page">
+
+      <h1 class="page-title" data-i18n="notesTitle">
+        Notes
+      </h1>
+
+      <p class="page-description" data-i18n="notesDescription">
+        Save your personal study notes.
+      </p>
+
+      <div class="card">
+
+        <textarea
+          id="noteInput"
+          placeholder="Write your note..."
+        ></textarea>
+
+        <button
+          id="saveNoteBtn"
+          class="primary-btn"
+          type="button"
+          data-i18n="saveNote"
+        >
+          Save Note
+        </button>
+
+      </div>
+
+
+      <div class="card">
+
+        <div id="notesList"></div>
+
+      </div>
+
+    </section>
+
+
+    <!-- SETTINGS -->
+    <section id="settings" class="page">
+
+      <h1 class="page-title" data-i18n="settingsTitle">
+        Settings
+      </h1>
+
+      <p class="page-description" data-i18n="settingsDescription">
+        Manage your StudyConnect settings.
+      </p>
+
+
+      <div class="card">
+
+        <div class="setting-row">
+
+          <div class="setting-info">
+            <strong data-i18n="changeName">
+              Change Name
+            </strong>
+
+            <small>
+              Change the name displayed in the app.
+            </small>
+          </div>
+
+        </div>
+
+        <div class="input-group">
+
+          <input
+            id="changeNameInput"
+            type="text"
+            placeholder="New name"
+          >
+
+        </div>
+
+        <button
+          id="changeNameBtn"
+          class="primary-btn"
+          type="button"
+          data-i18n="changeNameButton"
+        >
+          Change Name
+        </button>
+
+        <div id="changeNameMessage"></div>
+
+      </div>
+
+
+      <div class="card">
+
+        <div class="setting-row">
+
+          <div class="setting-info">
+            <strong data-i18n="language">
+              Language
+            </strong>
+
+            <small>
+              Choose app language.
+            </small>
+          </div>
+
+        </div>
+
+        <button
+          id="hindiLanguageBtn"
+          class="secondary-btn"
+          type="button"
+        >
+          हिन्दी
+        </button>
+
+        <button
+          id="englishLanguageBtn"
+          class="secondary-btn"
+          type="button"
+        >
+          English
+        </button>
+
+        <div id="languageMessage"></div>
+
+      </div>
+
+
+      <div class="card">
+
+        <div class="setting-row">
+
+          <div class="setting-info">
+            <strong data-i18n="theme">
+              Theme
+            </strong>
+
+            <small>
+              Switch the app theme.
+            </small>
+          </div>
+
+          <button
+            id="themeBtn"
+            class="small-btn"
+            type="button"
+          >
+            Dark Mode
+          </button>
+
+        </div>
+
+      </div>
+
+
+      <div class="card">
+
+        <div class="setting-row">
+
+          <div class="setting-info">
+
+            <strong data-i18n="notifications">
+              Notifications
+            </strong>
+
+            <small>
+              Allow notifications from StudyConnect.
+            </small>
+
+          </div>
+
+          <button
+            id="notificationBtn"
+            class="small-btn"
+            type="button"
+            data-i18n="enableNotifications"
+          >
+            Enable
+          </button>
+
+        </div>
+
+        <div id="notificationMessage"></div>
+
+      </div>
+
+
+      <!-- OWNER -->
+      <div id="ownerSettingsSection" class="card">
+
+        <h3 data-i18n="owner">
+          Owner
+        </h3>
+
+        <p style="color:#888;margin:8px 0 15px;">
+          Owner access
+        </p>
+
+        <div class="input-group">
+
+          <input
+            id="ownerPasswordInput"
+            type="password"
+            placeholder="Owner password"
+            autocomplete="off"
+          >
+
+        </div>
+
+        <button
+          id="ownerLoginBtn"
+          class="primary-btn"
+          type="button"
+        >
+          Open Owner Panel
+        </button>
+
+        <div id="ownerPasswordMessage"></div>
+
+
+        <div id="ownerPanel" class="hidden owner-panel card">
+
+          <h3>Owner Panel</h3>
+
+          <p style="color:#888;margin:8px 0 15px;">
+            Add allowed users.
+          </p>
+
+
+          <div class="input-group">
+
+            <input
+              id="allowedUserNameInput"
+              type="text"
+              placeholder="Allowed user name"
+            >
+
+          </div>
+
+
+          <div class="input-group">
+
+            <input
+              id="allowedUserPhoneInput"
+              type="tel"
+              inputmode="numeric"
+              maxlength="10"
+              placeholder="Allowed user mobile number"
+            >
+
+          </div>
+
+
+          <button
+            id="allowUserBtn"
+            class="primary-btn"
+            type="button"
+          >
+            Allow User
+          </button>
+
+
+          <div id="allowedUsersList"></div>
+
+        </div>
+
+      </div>
+
+
+      <div class="card">
+
+        <strong data-i18n="appData">
+          App Data
+        </strong>
+
+        <p style="color:#888;margin:8px 0 15px;">
+          Clear locally saved StudyConnect data.
+        </p>
+
+        <button
+          id="clearDataBtn"
+          class="danger-btn"
+          type="button"
+          data-i18n="resetAppData"
+        >
+          Reset App Data
+        </button>
+
+        <div id="settingsMessage"></div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <script type="module" src="script.js"></script>
 
 </body>
 </html>
