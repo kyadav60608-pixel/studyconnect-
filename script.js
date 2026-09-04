@@ -1,31 +1,45 @@
+import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
-    initializeApp,
-    getApps,
-    getApp
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
-
-import {
-    getFirestore,
-    collection,
-    doc,
-    addDoc,
-    setDoc,
-    getDoc,
-    updateDoc,
-    query,
-    orderBy,
-    limit,
-    onSnapshot,
-    serverTimestamp,
-    arrayUnion,
-    deleteDoc
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  getFirestore,
+  collection,
+  doc,
+  addDoc,
+  setDoc,
+  getDoc,
+  getDocs,
+  updateDoc,
+  query,
+  orderBy,
+  onSnapshot,
+  serverTimestamp,
+  where
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
-/* =====================================================
-   CONFIG
-===================================================== */
+// ======================================================
+// FIREBASE
+// ======================================================
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCquRX2YB59FObuIyiw3c3AUCdPWypag",
+  authDomain: "studyconnect-99006.firebaseapp.com",
+  projectId: "studyconnect-99006",
+  storageBucket: "studyconnect-99006.firebasestorage.app",
+  messagingSenderId: "15964627995",
+  appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
+  measurementId: "G-SYJYMREJJL"
+};
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+
+
+// ======================================================
+// APP SETTINGS
+// ======================================================
 
 const SCHOOL_PASSWORD = "123";
 const OWNER_PASSWORD = "12341";
@@ -33,3313 +47,1103 @@ const OWNER_PASSWORD = "12341";
 const OWNER_NAME = "Krishna Yadav";
 const OWNER_PHONE = "8738084554";
 
-const firebaseConfig = {
-    apiKey: "AIzaSyCquRX2YB59FObuIyiw3c3AUCdPWypag",
-    authDomain: "studyconnect-99006.firebaseapp.com",
-    projectId: "studyconnect-99006",
-    storageBucket: "studyconnect-99006.firebasestorage.app",
-    messagingSenderId: "15964627995",
-    appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
-    measurementId: "G-SYJYMREJJL"
-};
+const USER_STORAGE_KEY = "studyconnect_current_user";
+const PROFILE_STORAGE_KEY = "studyconnect_profile";
+const LANGUAGE_KEY = "studyconnect_language";
 
 
-/* =====================================================
-   FIREBASE
-===================================================== */
-
-let db = null;
-let firebasePromise = null;
-
-async function loadFirebase() {
-
-    if (db) {
-        return db;
-    }
-
-    if (firebasePromise) {
-        return firebasePromise;
-    }
-
-    firebasePromise = Promise.resolve().then(() => {
-
-        const app = getApps().length
-            ? getApp()
-            : initializeApp(firebaseConfig);
-
-        db = getFirestore(app);
-
-        return db;
-
-    });
-
-    return firebasePromise;
-}
-
-
-/* =====================================================
-   GLOBAL STATE
-===================================================== */
+// ======================================================
+// STATE
+// ======================================================
 
 let currentUser = null;
-let pendingPhoto = "";
+let currentLanguage = localStorage.getItem(LANGUAGE_KEY) || "en";
 
-let selectedGroup = null;
+let selectedGroupId = null;
+let selectedGroupData = null;
+
 let groupUnlocked = false;
 
 let chatUnsubscribe = null;
-let onlineUnsubscribe = null;
 let groupsUnsubscribe = null;
 let groupMessagesUnsubscribe = null;
-let allowedUsersUnsubscribe = null;
+let presenceUnsubscribe = null;
+let membersUnsubscribe = null;
 
-let onlineTimer = null;
+let onlineInterval = null;
 
-let appInitialized = false;
-let chatStarted = false;
-let groupsStarted = false;
+let profilePhotoData = "";
 
 
-/* =====================================================
-   DOM HELPERS
-===================================================== */
+// ======================================================
+// SHORTCUT
+// ======================================================
 
-function $(id) {
-    return document.getElementById(id);
+const $ = (id) => document.getElementById(id);
+
+
+// ======================================================
+// TRANSLATIONS
+// ======================================================
+
+const translations = {
+
+  en: {
+
+    loginDescription: "Enter your password to continue",
+    enterPassword: "Enter your password",
+    next: "Next",
+    ownerNameLabel: "Owner",
+
+    yourName: "Your Name",
+    mobileNumber: "Mobile Number",
+    profilePhoto: "Profile Photo (Optional)",
+    enterApp: "Enter / Open",
+
+    home: "Home",
+    chat: "Chat",
+    groups: "Groups",
+    homework: "Homework",
+    school: "School",
+    notes: "Notes",
+    settings: "Settings",
+
+    welcome: "Welcome",
+    welcomeText: "Welcome to StudyConnect.",
+    saveName: "Save Name",
+    onlineNow: "Online Now",
+
+    chatTitle: "Chat",
+    chatDescription: "Real-time StudyConnect chat.",
+    send: "Send",
+
+    groupsTitle: "Groups",
+    groupName: "Group Name",
+    groupPassword: "Group Password",
+    createGroupButton: "Create Group",
+    groupList: "My Groups",
+    addMember: "Add Member",
+    addMemberButton: "Add Member",
+
+    homeworkTitle: "Homework",
+    date: "Date",
+    saveHomework: "Save Homework",
+
+    schoolUpdateTitle: "School Update",
+    schoolDescription: "Save school updates.",
+    saveUpdate: "Save Update",
+
+    notesTitle: "Notes",
+    notesDescription: "Save your notes here.",
+    saveNote: "Save Note",
+
+    settingsTitle: "Settings",
+    settingsDescription: "Manage your StudyConnect settings.",
+    changeName: "Change Name",
+    changeNameButton: "Change Name",
+
+    language: "Language",
+    theme: "Theme",
+    notifications: "Notifications",
+    enableNotifications: "Enable Notifications",
+
+    owner: "Owner",
+    appData: "App Data",
+    resetAppData: "Reset App Data"
+  },
+
+  hi: {
+
+    loginDescription: "आगे बढ़ने के लिए पासवर्ड डालें",
+    enterPassword: "अपना पासवर्ड डालें",
+    next: "आगे",
+    ownerNameLabel: "मालिक",
+
+    yourName: "आपका नाम",
+    mobileNumber: "मोबाइल नंबर",
+    profilePhoto: "प्रोफाइल फोटो (वैकल्पिक)",
+    enterApp: "ऐप खोलें",
+
+    home: "होम",
+    chat: "चैट",
+    groups: "ग्रुप",
+    homework: "होमवर्क",
+    school: "स्कूल",
+    notes: "नोट्स",
+    settings: "सेटिंग्स",
+
+    welcome: "स्वागत है",
+    welcomeText: "StudyConnect में आपका स्वागत है।",
+    saveName: "नाम सेव करें",
+    onlineNow: "अभी ऑनलाइन",
+
+    chatTitle: "चैट",
+    chatDescription: "StudyConnect की रियल-टाइम चैट।",
+    send: "भेजें",
+
+    groupsTitle: "ग्रुप",
+    groupName: "ग्रुप का नाम",
+    groupPassword: "ग्रुप पासवर्ड",
+    createGroupButton: "ग्रुप बनाएं",
+    groupList: "मेरे ग्रुप",
+    addMember: "सदस्य जोड़ें",
+    addMemberButton: "सदस्य जोड़ें",
+
+    homeworkTitle: "होमवर्क",
+    date: "तारीख",
+    saveHomework: "होमवर्क सेव करें",
+
+    schoolUpdateTitle: "स्कूल अपडेट",
+    schoolDescription: "स्कूल के अपडेट सेव करें।",
+    saveUpdate: "अपडेट सेव करें",
+
+    notesTitle: "नोट्स",
+    notesDescription: "अपने नोट्स यहां सेव करें।",
+    saveNote: "नोट सेव करें",
+
+    settingsTitle: "सेटिंग्स",
+    settingsDescription: "StudyConnect की सेटिंग्स मैनेज करें।",
+    changeName: "नाम बदलें",
+    changeNameButton: "नाम बदलें",
+
+    language: "भाषा",
+    theme: "थीम",
+    notifications: "नोटिफिकेशन",
+    enableNotifications: "नोटिफिकेशन चालू करें",
+
+    owner: "मालिक",
+    appData: "ऐप डेटा",
+    resetAppData: "ऐप डेटा रीसेट करें"
+  }
+
+};
+
+
+// ======================================================
+// LANGUAGE
+// ======================================================
+
+function applyLanguage() {
+
+  const dictionary = translations[currentLanguage];
+
+  document.documentElement.lang =
+    currentLanguage === "hi" ? "hi" : "en";
+
+  document.querySelectorAll("[data-i18n]").forEach((element) => {
+
+    const key = element.dataset.i18n;
+
+    if (dictionary[key]) {
+      element.textContent = dictionary[key];
+    }
+
+  });
+
+  localStorage.setItem(
+    LANGUAGE_KEY,
+    currentLanguage
+  );
 }
 
 
+// ======================================================
+// UI HELPERS
+// ======================================================
+
 function show(element) {
 
-    if (!element) return;
+  if (!element) return;
 
-    element.classList.remove("hidden");
-
-    if (
-        element.id === "passwordScreen" ||
-        element.id === "contactOwnerScreen"
-    ) {
-        element.style.display = "flex";
-    } else {
-        element.style.display = "block";
-    }
+  if (
+    element.id === "passwordScreen" ||
+    element.id === "contactOwnerScreen"
+  ) {
+    element.style.display = "flex";
+  } else {
+    element.style.display = "block";
+  }
 }
 
 
 function hide(element) {
 
-    if (!element) return;
+  if (!element) return;
 
-    element.classList.add("hidden");
-    element.style.display = "none";
+  element.style.display = "none";
 }
 
 
-function message(id, text, type = "") {
+function message(element, text, type = "") {
 
-    const element = $(id);
+  if (!element) return;
 
-    if (!element) return;
+  element.textContent = text;
 
-    element.textContent = text;
+  element.className = "message";
 
-    element.className = type;
+  if (type) {
+    element.classList.add(type);
+  }
 }
 
 
-/* =====================================================
-   LOGIN - STEP 1
-===================================================== */
+function normalizePhone(phone) {
+
+  return String(phone || "")
+    .replace(/\D/g, "")
+    .slice(-10);
+}
+
+
+function formatTime(timestamp) {
+
+  if (!timestamp) return "";
+
+  const date = timestamp.toDate
+    ? timestamp.toDate()
+    : new Date(timestamp);
+
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+
+function escapeHTML(value) {
+
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+// ======================================================
+// LOGIN FLOW
+// ======================================================
 
 function setupPasswordLogin() {
 
-    const button = $("unlockBtn");
+  $("unlockBtn")?.addEventListener(
+    "click",
+    checkSchoolPassword
+  );
 
-    if (!button) return;
+  $("appPassword")?.addEventListener(
+    "keydown",
+    (event) => {
 
-    button.addEventListener("click", () => {
+      if (event.key === "Enter") {
+        checkSchoolPassword();
+      }
 
-        const password =
-            $("appPassword")?.value.trim() || "";
-
-        if (password !== SCHOOL_PASSWORD) {
-
-            message(
-                "passwordError",
-                "Wrong password.",
-                "error"
-            );
-
-            return;
-        }
-
-        message("passwordError", "");
-
-        hide($("schoolPasswordStep"));
-        show($("ownerStep"));
-
-        if ($("ownerNameDisplay")) {
-            $("ownerNameDisplay").textContent = OWNER_NAME;
-        }
-
-    });
+    }
+  );
 }
 
 
-/* =====================================================
-   NEXT BUTTON
-===================================================== */
+function checkSchoolPassword() {
+
+  const enteredPassword =
+    $("appPassword")?.value.trim();
+
+  if (enteredPassword !== SCHOOL_PASSWORD) {
+
+    message(
+      $("passwordError"),
+      currentLanguage === "hi"
+        ? "पासवर्ड गलत है।"
+        : "Incorrect password.",
+      "error"
+    );
+
+    return;
+  }
+
+  message($("passwordError"), "");
+
+  hide($("schoolPasswordStep"));
+  show($("ownerStep"));
+
+}
+
 
 function setupNextButton() {
 
-    const button = $("ownerNextBtn");
+  $("ownerNextBtn")?.addEventListener(
+    "click",
+    () => {
 
-    if (!button) return;
+      hide($("ownerStep"));
+      show($("userDetailsStep"));
 
-    button.addEventListener("click", () => {
+      $("openUserName")?.focus();
 
-        if ($("ownerNameDisplay")) {
-            $("ownerNameDisplay").textContent = OWNER_NAME;
-        }
-
-        hide($("ownerStep"));
-        show($("userDetailsStep"));
-
-        $("openUserName")?.focus();
-
-    });
+    }
+  );
 }
 
 
-/* =====================================================
-   PROFILE PHOTO
-===================================================== */
+// ======================================================
+// PROFILE PHOTO
+// ======================================================
 
 function setupProfilePhoto() {
 
-    const input = $("profilePhotoInput");
+  $("profilePhotoInput")?.addEventListener(
+    "change",
+    async (event) => {
 
-    if (!input) return;
+      const file = event.target.files?.[0];
 
-    input.addEventListener("change", () => {
+      if (!file) return;
 
-        const file = input.files?.[0];
+      if (!file.type.startsWith("image/")) {
+        return;
+      }
 
-        if (!file) return;
+      profilePhotoData =
+        await resizeImage(file, 400);
 
-        if (!file.type.startsWith("image/")) {
+      const preview = $("profilePhotoPreview");
 
-            message(
-                "loginMessage",
-                "Please select an image.",
-                "error"
-            );
+      if (preview) {
 
-            input.value = "";
-            return;
-        }
+        preview.src = profilePhotoData;
+        preview.style.display = "block";
 
-        const reader = new FileReader();
+      }
 
-        reader.onload = () => {
+    }
+  );
 
-            pendingPhoto = String(reader.result || "");
-
-            const preview =
-                $("profilePhotoPreview");
-
-            if (preview) {
-                preview.src = pendingPhoto;
-                preview.style.display = "block";
-            }
-
-        };
-
-        reader.readAsDataURL(file);
-
-    });
 }
 
 
-/* =====================================================
-   OWNER CONTACT
-===================================================== */
+function resizeImage(file, maxSize) {
 
-function setupOwnerContact() {
+  return new Promise((resolve) => {
 
-    $("callOwnerBtn")?.addEventListener(
-        "click",
-        () => {
-            window.location.href =
-                `tel:${OWNER_PHONE}`;
-        }
-    );
+    const reader = new FileReader();
 
+    reader.onload = () => {
 
-    $("whatsappOwnerBtn")?.addEventListener(
-        "click",
-        () => {
+      const image = new Image();
 
-            window.open(
-                `https://wa.me/91${OWNER_PHONE}`,
-                "_blank"
-            );
+      image.onload = () => {
 
-        }
-    );
+        let width = image.width;
+        let height = image.height;
 
+        if (width > height) {
 
-    $("backToLoginBtn")?.addEventListener(
-        "click",
-        () => {
+          if (width > maxSize) {
 
-            hide($("contactOwnerScreen"));
-            show($("passwordScreen"));
+            height =
+              height * (maxSize / width);
 
-            show($("schoolPasswordStep"));
-            hide($("ownerStep"));
-            hide($("userDetailsStep"));
+            width = maxSize;
+          }
 
-            if ($("appPassword")) {
-                $("appPassword").value = "";
-            }
+        } else {
 
-            if ($("openUserName")) {
-                $("openUserName").value = "";
-            }
+          if (height > maxSize) {
 
-            if ($("openUserPhone")) {
-                $("openUserPhone").value = "";
-            }
+            width =
+              width * (maxSize / height);
 
-            pendingPhoto = "";
-
-            message("loginMessage", "");
-            message("passwordError", "");
+            height = maxSize;
+          }
 
         }
-    );
+
+        const canvas =
+          document.createElement("canvas");
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const context =
+          canvas.getContext("2d");
+
+        context.drawImage(
+          image,
+          0,
+          0,
+          width,
+          height
+        );
+
+        resolve(
+          canvas.toDataURL(
+            "image/jpeg",
+            0.75
+          )
+        );
+
+      };
+
+      image.src = reader.result;
+
+    };
+
+    reader.readAsDataURL(file);
+
+  });
+
 }
 
 
-/* =====================================================
-   USER LOGIN
-===================================================== */
+// ======================================================
+// ENTER APP
+// ======================================================
+
+function setupEnterApp() {
+
+  $("enterAppBtn")?.addEventListener(
+    "click",
+    loginUser
+  );
+
+}
+
 
 async function loginUser() {
 
-    const name =
-        $("openUserName")?.value.trim() || "";
+  const name =
+    $("openUserName")?.value.trim();
+
+  const phone =
+    normalizePhone(
+      $("openUserPhone")?.value
+    );
+
+  if (!name) {
+
+    message(
+      $("passwordError"),
+      currentLanguage === "hi"
+        ? "अपना नाम डालें।"
+        : "Enter your name.",
+      "error"
+    );
+
+    return;
+  }
+
+
+  if (phone.length !== 10) {
+
+    message(
+      $("passwordError"),
+      currentLanguage === "hi"
+        ? "सही 10 अंकों का मोबाइल नंबर डालें।"
+        : "Enter a valid 10-digit mobile number.",
+      "error"
+    );
+
+    return;
+  }
+
+
+  message(
+    $("passwordError"),
+    currentLanguage === "hi"
+      ? "चेक किया जा रहा है..."
+      : "Checking authorization..."
+  );
+
+
+  try {
+
+    const userRef =
+      doc(db, "allowedUsers", phone);
+
+    const userSnap =
+      await getDoc(userRef);
+
+
+    if (!userSnap.exists()) {
+
+      showContactOwner();
+      return;
+    }
+
+
+    const userData =
+      userSnap.data();
+
+
+    const savedName =
+      String(userData.name || "")
+        .trim()
+        .toLowerCase();
+
+    if (
+      savedName &&
+      savedName !== name.trim().toLowerCase()
+    ) {
+
+      showContactOwner();
+      return;
+    }
+
+
+    currentUser = {
+
+      name,
+      phone,
+      photo: profilePhotoData || ""
+    };
+
+
+    saveCurrentUser();
+
+
+    message(
+      $("passwordError"),
+      ""
+    );
+
+
+    finishLogin();
+
+  } catch (error) {
+
+    console.error(error);
+
+    message(
+      $("passwordError"),
+      currentLanguage === "hi"
+        ? "कनेक्शन में समस्या है। Firebase चेक करें।"
+        : "Connection problem. Check Firebase.",
+      "error"
+    );
+
+  }
+
+}
+
+
+// ======================================================
+// SAVE / LOAD USER
+// ======================================================
+
+function saveCurrentUser() {
+
+  localStorage.setItem(
+    USER_STORAGE_KEY,
+    JSON.stringify(currentUser)
+  );
+
+  if (profilePhotoData) {
+
+    localStorage.setItem(
+      PROFILE_STORAGE_KEY,
+      profilePhotoData
+    );
+
+  }
+
+}
+
+
+async function loadSavedUser() {
+
+  const saved =
+    localStorage.getItem(USER_STORAGE_KEY);
+
+  if (!saved) return;
+
+  try {
+
+    const user =
+      JSON.parse(saved);
+
+    if (!user?.name || !user?.phone) {
+      return;
+    }
 
     const phone =
-        $("openUserPhone")?.value.trim() || "";
+      normalizePhone(user.phone);
 
-    if (!name) {
+    const userRef =
+      doc(db, "allowedUsers", phone);
 
-        message(
-            "loginMessage",
-            "Please enter your name.",
-            "error"
-        );
+    const snap =
+      await getDoc(userRef);
 
-        return;
+    if (!snap.exists()) {
+
+      localStorage.removeItem(
+        USER_STORAGE_KEY
+      );
+
+      return;
     }
 
+    const data = snap.data();
 
-    if (!/^\d{10}$/.test(phone)) {
+    if (
+      data.name &&
+      String(data.name).trim().toLowerCase() !==
+      String(user.name).trim().toLowerCase()
+    ) {
 
-        message(
-            "loginMessage",
-            "Please enter a valid 10 digit mobile number.",
-            "error"
-        );
+      localStorage.removeItem(
+        USER_STORAGE_KEY
+      );
 
-        return;
+      return;
     }
 
+    currentUser = {
+      name: user.name,
+      phone,
+      photo:
+        user.photo ||
+        localStorage.getItem(
+          PROFILE_STORAGE_KEY
+        ) ||
+        ""
+    };
 
-    const button = $("enterAppBtn");
+    finishLogin();
 
-    if (button) {
-        button.disabled = true;
-        button.textContent = "Checking...";
-    }
+  } catch (error) {
 
+    console.error(
+      "Saved user error:",
+      error
+    );
 
-    try {
-
-        const firestore =
-            await loadFirebase();
-
-        const userRef =
-            doc(
-                firestore,
-                "allowedUsers",
-                phone
-            );
-
-        const userSnap =
-            await getDoc(userRef);
-
-
-        const isOwner =
-            name.toLowerCase() ===
-                OWNER_NAME.toLowerCase() &&
-            phone === OWNER_PHONE;
-
-
-        const isAllowed =
-            userSnap.exists() || isOwner;
-
-
-        if (!isAllowed) {
-
-            hide($("passwordScreen"));
-            show($("contactOwnerScreen"));
-
-            return;
-        }
-
-
-        currentUser = {
-
-            name: name,
-
-            phone: phone,
-
-            displayName: name,
-
-            photo: pendingPhoto || "",
-
-            isOwner: isOwner
-
-        };
-
-
-        localStorage.setItem(
-            "studyCurrentUser",
-            JSON.stringify(currentUser)
-        );
-
-
-        await finishLogin();
-
-    }
-    catch (error) {
-
-        console.error(
-            "Login error:",
-            error
-        );
-
-        message(
-            "loginMessage",
-            "Firebase connection failed. Check internet and Firebase settings.",
-            "error"
-        );
-
-    }
-    finally {
-
-        if (button) {
-            button.disabled = false;
-            button.textContent = "Enter App";
-        }
-
-    }
-}
-
-
-/* =====================================================
-   FINISH LOGIN
-===================================================== */
-
-async function finishLogin() {
-
-    hide($("passwordScreen"));
-    hide($("contactOwnerScreen"));
-
-    show($("appContainer"));
-
-    updateProfileUI();
-
-    applySavedLanguage();
-    applySavedTheme();
-
-    await setupOnlinePresence();
-
-    await startChatRealtime();
-
-    await startGroupsRealtime();
-
-    renderHomework();
-    renderSchool();
-    renderNotes();
+  }
 
 }
 
 
-/* =====================================================
-   PROFILE UI
-===================================================== */
+// ======================================================
+// FINISH LOGIN
+// ======================================================
 
-function updateProfileUI() {
+function finishLogin() {
 
-    if (!currentUser) return;
+  hide($("passwordScreen"));
+  hide($("contactOwnerScreen"));
 
+  show($("appContainer"));
 
-    const studentName =
-        $("studentName");
+  updateProfileUI();
 
-    if (studentName) {
+  startOnlinePresence();
 
-        studentName.textContent =
-            currentUser.displayName ||
-            currentUser.name;
+  startChatRealtime();
 
-    }
+  startGroupsRealtime();
 
+  loadLocalData();
 
-    const profile =
-        $("currentUserProfile");
-
-    if (!profile) return;
-
-    profile.innerHTML = "";
-
-
-    if (currentUser.photo) {
-
-        const img =
-            document.createElement("img");
-
-        img.src = currentUser.photo;
-
-        img.className =
-            "profile-preview";
-
-        profile.appendChild(img);
-
-    }
-
-
-    const text =
-        document.createElement("p");
-
-    text.textContent =
-        `${currentUser.displayName || currentUser.name} • ${currentUser.phone}`;
-
-    profile.appendChild(text);
+  showPage("home");
 
 }
 
 
-/* =====================================================
-   NAVIGATION
-===================================================== */
+// ======================================================
+// CONTACT OWNER
+// ======================================================
+
+function showContactOwner() {
+
+  hide($("passwordScreen"));
+  show($("contactOwnerScreen"));
+
+}
+
+
+function setupOwnerContact() {
+
+  $("callOwnerBtn")?.addEventListener(
+    "click",
+    () => {
+
+      window.location.href =
+        `tel:${OWNER_PHONE}`;
+
+    }
+  );
+
+
+  $("whatsappOwnerBtn")?.addEventListener(
+    "click",
+    () => {
+
+      window.open(
+        `https://wa.me/91${OWNER_PHONE}`,
+        "_blank"
+      );
+
+    }
+  );
+
+
+  $("backToLoginBtn")?.addEventListener(
+    "click",
+    () => {
+
+      hide($("contactOwnerScreen"));
+      show($("passwordScreen"));
+
+      hide($("ownerStep"));
+      hide($("userDetailsStep"));
+      show($("schoolPasswordStep"));
+
+      $("appPassword").value = "";
+      $("passwordError").textContent = "";
+
+    }
+  );
+
+}
+
+
+// ======================================================
+// NAVIGATION
+// ======================================================
 
 function setupNavigation() {
 
-    $("menuBtn")?.addEventListener(
-        "click",
-        () => {
+  $("menuBtn")?.addEventListener(
+    "click",
+    () => {
 
-            $("navMenu")?.classList.toggle("open");
+      $("navMenu")?.classList.toggle(
+        "open"
+      );
 
-        }
+    }
+  );
+
+
+  document.querySelectorAll(
+    ".nav-item"
+  ).forEach((button) => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        showPage(
+          button.dataset.page
+        );
+
+        $("navMenu")?.classList.remove(
+          "open"
+        );
+
+      }
     );
 
-
-    document
-        .querySelectorAll(".nav-item")
-        .forEach(button => {
-
-            button.addEventListener(
-                "click",
-                async () => {
-
-                    const page =
-                        button.dataset.page;
-
-                    if (!page) return;
-
-
-                    document
-                        .querySelectorAll(".page")
-                        .forEach(section => {
-
-                            section.classList.remove(
-                                "active"
-                            );
-
-                        });
-
-
-                    const target = $(page);
-
-                    if (target) {
-                        target.classList.add("active");
-                    }
-
-
-                    $("navMenu")
-                        ?.classList.remove("open");
-
-
-                    if (page === "chat") {
-                        await markChatAsRead();
-                    }
-
-
-                    if (page === "groups") {
-                        await startGroupsRealtime();
-                    }
-
-                }
-            );
-
-        });
+  });
 
 }
 
 
-/* =====================================================
-   HOME NAME
-===================================================== */
+function showPage(pageId) {
+
+  document.querySelectorAll(
+    ".page"
+  ).forEach((page) => {
+
+    page.classList.remove(
+      "active"
+    );
+
+  });
+
+
+  const page =
+    $(pageId);
+
+  if (page) {
+
+    page.classList.add(
+      "active"
+    );
+
+  }
+
+}
+
+
+// ======================================================
+// PROFILE / HOME
+// ======================================================
+
+function updateProfileUI() {
+
+  if (!currentUser) return;
+
+  const name =
+    currentUser.name;
+
+  $("currentUserName").textContent =
+    name;
+
+  $("currentUserPhone").textContent =
+    currentUser.phone;
+
+
+  const circle =
+    $("profileCircle");
+
+  if (!circle) return;
+
+
+  if (currentUser.photo) {
+
+    circle.innerHTML =
+      `<img src="${currentUser.photo}" alt="Profile">`;
+
+  } else {
+
+    circle.textContent = "👤";
+
+  }
+
+
+  if ($("saveNameInput")) {
+
+    $("saveNameInput").value =
+      name;
+
+  }
+
+}
+
 
 function setupHomeName() {
 
-    $("saveNameBtn")?.addEventListener(
-        "click",
-        () => {
+  $("saveNameBtn")?.addEventListener(
+    "click",
+    () => {
 
-            if (!currentUser) return;
+      if (!currentUser) return;
 
+      const name =
+        $("saveNameInput")?.value.trim();
 
-            const input =
-                $("saveNameInput");
+      if (!name) {
 
-            const name =
-                input?.value.trim() || "";
+        message(
+          $("nameMessage"),
+          currentLanguage === "hi"
+            ? "नाम डालें।"
+            : "Enter your name.",
+          "error"
+        );
 
-
-            if (!name) {
-
-                message(
-                    "nameMessage",
-                    "Enter a name.",
-                    "error"
-                );
-
-                return;
-            }
+        return;
+      }
 
 
-            currentUser.displayName = name;
+      currentUser.name = name;
 
+      saveCurrentUser();
 
-            localStorage.setItem(
-                "studyCurrentUser",
-                JSON.stringify(currentUser)
-            );
+      updateProfileUI();
 
+      message(
+        $("nameMessage"),
+        currentLanguage === "hi"
+          ? "नाम सेव हो गया।"
+          : "Name saved.",
+        "success"
+      );
 
-            updateProfileUI();
-
-
-            message(
-                "nameMessage",
-                "Name saved.",
-                "success"
-            );
-
-        }
-    );
+    }
+  );
 
 }
 
 
-/* =====================================================
-   ONLINE PRESENCE
-===================================================== */
+// ======================================================
+// ONLINE PRESENCE
+// ======================================================
 
-async function setupOnlinePresence() {
+async function startOnlinePresence() {
 
-    if (!currentUser) return;
+  if (!currentUser) return;
+
+  const phone =
+    currentUser.phone;
+
+  const presenceRef =
+    doc(db, "presence", phone);
 
 
-    const firestore =
-        await loadFirebase();
+  const updatePresence =
+    async () => {
 
+      try {
 
-    const onlineRef =
-        doc(
-            firestore,
-            "onlineUsers",
-            currentUser.phone
+        await setDoc(
+          presenceRef,
+          {
+            name: currentUser.name,
+            phone,
+            online: true,
+            lastSeen: serverTimestamp()
+          },
+          { merge: true }
         );
 
+      } catch (error) {
 
-    const updateOnline = async () => {
+        console.error(
+          "Presence error:",
+          error
+        );
 
-        if (!currentUser) return;
-
-        try {
-
-            await setDoc(
-                onlineRef,
-                {
-
-                    name:
-                        currentUser.displayName ||
-                        currentUser.name,
-
-                    phone:
-                        currentUser.phone,
-
-                    lastSeen:
-                        serverTimestamp()
-
-                },
-                {
-                    merge: true
-                }
-            );
-
-        }
-        catch (error) {
-
-            console.error(
-                "Online update:",
-                error
-            );
-
-        }
+      }
 
     };
 
 
-    await updateOnline();
+  await updatePresence();
 
 
-    if (onlineTimer) {
-        clearInterval(onlineTimer);
-    }
+  if (onlineInterval) {
 
+    clearInterval(
+      onlineInterval
+    );
 
-    onlineTimer =
-        setInterval(
-            updateOnline,
-            30000
-        );
+  }
 
 
-    if (!onlineUnsubscribe) {
-
-        onlineUnsubscribe =
-            onSnapshot(
-                collection(
-                    firestore,
-                    "onlineUsers"
-                ),
-
-                snapshot => {
-
-                    const now =
-                        Date.now();
-
-                    const users = [];
-
-
-                    snapshot.forEach(item => {
-
-                        const data =
-                            item.data();
-
-                        let lastSeen = 0;
-
-
-                        if (
-                            data.lastSeen &&
-                            typeof data.lastSeen.toMillis ===
-                                "function"
-                        ) {
-
-                            lastSeen =
-                                data.lastSeen.toMillis();
-
-                        }
-
-
-                        if (
-                            lastSeen &&
-                            now - lastSeen < 90000
-                        ) {
-
-                            users.push(data);
-
-                        }
-
-                    });
-
-
-                    if ($("onlineCount")) {
-
-                        $("onlineCount").textContent =
-                            String(users.length);
-
-                    }
-
-
-                    const container =
-                        $("onlineUsers");
-
-                    if (!container) return;
-
-
-                    container.innerHTML = "";
-
-
-                    users.forEach(user => {
-
-                        const div =
-                            document.createElement("div");
-
-                        div.textContent =
-                            `🟢 ${user.name || user.phone}`;
-
-                        container.appendChild(div);
-
-                    });
-
-                },
-
-                error => {
-
-                    console.error(
-                        "Online listener:",
-                        error
-                    );
-
-                }
-
-            );
-
-    }
-
-}
-
-
-/* =====================================================
-   ONLINE TOGGLE
-===================================================== */
-
-function setupOnlineToggle() {
-
-    let online = true;
-
-
-    $("onlineToggleBtn")?.addEventListener(
-        "click",
-        async () => {
-
-            if (!currentUser) return;
-
-
-            online = !online;
-
-
-            const button =
-                $("onlineToggleBtn");
-
-
-            if (button) {
-
-                button.textContent =
-                    online
-                        ? "Go Offline"
-                        : "Go Online";
-
-            }
-
-
-            try {
-
-                const firestore =
-                    await loadFirebase();
-
-
-                const ref =
-                    doc(
-                        firestore,
-                        "onlineUsers",
-                        currentUser.phone
-                    );
-
-
-                if (online) {
-
-                    await setDoc(
-                        ref,
-                        {
-
-                            name:
-                                currentUser.displayName ||
-                                currentUser.name,
-
-                            phone:
-                                currentUser.phone,
-
-                            lastSeen:
-                                serverTimestamp()
-
-                        },
-                        {
-                            merge: true
-                        }
-                    );
-
-                }
-                else {
-
-                    await deleteDoc(ref)
-                        .catch(() => {});
-
-                }
-
-            }
-            catch (error) {
-
-                console.error(
-                    "Online toggle:",
-                    error
-                );
-
-            }
-
-        }
+  onlineInterval =
+    setInterval(
+      updatePresence,
+      30000
     );
 
 
-    $("onlineArrow")?.addEventListener(
-        "click",
-        () => {
+  window.addEventListener(
+    "beforeunload",
+    () => {
 
-            $("onlineUsers")
-                ?.classList.toggle("hidden");
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   CHAT REALTIME
-===================================================== */
-
-async function startChatRealtime() {
-
-    if (chatStarted) return;
-
-    chatStarted = true;
-
-
-    const firestore =
-        await loadFirebase();
-
-
-    const messagesQuery =
-        query(
-            collection(
-                firestore,
-                "messages"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            ),
-            limit(100)
-        );
-
-
-    chatUnsubscribe =
-        onSnapshot(
-            messagesQuery,
-
-            snapshot => {
-
-                const container =
-                    $("chatMessages");
-
-                if (!container) return;
-
-
-                container.innerHTML = "";
-
-
-                snapshot.forEach(item => {
-
-                    renderMessage(
-                        container,
-                        item.data(),
-                        item.id
-                    );
-
-                });
-
-
-                container.scrollTop =
-                    container.scrollHeight;
-
-            },
-
-            error => {
-
-                console.error(
-                    "Chat:",
-                    error
-                );
-
-            }
-        );
-
-}
-
-
-/* =====================================================
-   RENDER MESSAGE
-===================================================== */
-
-function renderMessage(
-    container,
-    data,
-    id
-) {
-
-    const wrapper =
-        document.createElement("div");
-
-    wrapper.className =
-        "message";
-
-
-    const isMine =
-        currentUser &&
-        data.senderPhone ===
-            currentUser.phone;
-
-
-    if (isMine) {
-        wrapper.classList.add("mine");
-    }
-
-
-    const sender =
-        document.createElement("strong");
-
-    sender.textContent =
-        data.senderName || "User";
-
-
-    const text =
-        document.createElement("div");
-
-    text.textContent =
-        data.text || "";
-
-
-    const info =
-        document.createElement("div");
-
-    info.className =
-        "message-info";
-
-
-    let time = "";
-
-
-    if (
-        data.createdAt &&
-        typeof data.createdAt.toDate ===
-            "function"
-    ) {
-
-        time =
-            data.createdAt
-                .toDate()
-                .toLocaleTimeString(
-                    [],
-                    {
-                        hour: "2-digit",
-                        minute: "2-digit"
-                    }
-                );
+      setDoc(
+        presenceRef,
+        {
+          online: false,
+          lastSeen: serverTimestamp()
+        },
+        { merge: true }
+      );
 
     }
+  );
 
 
-    let ticks = "";
+  if (presenceUnsubscribe) {
+    presenceUnsubscribe();
+  }
 
 
-    if (isMine) {
+  presenceUnsubscribe =
+    onSnapshot(
+      collection(db, "presence"),
+      (snapshot) => {
 
-        const readBy =
-            Array.isArray(data.readBy)
-                ? data.readBy
-                : [];
+        const users = [];
 
+        const now =
+          Date.now();
 
-        const someoneRead =
-            readBy.some(
-                phone =>
-                    phone !==
-                    currentUser.phone
-            );
 
+        snapshot.forEach((item) => {
 
-        ticks =
-            someoneRead
-                ? ` <span class="blue-tick">✓✓</span>`
-                : " <span>✓✓</span>";
+          const data =
+            item.data();
 
-    }
+          let lastSeenTime = 0;
 
+          if (data.lastSeen?.toDate) {
 
-    info.innerHTML =
-        `${time}${ticks}`;
+            lastSeenTime =
+              data.lastSeen.toDate().getTime();
 
+          }
 
-    wrapper.appendChild(sender);
-    wrapper.appendChild(text);
-    wrapper.appendChild(info);
 
+          if (
+            data.online === true &&
+            (
+              !lastSeenTime ||
+              now - lastSeenTime < 90000
+            )
+          ) {
 
-    container.appendChild(wrapper);
+            users.push(data);
 
-}
-
-
-/* =====================================================
-   SEND CHAT MESSAGE
-===================================================== */
-
-async function sendChatMessage() {
-
-    if (!currentUser) return;
-
-
-    const input =
-        $("messageInput");
-
-
-    const text =
-        input?.value.trim() || "";
-
-
-    if (!text) return;
-
-
-    const button =
-        $("sendMessageBtn");
-
-
-    if (button) {
-        button.disabled = true;
-    }
-
-
-    try {
-
-        const firestore =
-            await loadFirebase();
-
-
-        await addDoc(
-            collection(
-                firestore,
-                "messages"
-            ),
-            {
-
-                text: text,
-
-                senderName:
-                    currentUser.displayName ||
-                    currentUser.name,
-
-                senderPhone:
-                    currentUser.phone,
-
-                createdAt:
-                    serverTimestamp(),
-
-                readBy: [
-                    currentUser.phone
-                ]
-
-            }
-        );
-
-
-        input.value = "";
-
-    }
-    catch (error) {
-
-        console.error(
-            "Send message:",
-            error
-        );
-
-        alert(
-            "Message send failed."
-        );
-
-    }
-    finally {
-
-        if (button) {
-            button.disabled = false;
-        }
-
-    }
-
-}
-
-
-/* =====================================================
-   CHAT BUTTONS
-===================================================== */
-
-function setupChatButtons() {
-
-    $("sendMessageBtn")?.addEventListener(
-        "click",
-        sendChatMessage
-    );
-
-
-    $("messageInput")?.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter" &&
-                !event.shiftKey
-            ) {
-
-                event.preventDefault();
-
-                sendChatMessage();
-
-            }
-
-        }
-    );
-
-
-    $("emojiBtn")?.addEventListener(
-        "click",
-        () => {
-
-            const input =
-                $("messageInput");
-
-            if (!input) return;
-
-            input.value += "😊";
-            input.focus();
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   READ RECEIPTS
-===================================================== */
-
-async function markChatAsRead() {
-
-    if (!currentUser) return;
-
-
-    try {
-
-        const firestore =
-            await loadFirebase();
-
-
-        const messagesQuery =
-            query(
-                collection(
-                    firestore,
-                    "messages"
-                ),
-                orderBy(
-                    "createdAt",
-                    "desc"
-                ),
-                limit(100)
-            );
-
-
-        const snapshot =
-            await new Promise(
-                (resolve, reject) => {
-
-                    let unsubscribe;
-
-                    unsubscribe =
-                        onSnapshot(
-                            messagesQuery,
-                            snap => {
-
-                                unsubscribe();
-                                resolve(snap);
-
-                            },
-                            reject
-                        );
-
-                }
-            );
-
-
-        const updates = [];
-
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-
-            if (
-                data.senderPhone !==
-                currentUser.phone
-            ) {
-
-                updates.push(
-                    updateDoc(
-                        doc(
-                            firestore,
-                            "messages",
-                            item.id
-                        ),
-                        {
-
-                            readBy:
-                                arrayUnion(
-                                    currentUser.phone
-                                )
-
-                        }
-                    )
-                );
-
-            }
+          }
 
         });
 
 
-        await Promise.all(updates);
+        renderOnlineUsers(users);
 
-    }
-    catch (error) {
-
-        console.error(
-            "Read receipt:",
-            error
-        );
-
-    }
-
-}
-
-
-/* =====================================================
-   GROUPS REALTIME
-===================================================== */
-
-async function startGroupsRealtime() {
-
-    if (!currentUser) return;
-
-
-    if (groupsStarted) return;
-
-    groupsStarted = true;
-
-
-    const firestore =
-        await loadFirebase();
-
-
-    groupsUnsubscribe =
-        onSnapshot(
-            collection(
-                firestore,
-                "groups"
-            ),
-
-            snapshot => {
-
-                const groups = [];
-
-
-                snapshot.forEach(item => {
-
-                    const data =
-                        item.data();
-
-
-                    const members =
-                        Array.isArray(
-                            data.members
-                        )
-                            ? data.members
-                            : [];
-
-
-                    const allowed =
-                        data.ownerPhone ===
-                            currentUser.phone ||
-
-                        members.some(
-                            member =>
-                                member.phone ===
-                                currentUser.phone
-                        );
-
-
-                    if (allowed) {
-
-                        groups.push({
-
-                            id: item.id,
-
-                            ...data
-
-                        });
-
-                    }
-
-                });
-
-
-                renderGroups(groups);
-
-            },
-
-            error => {
-
-                console.error(
-                    "Groups:",
-                    error
-                );
-
-            }
-
-        );
-
-}
-
-
-/* =====================================================
-   RENDER GROUPS
-===================================================== */
-
-function renderGroups(groups) {
-
-    const container =
-        $("groupList");
-
-    if (!container) return;
-
-
-    container.innerHTML = "";
-
-
-    if (!groups.length) {
-
-        const p =
-            document.createElement("p");
-
-        p.className = "muted";
-
-        p.textContent =
-            "No groups yet.";
-
-        container.appendChild(p);
-
-        return;
-
-    }
-
-
-    groups.forEach(group => {
-
-        const button =
-            document.createElement("button");
-
-        button.type = "button";
-
-        button.textContent =
-            `👥 ${group.name}`;
-
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                openGroup(group);
-
-            }
-        );
-
-
-        container.appendChild(button);
-
-    });
-
-}
-
-
-/* =====================================================
-   CREATE GROUP
-===================================================== */
-
-async function createGroup() {
-
-    if (!currentUser) return;
-
-
-    const name =
-        $("groupInput")?.value.trim() || "";
-
-
-    const password =
-        $("groupPasswordInput")
-            ?.value.trim() || "";
-
-
-    if (!name) {
-
-        alert(
-            "Enter group name."
-        );
-
-        return;
-    }
-
-
-    if (!password) {
-
-        alert(
-            "Enter group password."
-        );
-
-        return;
-    }
-
-
-    try {
-
-        const firestore =
-            await loadFirebase();
-
-
-        await addDoc(
-            collection(
-                firestore,
-                "groups"
-            ),
-            {
-
-                name: name,
-
-                ownerName:
-                    currentUser.displayName ||
-                    currentUser.name,
-
-                ownerPhone:
-                    currentUser.phone,
-
-                password: password,
-
-                members: [
-
-                    {
-
-                        name:
-                            currentUser.displayName ||
-                            currentUser.name,
-
-                        phone:
-                            currentUser.phone
-
-                    }
-
-                ],
-
-                createdAt:
-                    serverTimestamp()
-
-            }
-        );
-
-
-        $("groupInput").value = "";
-        $("groupPasswordInput").value = "";
-
-
-        alert(
-            "Group created successfully."
-        );
-
-    }
-    catch (error) {
-
-        console.error(
-            "Create group:",
-            error
-        );
-
-        alert(
-            "Group creation failed."
-        );
-
-    }
-
-}
-
-
-/* =====================================================
-   OPEN GROUP
-===================================================== */
-
-function openGroup(group) {
-
-    selectedGroup = group;
-
-    groupUnlocked = false;
-
-
-    show($("groupChatSection"));
-
-
-    if ($("selectedGroupName")) {
-
-        $("selectedGroupName").textContent =
-            group.name || "Group";
-
-    }
-
-
-    if ($("selectedGroupOwner")) {
-
-        $("selectedGroupOwner").textContent =
-            `Owner: ${group.ownerName || group.ownerPhone}`;
-
-    }
-
-
-    show($("groupPasswordSection"));
-
-    hide($("groupContent"));
-
-
-    if ($("enterGroupPasswordInput")) {
-
-        $("enterGroupPasswordInput").value = "";
-
-    }
-
-
-    message(
-        "groupPasswordMessage",
-        ""
-    );
-
-
-    renderMembers(
-        Array.isArray(group.members)
-            ? group.members
-            : []
+      }
     );
 
 }
 
 
-/* =====================================================
-   UNLOCK GROUP
-===================================================== */
+function renderOnlineUsers(users) {
 
-function unlockGroup() {
-
-    if (!selectedGroup) return;
+  $("onlineCount").textContent =
+    users.length;
 
 
-    const password =
-        $("enterGroupPasswordInput")
-            ?.value.trim() || "";
+  const container =
+    $("onlineUsers");
+
+  if (!container) return;
 
 
-    if (
-        password !==
-        selectedGroup.password
-    ) {
+  if (!users.length) {
 
-        message(
-            "groupPasswordMessage",
-            "Wrong group password.",
-            "error"
-        );
+    container.innerHTML =
+      `<div class="online-user">${
+        currentLanguage === "hi"
+          ? "अभी कोई ऑनलाइन नहीं है।"
+          : "No one is online right now."
+      }</div>`;
 
-        return;
-    }
+    return;
+  }
 
 
-    groupUnlocked = true;
+  container.innerHTML = "";
 
 
-    hide($("groupPasswordSection"));
+  users.forEach((user) => {
 
-    show($("groupContent"));
+    const div =
+      document.createElement("div");
 
+    div.className =
+      "online-user";
 
-    renderMembers(
-        Array.isArray(
-            selectedGroup.members
-        )
-            ? selectedGroup.members
-            : []
-    );
+    div.textContent =
+      `🟢 ${user.name || "User"}`;
 
+    container.appendChild(div);
 
-    startGroupMessages();
+  });
 
 }
-
-
-/* =====================================================
-   ADD GROUP MEMBER
-===================================================== */
-
-async function addGroupMember() {
-
-    if (
-        !selectedGroup ||
-        !currentUser ||
-        !groupUnlocked
-    ) {
-        return;
-    }
-
-
-    if (
-        selectedGroup.ownerPhone !==
-        currentUser.phone
-    ) {
-
-        alert(
-            "Only the group creator can add members."
-        );
-
-        return;
-    }
-
-
-    const name =
-        $("memberNameInput")
-            ?.value.trim() || "";
-
-
-    const phone =
-        $("memberPhoneInput")
-            ?.value.trim() || "";
-
-
-    if (!name) {
-
-        alert(
-            "Enter member name."
-        );
-
-        return;
-    }
-
-
-    if (!/^\d{10}$/.test(phone)) {
-
-        alert(
-            "Enter valid 10 digit mobile number."
-        );
-
-        return;
-    }
-
-
-    const members =
-        Array.isArray(
-            selectedGroup.members
-        )
-            ? [...selectedGroup.members]
-            : [];
-
-
-    if (
-        members.some(
-            member =>
-                member.phone === phone
-        )
-    ) {
-
-        alert(
-            "This member is already in the group."
-        );
-
-        return;
-    }
-
-
-    members.push({
-
-        name: name,
-
-        phone: phone
-
-    });
-
-
-    try {
-
-        const firestore =
-            await loadFirebase();
-
-
-        await updateDoc(
-            doc(
-                firestore,
-                "groups",
-                selectedGroup.id
-            ),
-            {
-
-                members: members
-
-            }
-        );
-
-
-        selectedGroup.members =
-            members;
-
-
-        $("memberNameInput").value = "";
-        $("memberPhoneInput").value = "";
-
-
-        renderMembers(members);
-
-
-        alert(
-            "Member added successfully."
-        );
-
-    }
-    catch (error) {
-
-        console.error(
-            "Add member:",
-            error
-        );
-
-        alert(
-            "Member could not be added."
-        );
-
-    }
-
-}
-
-
-/* =====================================================
-   RENDER MEMBERS
-===================================================== */
-
-function renderMembers(members) {
-
-    const container =
-        $("memberList");
-
-    if (!container) return;
-
-
-    container.innerHTML = "";
-
-
-    const heading =
-        document.createElement("h4");
-
-    heading.textContent =
-        "Members";
-
-    container.appendChild(heading);
-
-
-    members.forEach(member => {
-
-        const div =
-            document.createElement("div");
-
-        div.className =
-            "list-item";
-
-
-        div.textContent =
-            `${member.name} • ${member.phone}`;
-
-
-        container.appendChild(div);
-
-    });
-
-}
-
-
-/* =====================================================
-   GROUP MESSAGES
-===================================================== */
-
-async function startGroupMessages() {
-
-    if (
-        !selectedGroup ||
-        !groupUnlocked ||
-        !currentUser
-    ) {
-        return;
-    }
-
-
-    if (groupMessagesUnsubscribe) {
-
-        groupMessagesUnsubscribe();
-
-        groupMessagesUnsubscribe = null;
-
-    }
-
-
-    const firestore =
-        await loadFirebase();
-
-
-    const messagesRef =
-        collection(
-            firestore,
-            "groups",
-            selectedGroup.id,
-            "messages"
-        );
-
-
-    const messagesQuery =
-        query(
-            messagesRef,
-            orderBy(
-                "createdAt",
-                "asc"
-            ),
-            limit(100)
-        );
-
-
-    groupMessagesUnsubscribe =
-        onSnapshot(
-            messagesQuery,
-
-            snapshot => {
-
-                const container =
-                    $("groupMessages");
-
-                if (!container) return;
-
-
-                container.innerHTML = "";
-
-
-                snapshot.forEach(item => {
-
-                    renderMessage(
-                        container,
-                        item.data(),
-                        item.id
-                    );
-
-                });
-
-
-                container.scrollTop =
-                    container.scrollHeight;
-
-            },
-
-            error => {
-
-                console.error(
-                    "Group messages:",
-                    error
-                );
-
-            }
-
-        );
-
-}
-
-
-/* =====================================================
-   SEND GROUP MESSAGE
-===================================================== */
-
-async function sendGroupMessage() {
-
-    if (
-        !selectedGroup ||
-        !groupUnlocked ||
-        !currentUser
-    ) {
-        return;
-    }
-
-
-    const input =
-        $("groupMessageInput");
-
-
-    const text =
-        input?.value.trim() || "";
-
-
-    if (!text) return;
-
-
-    const button =
-        $("sendGroupMessageBtn");
-
-
-    if (button) {
-        button.disabled = true;
-    }
-
-
-    try {
-
-        const firestore =
-            await loadFirebase();
-
-
-        await addDoc(
-            collection(
-                firestore,
-                "groups",
-                selectedGroup.id,
-                "messages"
-            ),
-            {
-
-                text: text,
-
-                senderName:
-                    currentUser.displayName ||
-                    currentUser.name,
-
-                senderPhone:
-                    currentUser.phone,
-
-                createdAt:
-                    serverTimestamp(),
-
-                readBy: [
-                    currentUser.phone
-                ]
-
-            }
-        );
-
-
-        input.value = "";
-
-    }
-    catch (error) {
-
-        console.error(
-            "Group message:",
-            error
-        );
-
-        alert(
-            "Group message failed."
-        );
-
-    }
-    finally {
-
-        if (button) {
-            button.disabled = false;
-        }
-
-    }
-
-}
-
-
-/* =====================================================
-   GROUP BUTTONS
-===================================================== */
-
-function setupGroupButtons() {
-
-    $("createGroupBtn")?.addEventListener(
-        "click",
-        createGroup
-    );
-
-
-    $("unlockGroupBtn")?.addEventListener(
-        "click",
-        unlockGroup
-    );
-
-
-    $("addMemberBtn")?.addEventListener(
-        "click",
-        addGroupMember
-    );
-
-
-    $("sendGroupMessageBtn")?.addEventListener(
-        "click",
-        sendGroupMessage
-    );
-
-
-    $("groupMessageInput")?.addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key === "Enter" &&
-                !event.shiftKey
-            ) {
-
-                event.preventDefault();
-
-                sendGroupMessage();
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   HOMEWORK
-===================================================== */
-
-function getHomework() {
-
-    try {
-
-        return JSON.parse(
-            localStorage.getItem(
-                "studyHomework"
-            ) || "[]"
-        );
-
-    }
-    catch {
-
-        return [];
-
-    }
-
-}
-
-
-function saveHomeworkData(data) {
-
-    localStorage.setItem(
-        "studyHomework",
-        JSON.stringify(data)
-    );
-
-}
-
-
-function setupHomework() {
-
-    $("addHomeworkBtn")?.addEventListener(
-        "click",
-        () => {
-
-            const item = {
-
-                date:
-                    $("homeworkDate")?.value || "",
-
-                hindi:
-                    $("hindiHomework")?.value || "",
-
-                english:
-                    $("englishHomework")?.value || "",
-
-                math:
-                    $("mathHomework")?.value || "",
-
-                science:
-                    $("scienceHomework")?.value || "",
-
-                sst:
-                    $("sstHomework")?.value || "",
-
-                computer:
-                    $("computerHomework")?.value || "",
-
-                art:
-                    $("artHomework")?.value || ""
-
-            };
-
-
-            const data =
-                getHomework();
-
-
-            data.push(item);
-
-
-            saveHomeworkData(data);
-
-
-            renderHomework();
-
-        }
-    );
-
-}
-
-
-function renderHomework() {
-
-    const container =
-        $("homeworkList");
-
-    if (!container) return;
-
-
-    container.innerHTML = "";
-
-
-    getHomework().forEach(item => {
-
-        const div =
-            document.createElement("div");
-
-        div.className =
-            "list-item";
-
-
-        div.innerHTML = `
-
-            <strong>Date:</strong>
-            ${escapeHtml(item.date)}
-
-            <br>
-
-            <strong>Hindi:</strong>
-            ${escapeHtml(item.hindi)}
-
-            <br>
-
-            <strong>English:</strong>
-            ${escapeHtml(item.english)}
-
-            <br>
-
-            <strong>Math:</strong>
-            ${escapeHtml(item.math)}
-
-            <br>
-
-            <strong>Science:</strong>
-            ${escapeHtml(item.science)}
-
-            <br>
-
-            <strong>SST:</strong>
-            ${escapeHtml(item.sst)}
-
-            <br>
-
-            <strong>Computer:</strong>
-            ${escapeHtml(item.computer)}
-
-            <br>
-
-            <strong>Art:</strong>
-            ${escapeHtml(item.art)}
-
-        `;
-
-
-        container.appendChild(div);
-
-    });
-
-}
-
-
-/* =====================================================
-   SCHOOL
-===================================================== */
-
-function getSchoolUpdates() {
-
-    try {
-
-        return JSON.parse(
-            localStorage.getItem(
-                "studySchool"
-            ) || "[]"
-        );
-
-    }
-    catch {
-
-        return [];
-
-    }
-
-}
-
-
-function renderSchool() {
-
-    const container =
-        $("schoolList");
-
-    if (!container) return;
-
-
-    container.innerHTML = "";
-
-
-    getSchoolUpdates().forEach(item => {
-
-        const div =
-            document.createElement("div");
-
-        div.className =
-            "list-item";
-
-        div.textContent =
-            item;
-
-        container.appendChild(div);
-
-    });
-
-}
-
-
-function setupSchool() {
-
-    $("saveSchoolBtn")?.addEventListener(
-        "click",
-        () => {
-
-            const text =
-                $("schoolInput")
-                    ?.value.trim() || "";
-
-
-            if (!text) return;
-
-
-            const data =
-                getSchoolUpdates();
-
-
-            data.push(text);
-
-
-            localStorage.setItem(
-                "studySchool",
-                JSON.stringify(data)
-            );
-
-
-            $("schoolInput").value = "";
-
-
-            renderSchool();
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   NOTES
-===================================================== */
-
-function getNotes() {
-
-    try {
-
-        return JSON.parse(
-            localStorage.getItem(
-                "studyNotes"
-            ) || "[]"
-        );
-
-    }
-    catch {
-
-        return [];
-
-    }
-
-}
-
-
-function renderNotes() {
-
-    const container =
-        $("notesList");
-
-    if (!container) return;
-
-
-    container.innerHTML = "";
-
-
-    getNotes().forEach(item => {
-
-        const div =
-            document.createElement("div");
-
-        div.className =
-            "list-item";
-
-        div.textContent =
-            item;
-
-        container.appendChild(div);
-
-    });
-
-}
-
-
-function setupNotes() {
-
-    $("saveNoteBtn")?.addEventListener(
-        "click",
-        () => {
-
-            const text =
-                $("noteInput")
-                    ?.value.trim() || "";
-
-
-            if (!text) return;
-
-
-            const data =
-                getNotes();
-
-
-            data.push(text);
-
-
-            localStorage.setItem(
-                "studyNotes",
-                JSON.stringify(data)
-            );
-
-
-            $("noteInput").value = "";
-
-
-            renderNotes();
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   CHANGE NAME
-===================================================== */
-
-function setupChangeName() {
-
-    $("changeNameBtn")?.addEventListener(
-        "click",
-        () => {
-
-            if (!currentUser) return;
-
-
-            const name =
-                $("changeNameInput")
-                    ?.value.trim() || "";
-
-
-            if (!name) {
-
-                message(
-                    "changeNameMessage",
-                    "Enter a name.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            currentUser.displayName =
-                name;
-
-
-            localStorage.setItem(
-                "studyCurrentUser",
-                JSON.stringify(currentUser)
-            );
-
-
-            updateProfileUI();
-
-
-            message(
-                "changeNameMessage",
-                "Name changed.",
-                "success"
-            );
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   LANGUAGE
-===================================================== */
-
-const translations = {
-
-    en: {
-
-        home: "Home",
-        chat: "Chat",
-        groups: "Groups",
-        homework: "Homework",
-        school: "School",
-        notes: "Notes",
-        settings: "Settings"
-
-    },
-
-    hi: {
-
-        home: "होम",
-        chat: "चैट",
-        groups: "ग्रुप",
-        homework: "होमवर्क",
-        school: "स्कूल",
-        notes: "नोट्स",
-        settings: "सेटिंग्स"
-
-    }
-
-};
-
-
-function applyLanguage(language) {
-
-    const data =
-        translations[language] ||
-        translations.en;
-
-
-    document
-        .querySelectorAll(
-            "[data-i18n]"
-        )
-        .forEach(element => {
-
-            const key =
-                element.dataset.i18n;
-
-
-            if (data[key]) {
-
-                element.textContent =
-                    data[key];
-
-            }
-
-        });
-
-
-    document.documentElement.lang =
-        language === "hi"
-            ? "hi"
-            : "en";
-
-
-    localStorage.setItem(
-        "studyLanguage",
-        language
-    );
-
-
-    message(
-        "languageMessage",
-        language === "hi"
-            ? "भाषा हिन्दी कर दी गई है।"
-            : "Language changed to English.",
-        "success"
-    );
-
-}
-
-
-function applySavedLanguage() {
-
-    const language =
-        localStorage.getItem(
-            "studyLanguage"
-        ) || "en";
-
-
-    applyLanguage(language);
-
-}
-
-
-function setupLanguage() {
-
-    $("hindiLanguageBtn")?.addEventListener(
-        "click",
-        () => {
-
-            applyLanguage("hi");
-
-        }
-    );
-
-
-    $("englishLanguageBtn")?.addEventListener(
-        "click",
-        () => {
-
-            applyLanguage("en");
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   THEME
-===================================================== */
-
-function applySavedTheme() {
-
-    const dark =
-        localStorage.getItem(
-            "studyDarkMode"
-        ) === "true";
-
-
-    document.body.classList.toggle(
-        "dark",
-        dark
-    );
-
-
-    if ($("themeBtn")) {
-
-        $("themeBtn").textContent =
-            dark
-                ? "Light Mode"
-                : "Dark Mode";
-
-    }
-
-}
-
-
-function setupTheme() {
-
-    $("themeBtn")?.addEventListener(
-        "click",
-        () => {
-
-            const dark =
-                !document.body.classList.contains(
-                    "dark"
-                );
-
-
-            document.body.classList.toggle(
-                "dark",
-                dark
-            );
-
-
-            localStorage.setItem(
-                "studyDarkMode",
-                String(dark)
-            );
-
-
-            $("themeBtn").textContent =
-                dark
-                    ? "Light Mode"
-                    : "Dark Mode";
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   NOTIFICATIONS
-===================================================== */
-
-function setupNotifications() {
-
-    $("notificationBtn")?.addEventListener(
-        "click",
-        async () => {
-
-            if (
-                !("Notification" in window)
-            ) {
-
-                message(
-                    "notificationMessage",
-                    "Notifications are not supported.",
-                    "error"
-                );
-
-                return;
-            }
-
-
-            try {
-
-                const permission =
-                    await Notification.requestPermission();
-
-
-                if (
-                    permission === "granted"
-                ) {
-
-                    new Notification(
-                        "StudyConnect",
-                        {
-                            body:
-                                "Notifications are enabled."
-                        }
-                    );
-
-
-                    message(
-                        "notificationMessage",
-                        "Notifications enabled.",
-                        "success"
-                    );
-
-                }
-                else {
-
-                    message(
-                        "notificationMessage",
-                        "Notification permission was not granted.",
-                        "error"
-                    );
-
-                }
-
-            }
-            catch (error) {
-
-                console.error(
-                    "Notification:",
-                    error
-                );
-
-
-                message(
-                    "notificationMessage",
-                    "Could not enable notifications.",
-                    "error"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   OWNER PANEL
-===================================================== */
-
-function setupOwnerPanel() {
-
-    $("ownerLoginBtn")?.addEventListener(
-        "click",
-        async () => {
-
-            const password =
-                $("ownerPasswordInput")
-                    ?.value.trim() || "";
-
-
-            if (
-                password !==
-                OWNER_PASSWORD
-            ) {
-
-                message(
-                    "ownerPasswordMessage",
-                    "Wrong owner password.",
-                    "error"
-                );
-
-
-                hide($("ownerPanel"));
-
-                return;
-
-            }
-
-
-            show($("ownerPanel"));
-
-
-            message(
-                "ownerPasswordMessage",
-                "Owner login successful.",
-                "success"
-            );
-
-
-            await loadAllowedUsers();
-
-        }
-    );
-
-
-    $("allowUserBtn")?.addEventListener(
-        "click",
-        allowUser
-    );
-
-}
-
-
-/* =====================================================
-   ALLOW USER
-===================================================== */
-
-async function allowUser() {
-
-    const name =
-        $("allowedUserNameInput")
-            ?.value.trim() || "";
-
-
-    const phone =
-        $("allowedUserPhoneInput")
-            ?.value.trim() || "";
-
-
-    if (!name) {
-
-        alert(
-            "Enter user name."
-        );
-
-        return;
-    }
-
-
-    if (!/^\d{10}$/.test(phone)) {
-
-        alert(
-            "Enter valid 10 digit mobile."
-        );
-
-        return;
-    }
-
-
-    try {
-
-        const firestore =
-            await loadFirebase();
-
-
-        await setDoc(
-            doc(
-                firestore,
-                "allowedUsers",
-                phone
-            ),
-            {
-
-                name: name,
-
-                phone: phone,
-
-                addedAt:
-                    serverTimestamp()
-
-            },
-            {
-                merge: true
-            }
-        );
-
-
-        $("allowedUserNameInput").value = "";
-        $("allowedUserPhoneInput").value = "";
-
-
-        alert(
-            "User allowed successfully."
-        );
-
-    }
-    catch (error) {
-
-        console.error(
-            "Allow user:",
-            error
-        );
-
-
-        alert(
-            "Could not allow user."
-        );
-
-    }
-
-}
-
-
-/* =====================================================
-   ALLOWED USERS
-===================================================== */
-
-async function loadAllowedUsers() {
-
-    if (allowedUsersUnsubscribe) {
-
-        allowedUsersUnsubscribe();
-
-        allowedUsersUnsubscribe = null;
-
-    }
-
-
-    const firestore =
-        await loadFirebase();
-
-
-    allowedUsersUnsubscribe =
-        onSnapshot(
-            collection(
-                firestore,
-                "allowedUsers"
-            ),
-
-            snapshot => {
-
-                const container =
-                    $("allowedUsersList");
-
-                if (!container) return;
-
-
-                container.innerHTML = "";
-
-
-                const heading =
-                    document.createElement("h4");
-
-                heading.textContent =
-                    "Allowed Users";
-
-                container.appendChild(
-                    heading
-                );
-
-
-                snapshot.forEach(item => {
-
-                    const data =
-                        item.data();
-
-
-                    const div =
-                        document.createElement("div");
-
-                    div.className =
-                        "list-item";
-
-
-                    div.textContent =
-                        `${data.name || ""} • ${data.phone || item.id}`;
-
-
-                    container.appendChild(div);
-
-                });
-
-            },
-
-            error => {
-
-                console.error(
-                    "Allowed users:",
-                    error
-                );
-
-            }
-
-        );
-
-}
-
-
-/* =====================================================
-   RESET APP DATA
-===================================================== */
-
-function setupClearData() {
-
-    $("clearDataBtn")?.addEventListener(
-        "click",
-        () => {
-
-            const confirmReset =
-                window.confirm(
-                    "Are you sure you want to reset local app data?"
-                );
-
-
-            if (!confirmReset) return;
-
-
-            localStorage.removeItem(
-                "studyHomework"
-            );
-
-            localStorage.removeItem(
-                "studySchool"
-            );
-
-            localStorage.removeItem(
-                "studyNotes"
-            );
-
-            localStorage.removeItem(
-                "studyDarkMode"
-            );
-
-            localStorage.removeItem(
-                "studyLanguage"
-            );
-
-            localStorage.removeItem(
-                "studyCurrentUser"
-            );
-
-
-            location.reload();
-
-        }
-    );
-
-}
-
-
-/* =====================================================
-   ESCAPE HTML
-===================================================== */
-
-function escapeHtml(value) {
-
-    return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-
-}
-
-
-/* =====================================================
-   LOAD SAVED USER
-===================================================== */
-
-async function loadSavedUser() {
-
-    const saved =
-        localStorage.getItem(
-            "studyCurrentUser"
-        );
-
-
-    if (!saved) {
-        return false;
-    }
-
-
-    try {
-
-        const user =
-            JSON.parse(saved);
-
-
-        if (
-            !user ||
-            !user.name ||
-            !user.phone
-        ) {
-
-            localStorage.removeItem(
-                "studyCurrentUser"
-            );
-
-            return false;
-
-        }
-
-
-        const firestore =
-            await loadFirebase();
-
-
-        const userRef =
-            doc(
-                firestore,
-                "allowedUsers",
-                user.phone
-            );
-
-
-        const snap =
-            await getDoc(userRef);
-
-
-        const isOwner =
-            user.name.toLowerCase() ===
-                OWNER_NAME.toLowerCase() &&
-            user.phone === OWNER_PHONE;
-
-
-        if (
-            !snap.exists() &&
-            !isOwner
-        ) {
-
-            localStorage.removeItem(
-                "studyCurrentUser"
-            );
-
-            return false;
-
-        }
-
-
-        currentUser = {
-
-            ...user,
-
-            isOwner: isOwner
-
-        };
-
-
-        return true;
-
-    }
-    catch (error) {
-
-        console.error(
-            "Saved user:",
-            error
-        );
-
-
-        localStorage.removeItem(
-            "studyCurrentUser"
-        );
-
-
-        return false;
-
-    }
-
-}
-
-
-/* =====================================================
-   SERVICE WORKER / PWA
-===================================================== */
-
-async function registerServiceWorker() {
-
-    if (
-        !("serviceWorker" in navigator)
-    ) {
-        return;
-    }
-
-
-    try {
-
-        await navigator.serviceWorker.register(
-            "service-worker.js"
-        );
-
-        console.log(
-            "Service Worker registered."
-        );
-
-    }
-    catch (error) {
-
-        console.error(
-            "Service Worker:",
-            error
-        );
-
-    }
-
-}
-
-
-/* =====================================================
-   INITIALIZATION
-===================================================== */
-
-async function initializeAppUI() {
-
-    if (appInitialized) return;
-
-    appInitialized = true;
-
-
-    setupPasswordLogin();
-
-    setupNextButton();
-
-    setupProfilePhoto();
-
-    setupOwnerContact();
-
-    setupNavigation();
-
-    setupHomeName();
-
-    setupOnlineToggle();
-
-    setupChatButtons();
-
-    setupGroupButtons();
-
-    setupHomework();
-
-    setupSchool();
-
-    setupNotes();
-
-    setupChangeName();
-
-    setupLanguage();
-
-    setupTheme();
-
-    setupNotifications();
-
-    setupOwnerPanel();
-
-    setupClearData();
-
-
-    const loggedIn =
-        await loadSavedUser();
-
-
-    if (loggedIn) {
-
-        await finishLogin();
-
-    }
-
-
-    registerServiceWorker();
-
-}
-
-
-/* =====================================================
-   ENTER APP BUTTON
-===================================================== */
-
-$("enterAppBtn")?.addEventListener(
-    "click",
-    loginUser
-);
-
-
-/* =====================================================
-   START APP
-===================================================== */
-
-initializeAppUI()
-    .catch(error => {
-
-        console.error(
-            "StudyConnect startup error:",
-            error
-        );
-
-    });
