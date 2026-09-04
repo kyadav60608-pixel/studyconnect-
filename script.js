@@ -1,80 +1,36 @@
-// ======================================================
-// STUDYCONNECT - COMPLETE JAVASCRIPT
-// ======================================================
+हाँ। इस बार मैं तुम्हें पूरा script.js दे रहा हूँ, और इसमें Next बटन का code सबसे पहले और Firebase से अलग रखा गया है। इसलिए Firebase में कोई समस्या होने पर भी Password → Owner Name → Next → Name/Mobile वाला flow काम करेगा।
+अपने पुराने script.js का पूरा code हटाकर यह पूरा code लगाना।
+// =====================================================
+// STUDYCONNECT - COMPLETE SCRIPT.JS
+// =====================================================
 
-// ===============================
-// BASIC SETTINGS
-// ===============================
+// =====================================================
+// 1. BASIC SETTINGS
+// =====================================================
 
 const SCHOOL_PASSWORD = "123";
 const OWNER_PASSWORD = "12341";
 const OWNER_NAME = "Krishna Yadav";
 const OWNER_PHONE = "8738084554";
 
-const FIREBASE_VERSION = "12.1.0";
-
-const firebaseConfig = {
-    apiKey: "AIzaSyCquRX2YB59FObuIyiW3c3AUCdPWypag",
-    authDomain: "studyconnect-99006.firebaseapp.com",
-    projectId: "studyconnect-99006",
-    storageBucket: "studyconnect-99006.firebasestorage.app",
-    messagingSenderId: "15964627995",
-    appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
-    measurementId: "G-SYJYMREJJL"
-};
-
-// ===============================
-// HTML ELEMENTS
-// ===============================
-
-const passwordScreen = document.getElementById("passwordScreen");
-const schoolPasswordStep = document.getElementById("schoolPasswordStep");
-const ownerStep = document.getElementById("ownerStep");
-const userDetailsStep = document.getElementById("userDetailsStep");
-const contactOwnerScreen = document.getElementById("contactOwnerScreen");
-const appContainer = document.getElementById("appContainer");
-
-const appPassword = document.getElementById("appPassword");
-const unlockBtn = document.getElementById("unlockBtn");
-const passwordError = document.getElementById("passwordError");
-
-const ownerNameDisplay = document.getElementById("ownerNameDisplay");
-const ownerNextBtn = document.getElementById("ownerNextBtn");
-
-const openUserName = document.getElementById("openUserName");
-const openUserPhone = document.getElementById("openUserPhone");
-const profilePhotoInput = document.getElementById("profilePhotoInput");
-const profilePhotoPreview = document.getElementById("profilePhotoPreview");
-const enterAppBtn = document.getElementById("enterAppBtn");
-
-const callOwnerBtn = document.getElementById("callOwnerBtn");
-const whatsappOwnerBtn = document.getElementById("whatsappOwnerBtn");
-const backToLoginBtn = document.getElementById("backToLoginBtn");
-
-// ===============================
-// GLOBAL VARIABLES
-// ===============================
-
-let firebaseReady = false;
-let db = null;
-let firebaseModules = null;
-
 let currentUser = null;
-let pendingProfilePhoto = "";
+let db = null;
+let firebaseReady = false;
 
 let unsubscribeChat = null;
-let unsubscribeOnlineUsers = null;
-let unsubscribeGroups = null;
+let unsubscribeOnline = null;
 let unsubscribeGroupMessages = null;
 
-let onlineHeartbeat = null;
-let selectedGroupId = null;
+let pendingProfilePhoto = null;
 
-let firebaseLoadPromise = null;
 
-// ===============================
-// HELPER FUNCTIONS
-// ===============================
+// =====================================================
+// 2. HELPER FUNCTIONS
+// =====================================================
+
+function $(id) {
+    return document.getElementById(id);
+}
 
 function show(element) {
     if (element) {
@@ -88,371 +44,318 @@ function hide(element) {
     }
 }
 
-function setText(element, text) {
+function setText(id, text) {
+    const element = $(id);
     if (element) {
         element.textContent = text;
     }
 }
 
-function safeText(value) {
-    return value == null ? "" : String(value);
-}
 
-// ===============================
-// FIREBASE LOAD
-// ===============================
+// =====================================================
+// 3. IMPORTANT: NEXT BUTTON
+//    THIS RUNS BEFORE FIREBASE
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const ownerNextBtn = $("ownerNextBtn");
+    const ownerStep = $("ownerStep");
+    const userDetailsStep = $("userDetailsStep");
+    const ownerNameDisplay = $("ownerNameDisplay");
+    const passwordError = $("passwordError");
+
+    console.log("StudyConnect JavaScript loaded.");
+
+    // Make sure button cannot submit a form
+    if (ownerNextBtn) {
+        ownerNextBtn.type = "button";
+
+        ownerNextBtn.addEventListener("click", function (event) {
+
+            event.preventDefault();
+            event.stopPropagation();
+
+            console.log("NEXT BUTTON CLICKED");
+
+            // Show owner name
+            if (ownerNameDisplay) {
+                ownerNameDisplay.textContent = OWNER_NAME;
+            }
+
+            // Clear old error
+            if (passwordError) {
+                passwordError.textContent = "";
+            }
+
+            // Hide owner step
+            if (ownerStep) {
+                ownerStep.style.display = "none";
+            }
+
+            // Show user details step
+            if (userDetailsStep) {
+                userDetailsStep.style.display = "block";
+            }
+
+        });
+    } else {
+        console.error("ownerNextBtn NOT FOUND");
+    }
+
+});
+
+
+// =====================================================
+// 4. FIREBASE
+// =====================================================
+
+let firebasePromise = null;
 
 async function loadFirebase() {
 
-    if (firebaseLoadPromise) {
-        return firebaseLoadPromise;
+    if (firebasePromise) {
+        return firebasePromise;
     }
 
-    firebaseLoadPromise = (async function () {
+    firebasePromise = (async function () {
 
         try {
 
-            const appModule = await import(
-                https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-app.js
+            const firebaseApp = await import(
+                "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js"
             );
 
-            const firestoreModule = await import(
-                https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/firebase-firestore.js
+            const firestore = await import(
+                "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js"
             );
 
-            const {
-                initializeApp,
-                getApps,
-                getApp
-            } = appModule;
+            const firebaseConfig = {
 
-            const {
-                getFirestore,
-                collection,
-                doc,
-                addDoc,
-                setDoc,
-                getDoc,
-                getDocs,
-                updateDoc,
-                deleteDoc,
-                query,
-                orderBy,
-                limit,
-                onSnapshot,
-                serverTimestamp,
-                arrayUnion
-            } = firestoreModule;
+                apiKey: "AIzaSyCquRX2YB59FObuIyi3Wc3AUCdPWypag",
 
-            let firebaseApp;
+                authDomain:
+                    "studyconnect-99006.firebaseapp.com",
 
-            if (getApps().length > 0) {
-                firebaseApp = getApp();
-            } else {
-                firebaseApp = initializeApp(firebaseConfig);
+                projectId:
+                    "studyconnect-99006",
+
+                storageBucket:
+                    "studyconnect-99006.firebasestorage.app",
+
+                messagingSenderId:
+                    "15964627995",
+
+                appId:
+                    "1:15964627995:web:0e8a8cd14c175247ed04be",
+
+                measurementId:
+                    "G-SYJYMREJJL"
+            };
+
+            let app;
+
+            try {
+
+                const apps = firebaseApp.getApps();
+
+                if (apps.length > 0) {
+                    app = firebaseApp.getApp();
+                } else {
+                    app = firebaseApp.initializeApp(firebaseConfig);
+                }
+
+            } catch (error) {
+
+                console.error("Firebase initialization error:", error);
+
+                try {
+                    app = firebaseApp.getApp();
+                } catch (e) {
+                    throw error;
+                }
             }
 
-            db = getFirestore(firebaseApp);
-
-            firebaseModules = {
-                collection,
-                doc,
-                addDoc,
-                setDoc,
-                getDoc,
-                getDocs,
-                updateDoc,
-                deleteDoc,
-                query,
-                orderBy,
-                limit,
-                onSnapshot,
-                serverTimestamp,
-                arrayUnion
-            };
+            db = firestore.getFirestore(app);
 
             firebaseReady = true;
 
-            return true;
+            console.log("Firebase connected.");
+
+            return {
+                db,
+                firestore
+            };
 
         } catch (error) {
 
-            console.error("Firebase loading error:", error);
+            console.error("Firebase failed:", error);
 
             firebaseReady = false;
 
-            return false;
+            return null;
         }
 
     })();
 
-    return firebaseLoadPromise;
+    return firebasePromise;
 }
 
-// ===============================
-// INITIAL SCREEN
-// ===============================
 
-function resetLoginScreens() {
+// =====================================================
+// 5. LOGIN SCREEN
+// =====================================================
 
-    show(passwordScreen);
+document.addEventListener("DOMContentLoaded", function () {
 
-    show(schoolPasswordStep);
-    hide(ownerStep);
-    hide(userDetailsStep);
-    hide(contactOwnerScreen);
-    hide(appContainer);
+    const unlockBtn = $("unlockBtn");
+    const appPassword = $("appPassword");
+    const passwordScreen = $("passwordScreen");
+    const schoolPasswordStep = $("schoolPasswordStep");
+    const ownerStep = $("ownerStep");
+    const userDetailsStep = $("userDetailsStep");
+    const passwordError = $("passwordError");
 
-    if (appPassword) {
-        appPassword.value = "";
-    }
+    if (unlockBtn) {
 
-    if (openUserName) {
-        openUserName.value = "";
-    }
+        unlockBtn.type = "button";
 
-    if (openUserPhone) {
-        openUserPhone.value = "";
-    }
+        unlockBtn.addEventListener("click", async function (event) {
 
-    setText(passwordError, "");
-
-    if (ownerNameDisplay) {
-        ownerNameDisplay.textContent = OWNER_NAME;
-    }
-}
-
-// ===============================
-// SCHOOL PASSWORD
-// ===============================
-
-if (unlockBtn) {
-
-    unlockBtn.addEventListener("click", async function () {
-
-        const enteredPassword = appPassword
-            ? appPassword.value.trim()
-            : "";
-
-        if (enteredPassword !== SCHOOL_PASSWORD) {
-
-            setText(passwordError, "गलत पासवर्ड!");
-
-            return;
-        }
-
-        // Password सही है
-        setText(passwordError, "");
-
-        // Firebase पहले तैयार कर दो
-        await loadFirebase();
-
-        // School password screen बंद
-        hide(schoolPasswordStep);
-
-        // Owner name screen खोलो
-        show(ownerStep);
-
-        // Owner name
-        setText(ownerNameDisplay, OWNER_NAME);
-    });
-}
-
-// Enter key से भी password submit होगा
-if (appPassword) {
-
-    appPassword.addEventListener("keydown", function (event) {
-
-        if (event.key === "Enter") {
             event.preventDefault();
 
-            if (unlockBtn) {
-                unlockBtn.click();
+            const password = appPassword
+                ? appPassword.value.trim()
+                : "";
+
+            if (password !== SCHOOL_PASSWORD) {
+
+                if (passwordError) {
+                    passwordError.textContent =
+                        "गलत password! कृपया सही password डालें।";
+                }
+
+                return;
             }
-        }
-    });
-}
 
-// ======================================================
-// OWNER NEXT BUTTON
-// ======================================================
+            if (passwordError) {
+                passwordError.textContent = "";
+            }
 
-if (ownerNextBtn) {
+            if (schoolPasswordStep) {
+                schoolPasswordStep.style.display = "none";
+            }
 
-    ownerNextBtn.addEventListener("click", function (event) {
+            if (ownerStep) {
+                ownerStep.style.display = "block";
+            }
+
+            if (ownerNameDisplay) {
+                ownerNameDisplay.textContent = OWNER_NAME;
+            }
+
+        });
+
+    }
+
+});
+
+
+// =====================================================
+// 6. USER LOGIN
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const enterAppBtn = $("enterAppBtn");
+
+    if (!enterAppBtn) {
+        return;
+    }
+
+    enterAppBtn.type = "button";
+
+    enterAppBtn.addEventListener("click", async function (event) {
 
         event.preventDefault();
 
-        console.log("OWNER NEXT BUTTON CLICKED");
+        const nameInput = $("openUserName");
+        const phoneInput = $("openUserPhone");
 
-        // Owner name दिखाओ
-        setText(ownerNameDisplay, OWNER_NAME);
+        const name = nameInput
+            ? nameInput.value.trim()
+            : "";
 
-        // Owner step बंद
-        hide(ownerStep);
+        const phone = phoneInput
+            ? phoneInput.value.trim()
+            : "";
 
-        // User details step खोलो
-        show(userDetailsStep);
+        const passwordError = $("passwordError");
 
-        // Login error हटाओ
-        setText(passwordError, "");
+        if (!name || !phone) {
 
-        // Name field पर cursor
-        setTimeout(function () {
-
-            if (openUserName) {
-                openUserName.focus();
+            if (passwordError) {
+                passwordError.textContent =
+                    "कृपया अपना नाम और मोबाइल नंबर डालें।";
             }
 
-        }, 100);
+            return;
+        }
+
+        if (!/^[0-9]{10}$/.test(phone)) {
+
+            if (passwordError) {
+                passwordError.textContent =
+                    "कृपया 10 अंकों का मोबाइल नंबर डालें।";
+            }
+
+            return;
+        }
+
+        if (passwordError) {
+            passwordError.textContent = "Checking...";
+        }
+
+        await loginUser(name, phone);
+
     });
-}
 
-// ======================================================
-// PROFILE PHOTO
-// ======================================================
+});
 
-if (profilePhotoInput) {
 
-    profilePhotoInput.addEventListener("change", function () {
+// =====================================================
+// 7. LOGIN CHECK
+// =====================================================
 
-        const file = profilePhotoInput.files &&
-                     profilePhotoInput.files[0];
+async function loginUser(name, phone) {
 
-        if (!file) {
-            return;
-        }
+    const passwordError = $("passwordError");
 
-        if (!file.type.startsWith("image/")) {
+    // Owner can always enter
+    if (
+        name.toLowerCase() === OWNER_NAME.toLowerCase() &&
+        phone === OWNER_PHONE
+    ) {
 
-            setText(passwordError, "कृपया image file चुनें।");
-
-            return;
-        }
-
-        const reader = new FileReader();
-
-        reader.onload = function (event) {
-
-            pendingProfilePhoto = event.target.result;
-
-            if (profilePhotoPreview) {
-
-                profilePhotoPreview.src = pendingProfilePhoto;
-
-                profilePhotoPreview.style.display = "block";
-            }
+        currentUser = {
+            name: OWNER_NAME,
+            phone: phone,
+            isOwner: true
         };
 
-        reader.readAsDataURL(file);
-    });
-}
-
-// ======================================================
-// CONTACT OWNER
-// ======================================================
-
-function showContactOwner() {
-
-    hide(passwordScreen);
-    hide(appContainer);
-
-    show(contactOwnerScreen);
-
-    setText(
-        document.getElementById("contactOwnerTitle"),
-        "Owner से संपर्क करें"
-    );
-
-    setText(
-        document.getElementById("contactOwnerText"),
-        "आपका नाम और मोबाइल नंबर Owner की अनुमति सूची में नहीं है।"
-    );
-}
-
-if (callOwnerBtn) {
-
-    callOwnerBtn.addEventListener("click", function () {
-
-        window.location.href = "tel:" + OWNER_PHONE;
-    });
-}
-
-if (whatsappOwnerBtn) {
-
-    whatsappOwnerBtn.addEventListener("click", function () {
-
-        window.open(
-            "https://wa.me/91" + OWNER_PHONE,
-            "_blank"
-        );
-    });
-}
-
-if (backToLoginBtn) {
-
-    backToLoginBtn.addEventListener("click", function () {
-
-        hide(contactOwnerScreen);
-
-        show(passwordScreen);
-        show(schoolPasswordStep);
-
-        hide(ownerStep);
-        hide(userDetailsStep);
-
-        setText(passwordError, "");
-    });
-}
-
-// ======================================================
-// LOGIN USER
-// ======================================================
-
-async function loginUser() {
-
-    const name = openUserName
-        ? openUserName.value.trim()
-        : "";
-
-    const phone = openUserPhone
-        ? openUserPhone.value.trim()
-        : "";
-
-    if (!name) {
-
-        setText(passwordError, "अपना नाम डालिए।");
+        finishLogin();
 
         return;
     }
 
-    if (!phone) {
+    const firebase = await loadFirebase();
 
-        setText(passwordError, "अपना मोबाइल नंबर डालिए।");
+    if (!firebase) {
 
-        return;
-    }
-
-    if (!/^[0-9]{10}$/.test(phone)) {
-
-        setText(
-            passwordError,
-            "मोबाइल नंबर 10 अंकों का होना चाहिए।"
-        );
-
-        return;
-    }
-
-    setText(passwordError, "Checking...");
-
-    const firebaseLoaded = await loadFirebase();
-
-    if (!firebaseLoaded || !db) {
-
-        setText(
-            passwordError,
-            "Firebase connect नहीं हो पाया। Internet check करें।"
-        );
+        if (passwordError) {
+            passwordError.textContent =
+                "Firebase connect नहीं हुआ। Internet check करें।";
+        }
 
         return;
     }
@@ -462,603 +365,537 @@ async function loginUser() {
         const {
             collection,
             getDocs
-        } = firebaseModules;
+        } = firebase.firestore;
 
-        // Owner को हमेशा allow
-        const isOwner =
-            name.toLowerCase() === OWNER_NAME.toLowerCase() &&
-            phone === OWNER_PHONE;
+        const usersRef = collection(db, "allowedUsers");
+
+        const snapshot = await getDocs(usersRef);
 
         let allowed = false;
 
-        if (isOwner) {
+        snapshot.forEach(function (doc) {
 
-            allowed = true;
+            const data = doc.data();
 
-        } else {
+            const savedName =
+                String(data.name || "")
+                    .trim()
+                    .toLowerCase();
 
-            const allowedUsersRef =
-                collection(db, "allowedUsers");
+            const savedPhone =
+                String(data.phone || "").trim();
 
-            const snapshot =
-                await getDocs(allowedUsersRef);
+            if (
+                savedName === name.toLowerCase() &&
+                savedPhone === phone
+            ) {
+                allowed = true;
+            }
 
-            snapshot.forEach(function (userDoc) {
-
-                const userData = userDoc.data();
-
-                if (
-                    safeText(userData.name)
-                        .trim()
-                        .toLowerCase() === name.toLowerCase()
-                    &&
-                    safeText(userData.phone).trim() === phone
-                ) {
-
-                    allowed = true;
-                }
-            });
-        }
+        });
 
         if (!allowed) {
-
-            setText(passwordError, "");
 
             showContactOwner();
 
             return;
         }
 
-        // User login सफल
         currentUser = {
             name: name,
             phone: phone,
-            isOwner: isOwner,
-            profilePhoto: pendingProfilePhoto || ""
+            isOwner: false
         };
+
+        finishLogin();
+
+    } catch (error) {
+
+        console.error(error);
+
+        if (passwordError) {
+            passwordError.textContent =
+                "Login check में समस्या आई।";
+        }
+
+    }
+}
+
+
+// =====================================================
+// 8. FINISH LOGIN
+// =====================================================
+
+function finishLogin() {
+
+    localStorage.setItem(
+        "studyCurrentUser",
+        JSON.stringify(currentUser)
+    );
+
+    const passwordScreen = $("passwordScreen");
+    const contactOwnerScreen = $("contactOwnerScreen");
+    const appContainer = $("appContainer");
+
+    hide(passwordScreen);
+    hide(contactOwnerScreen);
+    show(appContainer);
+
+    setText("studentName", currentUser.name);
+
+    loadSavedSettings();
+
+    startOnlinePresence();
+
+    startChatRealtime();
+
+    updateOnlineUsers();
+
+    if (currentUser.isOwner) {
+        const ownerSection = $("ownerSettingsSection");
+
+        if (ownerSection) {
+            show(ownerSection);
+        }
+    }
+
+}
+
+
+// =====================================================
+// 9. CONTACT OWNER
+// =====================================================
+
+function showContactOwner() {
+
+    hide($("passwordScreen"));
+    show($("contactOwnerScreen"));
+
+    setText(
+        "contactOwnerTitle",
+        "Owner से संपर्क करें"
+    );
+
+    setText(
+        "contactOwnerText",
+        "आपका नाम और मोबाइल नंबर अभी allowed users में नहीं है।"
+    );
+
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const backBtn = $("backToLoginBtn");
+
+    if (backBtn) {
+
+        backBtn.type = "button";
+
+        backBtn.addEventListener("click", function () {
+
+            hide($("contactOwnerScreen"));
+            show($("passwordScreen"));
+
+            show($("schoolPasswordStep"));
+            hide($("ownerStep"));
+            hide($("userDetailsStep"));
+
+        });
+
+    }
+
+});
+
+
+// =====================================================
+// 10. NAVIGATION
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const menuBtn = $("menuBtn");
+    const navMenu = $("navMenu");
+
+    if (menuBtn) {
+
+        menuBtn.type = "button";
+
+        menuBtn.addEventListener("click", function () {
+
+            if (!navMenu) {
+                return;
+            }
+
+            if (
+                navMenu.style.display === "none" ||
+                navMenu.style.display === ""
+            ) {
+                navMenu.style.display = "block";
+            } else {
+                navMenu.style.display = "none";
+            }
+
+        });
+
+    }
+
+    const navButtons = document.querySelectorAll(
+        "[data-page]"
+    );
+
+    navButtons.forEach(function (button) {
+
+        button.addEventListener("click", function () {
+
+            const pageName =
+                button.getAttribute("data-page");
+
+            document.querySelectorAll(".page").forEach(
+                function (page) {
+                    page.style.display = "none";
+                }
+            );
+
+            const selectedPage = $(pageName);
+
+            if (selectedPage) {
+                selectedPage.style.display = "block";
+            }
+
+            if (navMenu) {
+                navMenu.style.display = "none";
+            }
+
+        });
+
+    });
+
+});
+
+
+// =====================================================
+// 11. HOME NAME
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const saveNameBtn = $("saveNameBtn");
+
+    if (!saveNameBtn) {
+        return;
+    }
+
+    saveNameBtn.type = "button";
+
+    saveNameBtn.addEventListener("click", function () {
+
+        const studentName = $("studentName");
+
+        if (!studentName || !currentUser) {
+            return;
+        }
+
+        const newName =
+            studentName.textContent.trim();
+
+        if (!newName) {
+            return;
+        }
+
+        currentUser.name = newName;
 
         localStorage.setItem(
             "studyCurrentUser",
             JSON.stringify(currentUser)
         );
 
-        finishLogin();
-
-    } catch (error) {
-
-        console.error("Login error:", error);
-
         setText(
-            passwordError,
-            "Login में समस्या हुई। Firebase check करें।"
+            "nameMessage",
+            "Name saved successfully!"
         );
-    }
-}
 
-// ======================================================
-// ENTER APP BUTTON
-// ======================================================
-
-if (enterAppBtn) {
-
-    enterAppBtn.addEventListener("click", function (event) {
-
-        event.preventDefault();
-
-        loginUser();
     });
-}
 
-// Enter key on user name / phone
-if (openUserName) {
-
-    openUserName.addEventListener("keydown", function (event) {
-
-        if (event.key === "Enter") {
-
-            event.preventDefault();
-
-            if (enterAppBtn) {
-                enterAppBtn.click();
-            }
-        }
-    });
-}
-
-if (openUserPhone) {
-
-    openUserPhone.addEventListener("keydown", function (event) {
-
-        if (event.key === "Enter") {
-
-            event.preventDefault();
-
-            if (enterAppBtn) {
-                enterAppBtn.click();
-            }
-        }
-    });
-}
-
-// ======================================================
-// FINISH LOGIN
-// ======================================================
-
-async function finishLogin() {
-
-    hide(passwordScreen);
-    hide(contactOwnerScreen);
-
-    show(appContainer);
-
-    // Profile information
-    updateCurrentUserProfile();
-
-    // Load Firebase
-    await loadFirebase();
-
-    // Start realtime systems
-    startOnlinePresence();
-    startChatRealtime();
-    renderGroups();
-
-    // Existing local data
-    loadHomework();
-    loadSchoolUpdates();
-    loadNotes();
-
-    // Language
-    applyLanguage();
-
-    // Theme
-    applyTheme();
-
-    // Notification state
-    updateNotificationButton();
-}
-
-// ======================================================
-// CURRENT USER PROFILE
-// ======================================================
-
-function updateCurrentUserProfile() {
-
-    if (!currentUser) {
-        return;
-    }
-
-    setText(
-        document.getElementById("studentName"),
-        currentUser.name
-    );
-
-    const profile = document.getElementById("currentUserProfile");
-
-    if (profile) {
-
-        profile.innerHTML = "";
-
-        const nameElement = document.createElement("div");
-
-        nameElement.textContent = currentUser.name;
-
-        profile.appendChild(nameElement);
-
-        if (currentUser.profilePhoto) {
-
-            const img = document.createElement("img");
-
-            img.src = currentUser.profilePhoto;
-
-            img.style.width = "60px";
-            img.style.height = "60px";
-            img.style.borderRadius = "50%";
-            img.style.objectFit = "cover";
-
-            profile.appendChild(img);
-        }
-    }
-}
-
-// ======================================================
-// NAVIGATION
-// ======================================================
-
-const menuBtn = document.getElementById("menuBtn");
-const navMenu = document.getElementById("navMenu");
-
-if (menuBtn && navMenu) {
-
-    menuBtn.addEventListener("click", function () {
-
-        if (
-            navMenu.style.display === "none" ||
-            navMenu.style.display === ""
-        ) {
-
-            navMenu.style.display = "block";
-
-        } else {
-
-            navMenu.style.display = "none";
-        }
-    });
-}
-
-const navLinks = document.querySelectorAll("[data-page]");
-
-navLinks.forEach(function (link) {
-
-    link.addEventListener("click", function () {
-
-        const pageName = link.getAttribute("data-page");
-
-        if (!pageName) {
-            return;
-        }
-
-        openPage(pageName);
-
-        if (navMenu) {
-            navMenu.style.display = "none";
-        }
-    });
 });
 
-function openPage(pageName) {
 
-    const pages = document.querySelectorAll(".page");
+// =====================================================
+// 12. PROFILE PHOTO
+// =====================================================
 
-    pages.forEach(function (page) {
-        page.style.display = "none";
-    });
+document.addEventListener("DOMContentLoaded", function () {
 
-    const selectedPage =
-        document.getElementById(pageName);
+    const profilePhotoInput =
+        $("profilePhotoInput");
 
-    if (selectedPage) {
-        selectedPage.style.display = "block";
+    const profilePhotoPreview =
+        $("profilePhotoPreview");
+
+    if (!profilePhotoInput) {
+        return;
     }
 
-    if (pageName === "chat") {
-        startChatRealtime();
-    }
+    profilePhotoInput.addEventListener(
+        "change",
+        function () {
 
-    if (pageName === "groups") {
-        renderGroups();
-    }
-}
+            const file =
+                profilePhotoInput.files[0];
 
-// ======================================================
-// SAVE NAME
-// ======================================================
+            if (!file) {
+                return;
+            }
 
-const saveNameBtn = document.getElementById("saveNameBtn");
-const studentName = document.getElementById("studentName");
-const nameMessage = document.getElementById("nameMessage");
+            const reader =
+                new FileReader();
 
-if (saveNameBtn) {
+            reader.onload = function (event) {
 
-    saveNameBtn.addEventListener("click", function () {
+                pendingProfilePhoto =
+                    event.target.result;
 
-        const newName =
-            studentName
-                ? studentName.textContent.trim()
-                : "";
+                if (profilePhotoPreview) {
 
-        if (!currentUser) {
-            return;
+                    profilePhotoPreview.src =
+                        pendingProfilePhoto;
+
+                    profilePhotoPreview.style.display =
+                        "block";
+                }
+
+                if (currentUser) {
+
+                    currentUser.profilePhoto =
+                        pendingProfilePhoto;
+
+                    localStorage.setItem(
+                        "studyCurrentUser",
+                        JSON.stringify(currentUser)
+                    );
+
+                }
+
+            };
+
+            reader.readAsDataURL(file);
+
         }
+    );
 
-        if (newName) {
+});
 
-            currentUser.name = newName;
 
-            localStorage.setItem(
-                "studyCurrentUser",
-                JSON.stringify(currentUser)
+// =====================================================
+// 13. ONLINE PRESENCE
+// =====================================================
+
+async function startOnlinePresence() {
+
+    const firebase = await loadFirebase();
+
+    if (!firebase || !currentUser) {
+        return;
+    }
+
+    const {
+        doc,
+        setDoc
+    } = firebase.firestore;
+
+    const phone = currentUser.phone;
+
+    async function updateOnline() {
+
+        try {
+
+            await setDoc(
+                doc(db, "onlineUsers", phone),
+                {
+                    name: currentUser.name,
+                    phone: phone,
+                    online: true,
+                    lastSeen: Date.now()
+                },
+                {
+                    merge: true
+                }
             );
 
-            setText(
-                nameMessage,
-                "नाम save हो गया।"
+        } catch (error) {
+
+            console.error(
+                "Online update error:",
+                error
             );
+
         }
-    });
+
+    }
+
+    await updateOnline();
+
+    setInterval(updateOnline, 30000);
+
 }
 
-// ======================================================
-// HOME NAME INPUT
-// ======================================================
 
-const nameInput =
-    document.getElementById("saveNameBtn");
+// =====================================================
+// 14. ONLINE USERS
+// =====================================================
 
-const studentNameElement =
-    document.getElementById("studentName");
+async function updateOnlineUsers() {
 
-// ======================================================
-// ONLINE PRESENCE
-// ======================================================
+    const firebase = await loadFirebase();
 
-const onlineToggleBtn =
-    document.getElementById("onlineToggleBtn");
-
-let isOnline = false;
-
-if (onlineToggleBtn) {
-
-    onlineToggleBtn.addEventListener("click", function () {
-
-        isOnline = !isOnline;
-
-        if (isOnline) {
-
-            setText(onlineToggleBtn, "Online");
-
-            updateOnlineStatus(true);
-
-        } else {
-
-            setText(onlineToggleBtn, "Offline");
-
-            updateOnlineStatus(false);
-        }
-    });
-}
-
-async function updateOnlineStatus(status) {
-
-    if (!currentUser || !firebaseReady || !db) {
+    if (!firebase) {
         return;
     }
 
-    try {
-
-        const {
-            doc,
-            setDoc,
-            serverTimestamp
-        } = firebaseModules;
-
-        const onlineRef =
-            doc(db, "onlineUsers", currentUser.phone);
-
-        await setDoc(
-            onlineRef,
-            {
-                name: currentUser.name,
-                phone: currentUser.phone,
-                online: status,
-                lastSeen: serverTimestamp()
-            },
-            { merge: true }
-        );
-
-    } catch (error) {
-
-        console.error("Online status error:", error);
-    }
-}
-
-function startOnlinePresence() {
-
-    if (!currentUser) {
-        return;
-    }
-
-    if (onlineHeartbeat) {
-        clearInterval(onlineHeartbeat);
-    }
-
-    isOnline = true;
-
-    updateOnlineStatus(true);
-
-    onlineHeartbeat = setInterval(function () {
-
-        updateOnlineStatus(true);
-
-    }, 30000);
-
-    listenOnlineUsers();
-}
-
-function listenOnlineUsers() {
-
-    if (!firebaseReady || !db) {
-        return;
-    }
-
-    if (unsubscribeOnlineUsers) {
-        unsubscribeOnlineUsers();
+    if (unsubscribeOnline) {
+        unsubscribeOnline();
+        unsubscribeOnline = null;
     }
 
     const {
         collection,
         onSnapshot
-    } = firebaseModules;
+    } = firebase.firestore;
 
     const onlineRef =
         collection(db, "onlineUsers");
 
-    unsubscribeOnlineUsers =
+    unsubscribeOnline =
         onSnapshot(
             onlineRef,
             function (snapshot) {
 
-                const onlineUsers = [];
+                const list =
+                    $("onlineUsers");
 
-                const now = Date.now();
+                const count =
+                    $("onlineCount");
+
+                if (!list) {
+                    return;
+                }
+
+                list.innerHTML = "";
+
+                let onlineCount = 0;
 
                 snapshot.forEach(function (docSnap) {
 
-                    const data = docSnap.data();
+                    const data =
+                        docSnap.data();
 
-                    let lastSeenTime = 0;
+                    const lastSeen =
+                        Number(data.lastSeen || 0);
 
-                    if (data.lastSeen) {
-
-                        if (typeof data.lastSeen.toMillis === "function") {
-                            lastSeenTime = data.lastSeen.toMillis();
-                        } else if (data.lastSeen.seconds) {
-                            lastSeenTime = data.lastSeen.seconds * 1000;
-                        }
-                    }
-
-                    if (
+                    const isOnline =
                         data.online === true &&
-                        lastSeenTime > 0 &&
-                        now - lastSeenTime < 90000
-                    ) {
+                        Date.now() - lastSeen < 90000;
 
-                        onlineUsers.push(data);
+                    if (!isOnline) {
+                        return;
                     }
+
+                    onlineCount++;
+
+                    const item =
+                        document.createElement("div");
+
+                    item.className =
+                        "online-user";
+
+                    item.textContent =
+                        "🟢 " +
+                        (data.name || "User");
+
+                    list.appendChild(item);
+
                 });
 
-                renderOnlineUsers(onlineUsers);
-            },
-            function (error) {
+                if (count) {
+                    count.textContent =
+                        onlineCount;
+                }
 
-                console.error(
-                    "Online listener error:",
-                    error
-                );
             }
         );
+
 }
 
-function renderOnlineUsers(users) {
 
-    const onlineCount =
-        document.getElementById("onlineCount");
+// =====================================================
+// 15. ONLINE TOGGLE
+// =====================================================
 
-    const onlineUsersContainer =
-        document.getElementById("onlineUsers");
+document.addEventListener("DOMContentLoaded", function () {
 
-    setText(
-        onlineCount,
-        users.length
+    const onlineToggleBtn =
+        $("onlineToggleBtn");
+
+    if (!onlineToggleBtn) {
+        return;
+    }
+
+    onlineToggleBtn.type = "button";
+
+    onlineToggleBtn.addEventListener(
+        "click",
+        async function () {
+
+            if (!currentUser) {
+                return;
+            }
+
+            const firebase =
+                await loadFirebase();
+
+            if (!firebase) {
+                return;
+            }
+
+            const {
+                doc,
+                setDoc
+            } = firebase.firestore;
+
+            await setDoc(
+                doc(
+                    db,
+                    "onlineUsers",
+                    currentUser.phone
+                ),
+                {
+                    name: currentUser.name,
+                    phone: currentUser.phone,
+                    online: true,
+                    lastSeen: Date.now()
+                },
+                {
+                    merge: true
+                }
+            );
+
+            updateOnlineUsers();
+
+        }
     );
 
-    if (!onlineUsersContainer) {
-        return;
-    }
+});
 
-    onlineUsersContainer.innerHTML = "";
 
-    users.forEach(function (user) {
-
-        const item =
-            document.createElement("div");
-
-        item.textContent =
-            "🟢 " + safeText(user.name);
-
-        onlineUsersContainer.appendChild(item);
-    });
-}
-
-// ======================================================
-// CHAT
-// ======================================================
-
-const messageInput =
-    document.getElementById("messageInput");
-
-const sendMessageBtn =
-    document.getElementById("sendMessageBtn");
-
-if (sendMessageBtn) {
-
-    sendMessageBtn.addEventListener("click", function () {
-
-        sendMessage();
-    });
-}
-
-if (messageInput) {
-
-    messageInput.addEventListener("keydown", function (event) {
-
-        if (
-            event.key === "Enter" &&
-            !event.shiftKey
-        ) {
-
-            event.preventDefault();
-
-            sendMessage();
-        }
-    });
-}
-
-async function sendMessage() {
-
-    if (!currentUser) {
-        return;
-    }
-
-    const text =
-        messageInput
-            ? messageInput.value.trim()
-            : "";
-
-    if (!text) {
-        return;
-    }
-
-    const firebaseLoaded =
-        await loadFirebase();
-
-    if (!firebaseLoaded || !db) {
-        return;
-    }
-
-    try {
-
-        const {
-            collection,
-            addDoc,
-            serverTimestamp
-        } = firebaseModules;
-
-        await addDoc(
-            collection(db, "messages"),
-            {
-                text: text,
-                senderName: currentUser.name,
-                senderPhone: currentUser.phone,
-                createdAt: serverTimestamp(),
-                readBy: []
-            }
-        );
-
-        messageInput.value = "";
-
-    } catch (error) {
-
-        console.error(
-            "Send message error:",
-            error
-        );
-    }
-}
-
-// ======================================================
-// REALTIME CHAT
-// ======================================================
+// =====================================================
+// 16. MAIN CHAT - REALTIME
+// =====================================================
 
 async function startChatRealtime() {
 
-    if (unsubscribeChat) {
-        return;
-    }
-
-    const firebaseLoaded =
+    const firebase =
         await loadFirebase();
 
-    if (!firebaseLoaded || !db) {
+    if (!firebase) {
         return;
     }
 
@@ -1067,8 +904,24 @@ async function startChatRealtime() {
         query,
         orderBy,
         limit,
-        onSnapshot
-    } = firebaseModules;
+        onSnapshot,
+        addDoc,
+        serverTimestamp,
+        doc,
+        updateDoc,
+        arrayUnion
+    } = firebase.firestore;
+
+    const chatMessages =
+        $("chatMessages");
+
+    if (!chatMessages) {
+        return;
+    }
+
+    if (unsubscribeChat) {
+        unsubscribeChat();
+    }
 
     const messagesRef =
         collection(db, "messages");
@@ -1085,180 +938,194 @@ async function startChatRealtime() {
             messagesQuery,
             function (snapshot) {
 
-                const messages = [];
+                chatMessages.innerHTML = "";
 
                 snapshot.forEach(function (docSnap) {
 
-                    messages.push({
-                        id: docSnap.id,
-                        ...docSnap.data()
-                    });
+                    const data =
+                        docSnap.data();
+
+                    const message =
+                        document.createElement("div");
+
+                    message.className =
+                        "chat-message";
+
+                    const text =
+                        document.createElement("div");
+
+                    text.textContent =
+                        data.text || "";
+
+                    const meta =
+                        document.createElement("small");
+
+                    const sender =
+                        data.senderName ||
+                        "User";
+
+                    let tick = "✓✓";
+
+                    const readBy =
+                        data.readBy || [];
+
+                    if (
+                        currentUser &&
+                        readBy.includes(currentUser.phone)
+                    ) {
+                        tick = "✓✓";
+                        meta.className =
+                            "read-message";
+                    }
+
+                    meta.textContent =
+                        sender +
+                        " • " +
+                        tick;
+
+                    message.appendChild(text);
+                    message.appendChild(meta);
+
+                    chatMessages.appendChild(message);
+
                 });
 
-                renderChatMessages(messages);
+                chatMessages.scrollTop =
+                    chatMessages.scrollHeight;
 
-                markIncomingMessagesRead(messages);
-            },
-            function (error) {
-
-                console.error(
-                    "Chat realtime error:",
-                    error
-                );
             }
         );
+
 }
 
-function renderChatMessages(messages) {
 
-    const container =
-        document.getElementById("chatMessages");
+// =====================================================
+// 17. SEND CHAT MESSAGE
+// =====================================================
 
-    if (!container) {
+document.addEventListener("DOMContentLoaded", function () {
+
+    const sendMessageBtn =
+        $("sendMessageBtn");
+
+    const messageInput =
+        $("messageInput");
+
+    if (!sendMessageBtn) {
         return;
     }
 
-    container.innerHTML = "";
+    sendMessageBtn.type = "button";
 
-    messages.forEach(function (message) {
+    sendMessageBtn.addEventListener(
+        "click",
+        async function () {
 
-        const wrapper =
-            document.createElement("div");
+            const text =
+                messageInput
+                    ? messageInput.value.trim()
+                    : "";
 
-        const isMine =
-            currentUser &&
-            message.senderPhone === currentUser.phone;
-
-        wrapper.style.marginBottom = "10px";
-
-        if (isMine) {
-            wrapper.style.textAlign = "right";
-        }
-
-        const bubble =
-            document.createElement("div");
-
-        bubble.style.display = "inline-block";
-        bubble.style.padding = "8px 12px";
-        bubble.style.borderRadius = "12px";
-        bubble.style.maxWidth = "80%";
-
-        const sender =
-            document.createElement("div");
-
-        sender.style.fontSize = "12px";
-        sender.textContent =
-            isMine
-                ? "You"
-                : safeText(message.senderName);
-
-        const text =
-            document.createElement("div");
-
-        text.textContent =
-            safeText(message.text);
-
-        bubble.appendChild(sender);
-        bubble.appendChild(text);
-
-        if (isMine) {
-
-            const ticks =
-                document.createElement("span");
-
-            const readBy =
-                Array.isArray(message.readBy)
-                    ? message.readBy
-                    : [];
-
-            if (readBy.length > 0) {
-
-                ticks.textContent = " ✓✓";
-                ticks.style.color = "blue";
-
-            } else {
-
-                ticks.textContent = " ✓✓";
+            if (!text || !currentUser) {
+                return;
             }
 
-            bubble.appendChild(ticks);
+            const firebase =
+                await loadFirebase();
+
+            if (!firebase) {
+                return;
+            }
+
+            const {
+                collection,
+                addDoc,
+                serverTimestamp
+            } = firebase.firestore;
+
+            try {
+
+                await addDoc(
+                    collection(db, "messages"),
+                    {
+                        text: text,
+                        senderName:
+                            currentUser.name,
+                        senderPhone:
+                            currentUser.phone,
+                        createdAt:
+                            serverTimestamp(),
+                        readBy: []
+                    }
+                );
+
+                messageInput.value = "";
+
+            } catch (error) {
+
+                console.error(
+                    "Message send error:",
+                    error
+                );
+
+            }
+
         }
+    );
 
-        wrapper.appendChild(bubble);
+});
 
-        container.appendChild(wrapper);
-    });
 
-    container.scrollTop =
-        container.scrollHeight;
-}
+// =====================================================
+// 18. EMOJI BUTTON
+// =====================================================
 
-// ======================================================
-// MARK CHAT MESSAGE AS READ
-// ======================================================
+document.addEventListener("DOMContentLoaded", function () {
 
-async function markIncomingMessagesRead(messages) {
+    const emojiBtn = $("emojiBtn");
+    const messageInput = $("messageInput");
 
-    if (!currentUser || !firebaseReady || !db) {
+    if (emojiBtn && messageInput) {
+
+        emojiBtn.type = "button";
+
+        emojiBtn.addEventListener(
+            "click",
+            function () {
+
+                messageInput.value += " 😊";
+
+                messageInput.focus();
+
+            }
+        );
+
+    }
+
+});
+
+
+// =====================================================
+// 19. GROUP CREATION
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const createGroupBtn =
+        $("createGroupBtn");
+
+    if (!createGroupBtn) {
         return;
     }
 
-    const {
-        doc,
-        updateDoc,
-        arrayUnion
-    } = firebaseModules;
+    createGroupBtn.type = "button";
 
-    for (const message of messages) {
+    createGroupBtn.addEventListener(
+        "click",
+        createGroup
+    );
 
-        if (
-            message.senderPhone &&
-            message.senderPhone !== currentUser.phone
-        ) {
-
-            const readBy =
-                Array.isArray(message.readBy)
-                    ? message.readBy
-                    : [];
-
-            if (!readBy.includes(currentUser.phone)) {
-
-                try {
-
-                    await updateDoc(
-                        doc(db, "messages", message.id),
-                        {
-                            readBy:
-                                arrayUnion(currentUser.phone)
-                        }
-                    );
-
-                } catch (error) {
-
-                    console.error(
-                        "Read receipt error:",
-                        error
-                    );
-                }
-            }
-        }
-    }
-}
-
-// ======================================================
-// GROUPS
-// ======================================================
-
-const createGroupBtn =
-    document.getElementById("createGroupBtn");
-
-if (createGroupBtn) {
-
-    createGroupBtn.addEventListener("click", function () {
-
-        createGroup();
-    });
-}
+});
 
 async function createGroup() {
 
@@ -1266,39 +1133,34 @@ async function createGroup() {
         return;
     }
 
-    const groupInput =
-        document.getElementById("groupInput");
-
-    const groupPasswordInput =
-        document.getElementById("groupPasswordInput");
-
     const groupName =
-        groupInput
-            ? groupInput.value.trim()
+        $("groupInput")
+            ? $("groupInput").value.trim()
             : "";
 
     const password =
-        groupPasswordInput
-            ? groupPasswordInput.value.trim()
+        $("groupPasswordInput")
+            ? $("groupPasswordInput").value.trim()
             : "";
 
     if (!groupName || !password) {
         return;
     }
 
-    await loadFirebase();
+    const firebase =
+        await loadFirebase();
 
-    if (!firebaseReady || !db) {
+    if (!firebase) {
         return;
     }
 
-    try {
+    const {
+        collection,
+        addDoc,
+        serverTimestamp
+    } = firebase.firestore;
 
-        const {
-            collection,
-            addDoc,
-            serverTimestamp
-        } = firebaseModules;
+    try {
 
         await addDoc(
             collection(db, "groups"),
@@ -1317,236 +1179,199 @@ async function createGroup() {
             }
         );
 
-        groupInput.value = "";
-        groupPasswordInput.value = "";
+        $("groupInput").value = "";
+        $("groupPasswordInput").value = "";
+
+        renderGroups();
 
     } catch (error) {
 
         console.error(
-            "Create group error:",
+            "Group create error:",
             error
         );
+
     }
+
 }
 
-// ======================================================
-// RENDER GROUPS
-// ======================================================
+
+// =====================================================
+// 20. SHOW GROUPS
+// =====================================================
 
 async function renderGroups() {
 
-    await loadFirebase();
+    const list =
+        $("groupList");
 
-    if (!firebaseReady || !db) {
+    if (!list) {
         return;
     }
 
-    if (unsubscribeGroups) {
-        unsubscribeGroups();
+    const firebase =
+        await loadFirebase();
+
+    if (!firebase) {
+        return;
     }
 
     const {
         collection,
         onSnapshot
-    } = firebaseModules;
+    } = firebase.firestore;
 
-    unsubscribeGroups =
-        onSnapshot(
-            collection(db, "groups"),
-            function (snapshot) {
+    onSnapshot(
+        collection(db, "groups"),
+        function (snapshot) {
 
-                const groupList =
-                    document.getElementById("groupList");
+            list.innerHTML = "";
 
-                if (!groupList) {
-                    return;
-                }
+            snapshot.forEach(function (docSnap) {
 
-                groupList.innerHTML = "";
+                const data =
+                    docSnap.data();
 
-                snapshot.forEach(function (docSnap) {
+                const button =
+                    document.createElement("button");
 
-                    const group =
-                        docSnap.data();
+                button.type = "button";
 
-                    const button =
-                        document.createElement("button");
+                button.textContent =
+                    data.name || "Group";
 
-                    button.type = "button";
+                button.addEventListener(
+                    "click",
+                    function () {
 
-                    button.textContent =
-                        "👥 " + safeText(group.name);
+                        openGroup(
+                            docSnap.id,
+                            data
+                        );
 
-                    button.addEventListener(
-                        "click",
-                        function () {
-
-                            selectGroup(
-                                docSnap.id,
-                                group
-                            );
-                        }
-                    );
-
-                    groupList.appendChild(button);
-                });
-            },
-            function (error) {
-
-                console.error(
-                    "Groups listener error:",
-                    error
+                    }
                 );
-            }
-        );
+
+                list.appendChild(button);
+
+            });
+
+        }
+    );
+
 }
 
-// ======================================================
-// SELECT GROUP
-// ======================================================
 
-function selectGroup(groupId, group) {
+// =====================================================
+// 21. OPEN GROUP
+// =====================================================
+
+let selectedGroupId = null;
+let selectedGroupData = null;
+
+function openGroup(groupId, data) {
 
     selectedGroupId = groupId;
+    selectedGroupData = data;
+
+    show($("groupChatSection"));
 
     setText(
-        document.getElementById("selectedGroupName"),
-        group.name
-    );
-
-    setText(
-        document.getElementById("selectedGroupOwner"),
-        "Owner: " + safeText(group.ownerName)
-    );
-
-    hide(
-        document.getElementById("groupContent")
-    );
-
-    show(
-        document.getElementById("groupPasswordSection")
+        "selectedGroupName",
+        data.name || "Group"
     );
 
     setText(
-        document.getElementById("groupPasswordMessage"),
+        "selectedGroupOwner",
+        "Owner: " +
+        (data.ownerName || "")
+    );
+
+    hide($("groupContent"));
+
+    show($("groupPasswordSection"));
+
+    setText(
+        "groupPasswordMessage",
         ""
     );
+
 }
 
-// ======================================================
-// UNLOCK GROUP
-// ======================================================
 
-const unlockGroupBtn =
-    document.getElementById("unlockGroupBtn");
+// =====================================================
+// 22. UNLOCK GROUP
+// =====================================================
 
-if (unlockGroupBtn) {
+document.addEventListener("DOMContentLoaded", function () {
+
+    const unlockGroupBtn =
+        $("unlockGroupBtn");
+
+    if (!unlockGroupBtn) {
+        return;
+    }
+
+    unlockGroupBtn.type = "button";
 
     unlockGroupBtn.addEventListener(
         "click",
         function () {
 
-            unlockSelectedGroup();
+            const entered =
+                $("enterGroupPasswordInput")
+                    ? $("enterGroupPasswordInput")
+                        .value
+                        .trim()
+                    : "";
+
+            if (
+                !selectedGroupData ||
+                entered !== selectedGroupData.password
+            ) {
+
+                setText(
+                    "groupPasswordMessage",
+                    "गलत group password!"
+                );
+
+                return;
+            }
+
+            hide($("groupPasswordSection"));
+            show($("groupContent"));
+
+            loadGroupMembers();
+
+            startGroupMessages();
+
         }
     );
-}
 
-async function unlockSelectedGroup() {
+});
 
-    if (!selectedGroupId) {
+
+// =====================================================
+// 23. ADD GROUP MEMBER
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const addMemberBtn =
+        $("addMemberBtn");
+
+    if (!addMemberBtn) {
         return;
     }
 
-    const passwordInput =
-        document.getElementById(
-            "enterGroupPasswordInput"
-        );
-
-    const enteredPassword =
-        passwordInput
-            ? passwordInput.value.trim()
-            : "";
-
-    await loadFirebase();
-
-    if (!firebaseReady || !db) {
-        return;
-    }
-
-    try {
-
-        const {
-            doc,
-            getDoc
-        } = firebaseModules;
-
-        const groupRef =
-            doc(db, "groups", selectedGroupId);
-
-        const groupSnapshot =
-            await getDoc(groupRef);
-
-        if (!groupSnapshot.exists()) {
-            return;
-        }
-
-        const group =
-            groupSnapshot.data();
-
-        if (enteredPassword !== safeText(group.password)) {
-
-            setText(
-                document.getElementById(
-                    "groupPasswordMessage"
-                ),
-                "गलत group password!"
-            );
-
-            return;
-        }
-
-        hide(
-            document.getElementById(
-                "groupPasswordSection"
-            )
-        );
-
-        show(
-            document.getElementById(
-                "groupContent"
-            )
-        );
-
-        renderGroupMembers(group.members || []);
-
-        startGroupMessages();
-
-    } catch (error) {
-
-        console.error(
-            "Unlock group error:",
-            error
-        );
-    }
-}
-
-// ======================================================
-// ADD GROUP MEMBER
-// ======================================================
-
-const addMemberBtn =
-    document.getElementById("addMemberBtn");
-
-if (addMemberBtn) {
+    addMemberBtn.type = "button";
 
     addMemberBtn.addEventListener(
         "click",
-        function () {
-
-            addGroupMember();
-        }
+        addGroupMember
     );
-}
+
+});
 
 async function addGroupMember() {
 
@@ -1554,86 +1379,62 @@ async function addGroupMember() {
         return;
     }
 
-    const memberNameInput =
-        document.getElementById(
-            "memberNameInput"
+    if (
+        selectedGroupData.ownerPhone !==
+        currentUser.phone
+    ) {
+
+        setText(
+            "groupPasswordMessage",
+            "सिर्फ group owner member जोड़ सकता है।"
         );
 
-    const memberPhoneInput =
-        document.getElementById(
-            "memberPhoneInput"
-        );
+        return;
+    }
 
-    const memberName =
-        memberNameInput
-            ? memberNameInput.value.trim()
+    const name =
+        $("memberNameInput")
+            ? $("memberNameInput").value.trim()
             : "";
 
-    const memberPhone =
-        memberPhoneInput
-            ? memberPhoneInput.value.trim()
+    const phone =
+        $("memberPhoneInput")
+            ? $("memberPhoneInput").value.trim()
             : "";
 
-    if (!memberName || !memberPhone) {
+    if (!name || !phone) {
         return;
     }
 
-    if (!/^[0-9]{10}$/.test(memberPhone)) {
+    const firebase =
+        await loadFirebase();
+
+    if (!firebase) {
         return;
     }
 
-    await loadFirebase();
-
-    if (!firebaseReady || !db) {
-        return;
-    }
+    const {
+        doc,
+        updateDoc,
+        arrayUnion
+    } = firebase.firestore;
 
     try {
 
-        const {
-            doc,
-            getDoc,
-            updateDoc,
-            arrayUnion
-        } = firebaseModules;
-
-        const groupRef =
-            doc(db, "groups", selectedGroupId);
-
-        const groupSnapshot =
-            await getDoc(groupRef);
-
-        if (!groupSnapshot.exists()) {
-            return;
-        }
-
-        const group =
-            groupSnapshot.data();
-
-        // केवल group owner member add कर सकता है
-        if (
-            group.ownerPhone !== currentUser.phone
-        ) {
-
-            alert(
-                "सिर्फ Group Owner member add कर सकता है।"
-            );
-
-            return;
-        }
-
         await updateDoc(
-            groupRef,
+            doc(db, "groups", selectedGroupId),
             {
                 members: arrayUnion({
-                    name: memberName,
-                    phone: memberPhone
+                    name: name,
+                    phone: phone
                 })
             }
         );
 
-        memberNameInput.value = "";
-        memberPhoneInput.value = "";
+        $("memberNameInput").value = "";
+        $("memberPhoneInput").value = "";
+
+        loadGroupMembers();
 
     } catch (error) {
 
@@ -1641,23 +1442,33 @@ async function addGroupMember() {
             "Add member error:",
             error
         );
+
     }
+
 }
 
-// ======================================================
-// RENDER GROUP MEMBERS
-// ======================================================
 
-function renderGroupMembers(members) {
+// =====================================================
+// 24. GROUP MEMBERS
+// =====================================================
 
-    const memberList =
-        document.getElementById("memberList");
+async function loadGroupMembers() {
 
-    if (!memberList) {
+    if (!selectedGroupData) {
         return;
     }
 
-    memberList.innerHTML = "";
+    const list =
+        $("memberList");
+
+    if (!list) {
+        return;
+    }
+
+    list.innerHTML = "";
+
+    const members =
+        selectedGroupData.members || [];
 
     members.forEach(function (member) {
 
@@ -1666,33 +1477,120 @@ function renderGroupMembers(members) {
 
         item.textContent =
             "👤 " +
-            safeText(member.name) +
+            member.name +
             " - " +
-            safeText(member.phone);
+            member.phone;
 
-        memberList.appendChild(item);
+        list.appendChild(item);
+
     });
+
 }
 
-// ======================================================
-// GROUP CHAT
-// ======================================================
 
-const sendGroupMessageBtn =
-    document.getElementById(
-        "sendGroupMessageBtn"
-    );
+// =====================================================
+// 25. GROUP CHAT
+// =====================================================
 
-if (sendGroupMessageBtn) {
+async function startGroupMessages() {
 
-    sendGroupMessageBtn.addEventListener(
+    if (!selectedGroupId) {
+        return;
+    }
+
+    const firebase =
+        await loadFirebase();
+
+    if (!firebase) {
+        return;
+    }
+
+    const {
+        collection,
+        query,
+        orderBy,
+        onSnapshot
+    } = firebase.firestore;
+
+    const messages =
+        $("groupMessages");
+
+    if (!messages) {
+        return;
+    }
+
+    if (unsubscribeGroupMessages) {
+        unsubscribeGroupMessages();
+    }
+
+    const ref =
+        collection(
+            db,
+            "groups",
+            selectedGroupId,
+            "messages"
+        );
+
+    const q =
+        query(
+            ref,
+            orderBy("createdAt", "asc")
+        );
+
+    unsubscribeGroupMessages =
+        onSnapshot(
+            q,
+            function (snapshot) {
+
+                messages.innerHTML = "";
+
+                snapshot.forEach(function (docSnap) {
+
+                    const data =
+                        docSnap.data();
+
+                    const item =
+                        document.createElement("div");
+
+                    item.textContent =
+                        (data.senderName || "User") +
+                        ": " +
+                        (data.text || "");
+
+                    messages.appendChild(item);
+
+                });
+
+                messages.scrollTop =
+                    messages.scrollHeight;
+
+            }
+        );
+
+}
+
+
+// =====================================================
+// 26. SEND GROUP MESSAGE
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const sendBtn =
+        $("sendGroupMessageBtn");
+
+    if (!sendBtn) {
+        return;
+    }
+
+    sendBtn.type = "button";
+
+    sendBtn.addEventListener(
         "click",
-        function () {
-
-            sendGroupMessage();
-        }
+        sendGroupMessage
     );
-}
+
+});
 
 async function sendGroupMessage() {
 
@@ -1701,9 +1599,7 @@ async function sendGroupMessage() {
     }
 
     const input =
-        document.getElementById(
-            "groupMessageInput"
-        );
+        $("groupMessageInput");
 
     const text =
         input
@@ -1714,236 +1610,139 @@ async function sendGroupMessage() {
         return;
     }
 
-    await loadFirebase();
+    const firebase =
+        await loadFirebase();
 
-    if (!firebaseReady || !db) {
+    if (!firebase) {
         return;
-    }
-
-    try {
-
-        const {
-            collection,
-            addDoc,
-            serverTimestamp
-        } = firebaseModules;
-
-        await addDoc(
-            collection(
-                db,
-                "groups",
-                selectedGroupId,
-                "messages"
-            ),
-            {
-                text: text,
-                senderName: currentUser.name,
-                senderPhone: currentUser.phone,
-                createdAt: serverTimestamp()
-            }
-        );
-
-        input.value = "";
-
-    } catch (error) {
-
-        console.error(
-            "Group message error:",
-            error
-        );
-    }
-}
-
-// ======================================================
-// GROUP REALTIME MESSAGES
-// ======================================================
-
-async function startGroupMessages() {
-
-    if (!selectedGroupId) {
-        return;
-    }
-
-    await loadFirebase();
-
-    if (!firebaseReady || !db) {
-        return;
-    }
-
-    if (unsubscribeGroupMessages) {
-        unsubscribeGroupMessages();
     }
 
     const {
         collection,
-        query,
-        orderBy,
-        limit,
-        onSnapshot
-    } = firebaseModules;
+        addDoc,
+        serverTimestamp
+    } = firebase.firestore;
 
-    const messagesRef =
+    await addDoc(
         collection(
             db,
             "groups",
             selectedGroupId,
             "messages"
-        );
+        ),
+        {
+            text: text,
+            senderName: currentUser.name,
+            senderPhone: currentUser.phone,
+            createdAt: serverTimestamp()
+        }
+    );
 
-    const messagesQuery =
-        query(
-            messagesRef,
-            orderBy("createdAt", "asc"),
-            limit(100)
-        );
+    input.value = "";
 
-    unsubscribeGroupMessages =
-        onSnapshot(
-            messagesQuery,
-            function (snapshot) {
-
-                const groupMessages =
-                    document.getElementById(
-                        "groupMessages"
-                    );
-
-                if (!groupMessages) {
-                    return;
-                }
-
-                groupMessages.innerHTML = "";
-
-                snapshot.forEach(function (docSnap) {
-
-                    const message =
-                        docSnap.data();
-
-                    const item =
-                        document.createElement("div");
-
-                    const isMine =
-                        currentUser &&
-                        message.senderPhone ===
-                        currentUser.phone;
-
-                    item.textContent =
-                        (isMine
-                            ? "You"
-                            : safeText(message.senderName))
-                        +
-                        ": " +
-                        safeText(message.text);
-
-                    groupMessages.appendChild(item);
-                });
-
-                groupMessages.scrollTop =
-                    groupMessages.scrollHeight;
-            },
-            function (error) {
-
-                console.error(
-                    "Group messages error:",
-                    error
-                );
-            }
-        );
 }
 
-// ======================================================
-// HOMEWORK
-// ======================================================
 
-const addHomeworkBtn =
-    document.getElementById("addHomeworkBtn");
+// =====================================================
+// 27. HOMEWORK
+// =====================================================
 
-if (addHomeworkBtn) {
+document.addEventListener("DOMContentLoaded", function () {
+
+    const addHomeworkBtn =
+        $("addHomeworkBtn");
+
+    if (!addHomeworkBtn) {
+        return;
+    }
+
+    addHomeworkBtn.type = "button";
 
     addHomeworkBtn.addEventListener(
         "click",
-        function () {
-
-            saveHomework();
-        }
+        saveHomework
     );
-}
+
+    loadHomework();
+
+});
 
 function saveHomework() {
 
     const date =
-        document.getElementById(
-            "homeworkDate"
-        )?.value || "";
+        $("homeworkDate")
+            ? $("homeworkDate").value
+            : "";
 
     const homework = {
 
         date: date,
 
-        Hindi:
-            document.getElementById(
-                "hindiHomework"
-            )?.value || "",
+        hindi:
+            $("hindiHomework")
+                ? $("hindiHomework").value
+                : "",
 
-        English:
-            document.getElementById(
-                "englishHomework"
-            )?.value || "",
+        english:
+            $("englishHomework")
+                ? $("englishHomework").value
+                : "",
 
-        Math:
-            document.getElementById(
-                "mathHomework"
-            )?.value || "",
+        math:
+            $("mathHomework")
+                ? $("mathHomework").value
+                : "",
 
-        Science:
-            document.getElementById(
-                "scienceHomework"
-            )?.value || "",
+        science:
+            $("scienceHomework")
+                ? $("scienceHomework").value
+                : "",
 
-        SST:
-            document.getElementById(
-                "sstHomework"
-            )?.value || "",
+        sst:
+            $("sstHomework")
+                ? $("sstHomework").value
+                : "",
 
-        Computer:
-            document.getElementById(
-                "computerHomework"
-            )?.value || "",
+        computer:
+            $("computerHomework")
+                ? $("computerHomework").value
+                : "",
 
-        Art:
-            document.getElementById(
-                "artHomework"
-            )?.value || ""
+        art:
+            $("artHomework")
+                ? $("artHomework").value
+                : ""
+
     };
 
-    const oldHomework =
+    const old =
         JSON.parse(
             localStorage.getItem(
                 "studyHomework"
             ) || "[]"
         );
 
-    oldHomework.push(homework);
+    old.push(homework);
 
     localStorage.setItem(
         "studyHomework",
-        JSON.stringify(oldHomework)
+        JSON.stringify(old)
     );
 
     loadHomework();
+
 }
 
 function loadHomework() {
 
     const list =
-        document.getElementById(
-            "homeworkList"
-        );
+        $("homeworkList");
 
     if (!list) {
         return;
     }
 
-    const homework =
+    const data =
         JSON.parse(
             localStorage.getItem(
                 "studyHomework"
@@ -1952,91 +1751,103 @@ function loadHomework() {
 
     list.innerHTML = "";
 
-    homework.forEach(function (item) {
+    data.forEach(function (item) {
 
         const div =
             document.createElement("div");
 
         div.textContent =
-            "📚 " +
-            safeText(item.date) +
-            " | " +
-            Object.entries(item)
-                .filter(function ([key, value]) {
-                    return key !== "date" && value;
-                })
-                .map(function ([key, value]) {
-                    return key + ": " + value;
-                })
-                .join(" | ");
+            "📅 " +
+            item.date +
+            " | Hindi: " +
+            item.hindi +
+            " | English: " +
+            item.english +
+            " | Math: " +
+            item.math +
+            " | Science: " +
+            item.science +
+            " | SST: " +
+            item.sst;
 
         list.appendChild(div);
+
     });
+
 }
 
-// ======================================================
-// SCHOOL UPDATES
-// ======================================================
 
-const saveSchoolBtn =
-    document.getElementById("saveSchoolBtn");
+// =====================================================
+// 28. SCHOOL UPDATES
+// =====================================================
 
-if (saveSchoolBtn) {
+document.addEventListener("DOMContentLoaded", function () {
 
-    saveSchoolBtn.addEventListener(
+    const btn =
+        $("saveSchoolBtn");
+
+    if (!btn) {
+        return;
+    }
+
+    btn.type = "button";
+
+    btn.addEventListener(
         "click",
-        function () {
-
-            const input =
-                document.getElementById(
-                    "schoolInput"
-                );
-
-            const text =
-                input
-                    ? input.value.trim()
-                    : "";
-
-            if (!text) {
-                return;
-            }
-
-            const updates =
-                JSON.parse(
-                    localStorage.getItem(
-                        "studySchoolUpdates"
-                    ) || "[]"
-                );
-
-            updates.push({
-                text: text,
-                date: new Date().toLocaleString()
-            });
-
-            localStorage.setItem(
-                "studySchoolUpdates",
-                JSON.stringify(updates)
-            );
-
-            input.value = "";
-
-            loadSchoolUpdates();
-        }
+        saveSchoolUpdate
     );
+
+    loadSchoolUpdates();
+
+});
+
+function saveSchoolUpdate() {
+
+    const input =
+        $("schoolInput");
+
+    const text =
+        input
+            ? input.value.trim()
+            : "";
+
+    if (!text) {
+        return;
+    }
+
+    const data =
+        JSON.parse(
+            localStorage.getItem(
+                "studySchoolUpdates"
+            ) || "[]"
+        );
+
+    data.push({
+        text: text,
+        date: new Date().toLocaleString()
+    });
+
+    localStorage.setItem(
+        "studySchoolUpdates",
+        JSON.stringify(data)
+    );
+
+    input.value = "";
+
+    loadSchoolUpdates();
+
 }
 
 function loadSchoolUpdates() {
 
     const list =
-        document.getElementById(
-            "schoolList"
-        );
+        $("schoolList");
 
     if (!list) {
         return;
     }
 
-    const updates =
+    const data =
         JSON.parse(
             localStorage.getItem(
                 "studySchoolUpdates"
@@ -2045,79 +1856,89 @@ function loadSchoolUpdates() {
 
     list.innerHTML = "";
 
-    updates.forEach(function (item) {
+    data.forEach(function (item) {
 
         const div =
             document.createElement("div");
 
         div.textContent =
             "📢 " +
-            safeText(item.text) +
-            " (" +
-            safeText(item.date) +
-            ")";
+            item.text +
+            " • " +
+            item.date;
 
         list.appendChild(div);
+
     });
+
 }
 
-// ======================================================
-// NOTES
-// ======================================================
 
-const saveNoteBtn =
-    document.getElementById("saveNoteBtn");
+// =====================================================
+// 29. NOTES
+// =====================================================
 
-if (saveNoteBtn) {
+document.addEventListener("DOMContentLoaded", function () {
 
-    saveNoteBtn.addEventListener(
+    const btn =
+        $("saveNoteBtn");
+
+    if (!btn) {
+        return;
+    }
+
+    btn.type = "button";
+
+    btn.addEventListener(
         "click",
-        function () {
-
-            const input =
-                document.getElementById(
-                    "noteInput"
-                );
-
-            const text =
-                input
-                    ? input.value.trim()
-                    : "";
-
-            if (!text) {
-                return;
-            }
-
-            const notes =
-                JSON.parse(
-                    localStorage.getItem(
-                        "studyNotes"
-                    ) || "[]"
-                );
-
-            notes.push({
-                text: text,
-                date: new Date().toLocaleString()
-            });
-
-            localStorage.setItem(
-                "studyNotes",
-                JSON.stringify(notes)
-            );
-
-            input.value = "";
-
-            loadNotes();
-        }
+        saveNote
     );
+
+    loadNotes();
+
+});
+
+function saveNote() {
+
+    const input =
+        $("noteInput");
+
+    const text =
+        input
+            ? input.value.trim()
+            : "";
+
+    if (!text) {
+        return;
+    }
+
+    const notes =
+        JSON.parse(
+            localStorage.getItem(
+                "studyNotes"
+            ) || "[]"
+        );
+
+    notes.push({
+        text: text,
+        date: new Date().toLocaleString()
+    });
+
+    localStorage.setItem(
+        "studyNotes",
+        JSON.stringify(notes)
+    );
+
+    input.value = "";
+
+    loadNotes();
+
 }
 
 function loadNotes() {
 
     const list =
-        document.getElementById(
-            "notesList"
-        );
+        $("notesList");
 
     if (!list) {
         return;
@@ -2139,27 +1960,31 @@ function loadNotes() {
 
         div.textContent =
             "📝 " +
-            safeText(note.text) +
-            " (" +
-            safeText(note.date) +
-            ")";
+            note.text;
 
         list.appendChild(div);
+
     });
+
 }
 
-// ======================================================
-// CHANGE NAME
-// ======================================================
 
-const changeNameBtn =
-    document.getElementById(
-        "changeNameBtn"
-    );
+// =====================================================
+// 30. CHANGE NAME
+// =====================================================
 
-if (changeNameBtn) {
+document.addEventListener("DOMContentLoaded", function () {
 
-    changeNameBtn.addEventListener(
+    const btn =
+        $("changeNameBtn");
+
+    if (!btn) {
+        return;
+    }
+
+    btn.type = "button";
+
+    btn.addEventListener(
         "click",
         function () {
 
@@ -2168,9 +1993,7 @@ if (changeNameBtn) {
             }
 
             const input =
-                document.getElementById(
-                    "changeNameInput"
-                );
+                $("changeNameInput");
 
             const newName =
                 input
@@ -2181,28 +2004,33 @@ if (changeNameBtn) {
                 return;
             }
 
-            currentUser.name = newName;
+            currentUser.name =
+                newName;
 
             localStorage.setItem(
                 "studyCurrentUser",
                 JSON.stringify(currentUser)
             );
 
-            updateCurrentUserProfile();
+            setText(
+                "changeNameMessage",
+                "Name changed successfully!"
+            );
 
             setText(
-                document.getElementById(
-                    "changeNameMessage"
-                ),
-                "नाम बदल दिया गया।"
+                "studentName",
+                newName
             );
+
         }
     );
-}
 
-// ======================================================
-// LANGUAGE
-// ======================================================
+});
+
+
+// =====================================================
+// 31. LANGUAGE SYSTEM
+// =====================================================
 
 const translations = {
 
@@ -2217,7 +2045,8 @@ const translations = {
         settings: "Settings",
 
         welcome: "Welcome to StudyConnect",
-        welcomeText: "Your student community",
+        welcomeText:
+            "Connect with your school friends.",
 
         yourName: "Your Name",
         saveName: "Save Name",
@@ -2225,13 +2054,13 @@ const translations = {
         onlineNow: "Online Now",
 
         chatDescription:
-            "Chat with your friends",
+            "Chat with your friends.",
 
         groupsDescription:
-            "Create and join groups",
+            "Create and join groups.",
 
         schoolUpdate:
-            "School Update",
+            "School Updates",
 
         chatTitle:
             "Chat",
@@ -2267,7 +2096,7 @@ const translations = {
             "School Updates",
 
         schoolDescription:
-            "Important school updates",
+            "Important school information.",
 
         saveUpdate:
             "Save Update",
@@ -2276,7 +2105,7 @@ const translations = {
             "Notes",
 
         notesDescription:
-            "Save your notes",
+            "Save your notes here.",
 
         saveNote:
             "Save Note",
@@ -2285,7 +2114,7 @@ const translations = {
             "Settings",
 
         settingsDescription:
-            "Manage your app",
+            "Manage your StudyConnect settings.",
 
         changeName:
             "Change Name",
@@ -2313,6 +2142,7 @@ const translations = {
 
         owner:
             "Owner"
+
     },
 
     hi: {
@@ -2326,7 +2156,8 @@ const translations = {
         settings: "सेटिंग्स",
 
         welcome: "StudyConnect में आपका स्वागत है",
-        welcomeText: "आपका Student Community App",
+        welcomeText:
+            "अपने स्कूल के दोस्तों से जुड़ें।",
 
         yourName: "आपका नाम",
         saveName: "नाम सेव करें",
@@ -2334,10 +2165,10 @@ const translations = {
         onlineNow: "अभी ऑनलाइन",
 
         chatDescription:
-            "अपने दोस्तों से चैट करें",
+            "अपने दोस्तों से चैट करें।",
 
         groupsDescription:
-            "ग्रुप बनाएँ और जुड़ें",
+            "ग्रुप बनाएं और जुड़ें।",
 
         schoolUpdate:
             "स्कूल अपडेट",
@@ -2349,16 +2180,16 @@ const translations = {
             "ग्रुप",
 
         createGroup:
-            "ग्रुप बनाएँ",
+            "ग्रुप बनाएं",
 
         createGroupButton:
-            "ग्रुप बनाएँ",
+            "ग्रुप बनाएं",
 
         addMember:
-            "Member जोड़ें",
+            "सदस्य जोड़ें",
 
         addMemberButton:
-            "Member जोड़ें",
+            "सदस्य जोड़ें",
 
         send:
             "भेजें",
@@ -2376,7 +2207,7 @@ const translations = {
             "स्कूल अपडेट",
 
         schoolDescription:
-            "जरूरी स्कूल अपडेट",
+            "स्कूल की जरूरी जानकारी।",
 
         saveUpdate:
             "अपडेट सेव करें",
@@ -2385,7 +2216,7 @@ const translations = {
             "नोट्स",
 
         notesDescription:
-            "अपने नोट्स सेव करें",
+            "अपने नोट्स यहां सेव करें।",
 
         saveNote:
             "नोट सेव करें",
@@ -2394,7 +2225,7 @@ const translations = {
             "सेटिंग्स",
 
         settingsDescription:
-            "अपना ऐप मैनेज करें",
+            "StudyConnect की सेटिंग्स बदलें।",
 
         changeName:
             "नाम बदलें",
@@ -2418,170 +2249,155 @@ const translations = {
             "ऐप डेटा",
 
         resetAppData:
-            "ऐप डेटा Reset करें",
+            "ऐप डेटा रीसेट करें",
 
         owner:
             "Owner"
+
     }
+
 };
 
-function applyLanguage() {
 
-    const language =
+function applyLanguage(language) {
+
+    const selected =
+        translations[language] ||
+        translations.en;
+
+    document
+        .querySelectorAll("[data-i18n]")
+        .forEach(function (element) {
+
+            const key =
+                element.getAttribute("data-i18n");
+
+            if (selected[key]) {
+                element.textContent =
+                    selected[key];
+            }
+
+        });
+
+    localStorage.setItem(
+        "studyLanguage",
+        language
+    );
+
+}
+
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const hindiBtn =
+        $("hindiLanguageBtn");
+
+    const englishBtn =
+        $("englishLanguageBtn");
+
+    if (hindiBtn) {
+
+        hindiBtn.type = "button";
+
+        hindiBtn.addEventListener(
+            "click",
+            function () {
+
+                applyLanguage("hi");
+
+                setText(
+                    "languageMessage",
+                    "भाषा हिंदी कर दी गई है।"
+                );
+
+            }
+        );
+
+    }
+
+    if (englishBtn) {
+
+        englishBtn.type = "button";
+
+        englishBtn.addEventListener(
+            "click",
+            function () {
+
+                applyLanguage("en");
+
+                setText(
+                    "languageMessage",
+                    "Language changed to English."
+                );
+
+            }
+        );
+
+    }
+
+    const savedLanguage =
         localStorage.getItem(
             "studyLanguage"
         ) || "en";
 
-    const texts =
-        translations[language] ||
-        translations.en;
+    applyLanguage(savedLanguage);
 
-    const elements =
-        document.querySelectorAll(
-            "[data-i18n]"
-        );
+});
 
-    elements.forEach(function (element) {
 
-        const key =
-            element.getAttribute(
-                "data-i18n"
-            );
+// =====================================================
+// 32. DARK MODE
+// =====================================================
 
-        if (texts[key]) {
-            element.textContent =
-                texts[key];
-        }
-    });
-}
+document.addEventListener("DOMContentLoaded", function () {
 
-const hindiLanguageBtn =
-    document.getElementById(
-        "hindiLanguageBtn"
-    );
+    const themeBtn =
+        $("themeBtn");
 
-const englishLanguageBtn =
-    document.getElementById(
-        "englishLanguageBtn"
-    );
-
-if (hindiLanguageBtn) {
-
-    hindiLanguageBtn.addEventListener(
-        "click",
-        function () {
-
-            localStorage.setItem(
-                "studyLanguage",
-                "hi"
-            );
-
-            applyLanguage();
-
-            setText(
-                document.getElementById(
-                    "languageMessage"
-                ),
-                "भाषा हिंदी कर दी गई।"
-            );
-        }
-    );
-}
-
-if (englishLanguageBtn) {
-
-    englishLanguageBtn.addEventListener(
-        "click",
-        function () {
-
-            localStorage.setItem(
-                "studyLanguage",
-                "en"
-            );
-
-            applyLanguage();
-
-            setText(
-                document.getElementById(
-                    "languageMessage"
-                ),
-                "Language changed to English."
-            );
-        }
-    );
-}
-
-// ======================================================
-// THEME
-// ======================================================
-
-const themeBtn =
-    document.getElementById(
-        "themeBtn"
-    );
-
-function applyTheme() {
-
-    const theme =
-        localStorage.getItem(
-            "studyTheme"
-        ) || "light";
-
-    if (theme === "dark") {
-
-        document.body.classList.add(
-            "dark-mode"
-        );
-
-    } else {
-
-        document.body.classList.remove(
-            "dark-mode"
-        );
+    if (!themeBtn) {
+        return;
     }
-}
 
-if (themeBtn) {
+    themeBtn.type = "button";
 
     themeBtn.addEventListener(
         "click",
         function () {
 
-            const currentTheme =
-                localStorage.getItem(
-                    "studyTheme"
-                ) || "light";
-
-            const newTheme =
-                currentTheme === "dark"
-                    ? "light"
-                    : "dark";
-
-            localStorage.setItem(
-                "studyTheme",
-                newTheme
+            document.body.classList.toggle(
+                "dark-mode"
             );
 
-            applyTheme();
+            const dark =
+                document.body.classList.contains(
+                    "dark-mode"
+                );
+
+            localStorage.setItem(
+                "studyDarkMode",
+                dark ? "true" : "false"
+            );
+
         }
     );
-}
 
-// ======================================================
-// NOTIFICATIONS
-// ======================================================
+});
 
-const notificationBtn =
-    document.getElementById(
-        "notificationBtn"
-    );
 
-const notificationMessage =
-    document.getElementById(
-        "notificationMessage"
-    );
+// =====================================================
+// 33. NOTIFICATIONS
+// =====================================================
 
-if (notificationBtn) {
+document.addEventListener("DOMContentLoaded", function () {
+
+    const notificationBtn =
+        $("notificationBtn");
+
+    if (!notificationBtn) {
+        return;
+    }
+
+    notificationBtn.type = "button";
 
     notificationBtn.addEventListener(
         "click",
@@ -2590,8 +2406,8 @@ if (notificationBtn) {
             if (!("Notification" in window)) {
 
                 setText(
-                    notificationMessage,
-                    "इस browser में notifications उपलब्ध नहीं हैं।"
+                    "notificationMessage",
+                    "इस browser में notifications available नहीं हैं।"
                 );
 
                 return;
@@ -2608,171 +2424,136 @@ if (notificationBtn) {
                         "StudyConnect",
                         {
                             body:
-                                "Notifications चालू हो गए हैं।"
+                                "Notifications चालू हो गए हैं!"
                         }
                     );
 
                     setText(
-                        notificationMessage,
-                        "Notifications चालू हैं।"
+                        "notificationMessage",
+                        "Notifications enabled."
                     );
 
                 } else {
 
                     setText(
-                        notificationMessage,
-                        "Notifications की permission नहीं मिली।"
+                        "notificationMessage",
+                        "Notification permission नहीं मिली।"
                     );
+
                 }
 
             } catch (error) {
 
-                console.error(
-                    "Notification error:",
-                    error
-                );
+                console.error(error);
+
             }
+
         }
     );
-}
 
-function updateNotificationButton() {
+});
 
-    if (!notificationBtn) {
+
+// =====================================================
+// 34. OWNER PANEL
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const ownerLoginBtn =
+        $("ownerLoginBtn");
+
+    if (!ownerLoginBtn) {
         return;
     }
 
-    if (
-        "Notification" in window &&
-        Notification.permission === "granted"
-    ) {
-
-        notificationBtn.textContent =
-            "Notifications Enabled";
-    }
-}
-
-// ======================================================
-// OWNER SETTINGS
-// ======================================================
-
-const ownerLoginBtn =
-    document.getElementById(
-        "ownerLoginBtn"
-    );
-
-if (ownerLoginBtn) {
+    ownerLoginBtn.type = "button";
 
     ownerLoginBtn.addEventListener(
         "click",
-        function () {
-
-            ownerLogin();
-        }
+        ownerLogin
     );
-}
+
+});
 
 function ownerLogin() {
 
     const input =
-        document.getElementById(
-            "ownerPasswordInput"
-        );
+        $("ownerPasswordInput");
 
     const password =
         input
             ? input.value.trim()
             : "";
 
-    const message =
-        document.getElementById(
-            "ownerPasswordMessage"
-        );
-
-    if (
-        !currentUser ||
-        !currentUser.isOwner
-    ) {
-
-        setText(
-            message,
-            "Owner access केवल Owner के लिए है।"
-        );
-
-        return;
-    }
-
     if (password !== OWNER_PASSWORD) {
 
         setText(
-            message,
-            "गलत Owner Password!"
+            "ownerPasswordMessage",
+            "गलत Owner password!"
         );
 
         return;
     }
 
+    if (!currentUser || !currentUser.isOwner) {
+
+        setText(
+            "ownerPasswordMessage",
+            "सिर्फ Owner इस section को खोल सकता है।"
+        );
+
+        return;
+    }
+
+    show($("ownerPanel"));
+
     setText(
-        message,
+        "ownerPasswordMessage",
         "Owner Panel खुल गया।"
     );
 
-    show(
-        document.getElementById(
-            "ownerPanel"
-        )
-    );
-
     loadAllowedUsers();
+
 }
 
-// ======================================================
-// ALLOW USER
-// ======================================================
 
-const allowUserBtn =
-    document.getElementById(
-        "allowUserBtn"
-    );
+// =====================================================
+// 35. ALLOW USER
+// =====================================================
 
-if (allowUserBtn) {
+document.addEventListener("DOMContentLoaded", function () {
 
-    allowUserBtn.addEventListener(
-        "click",
-        function () {
+    const allowUserBtn =
+        $("allowUserBtn");
 
-            allowUser();
-        }
-    );
-}
-
-async function allowUser() {
-
-    if (
-        !currentUser ||
-        !currentUser.isOwner
-    ) {
+    if (!allowUserBtn) {
         return;
     }
 
-    const nameInput =
-        document.getElementById(
-            "allowedUserNameInput"
-        );
+    allowUserBtn.type = "button";
 
-    const phoneInput =
-        document.getElementById(
-            "allowedUserPhoneInput"
-        );
+    allowUserBtn.addEventListener(
+        "click",
+        allowUser
+    );
+
+});
+
+async function allowUser() {
+
+    if (!currentUser || !currentUser.isOwner) {
+        return;
+    }
 
     const name =
-        nameInput
-            ? nameInput.value.trim()
+        $("allowedUserNameInput")
+            ? $("allowedUserNameInput").value.trim()
             : "";
 
     const phone =
-        phoneInput
-            ? phoneInput.value.trim()
+        $("allowedUserPhoneInput")
+            ? $("allowedUserPhoneInput").value.trim()
             : "";
 
     if (!name || !phone) {
@@ -2780,130 +2561,144 @@ async function allowUser() {
     }
 
     if (!/^[0-9]{10}$/.test(phone)) {
+
+        setText(
+            "settingsMessage",
+            "सही 10 अंकों का mobile number डालें।"
+        );
+
         return;
     }
 
-    await loadFirebase();
+    const firebase =
+        await loadFirebase();
 
-    if (!firebaseReady || !db) {
+    if (!firebase) {
         return;
     }
+
+    const {
+        collection,
+        addDoc,
+        serverTimestamp
+    } = firebase.firestore;
 
     try {
-
-        const {
-            collection,
-            addDoc
-        } = firebaseModules;
 
         await addDoc(
             collection(db, "allowedUsers"),
             {
                 name: name,
                 phone: phone,
-                createdAt: new Date().toISOString()
+                addedBy: OWNER_NAME,
+                createdAt: serverTimestamp()
             }
         );
 
-        nameInput.value = "";
-        phoneInput.value = "";
+        $("allowedUserNameInput").value = "";
+        $("allowedUserPhoneInput").value = "";
+
+        setText(
+            "settingsMessage",
+            "User allowed successfully!"
+        );
 
         loadAllowedUsers();
 
     } catch (error) {
 
-        console.error(
-            "Allow user error:",
-            error
+        console.error(error);
+
+        setText(
+            "settingsMessage",
+            "User add नहीं हो सका।"
         );
+
     }
+
 }
 
-// ======================================================
-// LOAD ALLOWED USERS
-// ======================================================
+
+// =====================================================
+// 36. SHOW ALLOWED USERS
+// =====================================================
 
 async function loadAllowedUsers() {
 
     const list =
-        document.getElementById(
-            "allowedUsersList"
-        );
+        $("allowedUsersList");
 
     if (!list) {
         return;
     }
 
-    await loadFirebase();
+    const firebase =
+        await loadFirebase();
 
-    if (!firebaseReady || !db) {
+    if (!firebase) {
         return;
     }
 
-    try {
+    const {
+        collection,
+        onSnapshot
+    } = firebase.firestore;
 
-        const {
-            collection,
-            getDocs
-        } = firebaseModules;
+    onSnapshot(
+        collection(db, "allowedUsers"),
+        function (snapshot) {
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "allowedUsers"
-                )
-            );
+            list.innerHTML = "";
 
-        list.innerHTML = "";
+            snapshot.forEach(function (docSnap) {
 
-        snapshot.forEach(function (docSnap) {
+                const data =
+                    docSnap.data();
 
-            const user =
-                docSnap.data();
+                const div =
+                    document.createElement("div");
 
-            const item =
-                document.createElement("div");
+                div.textContent =
+                    "👤 " +
+                    (data.name || "") +
+                    " - " +
+                    (data.phone || "");
 
-            item.textContent =
-                "👤 " +
-                safeText(user.name) +
-                " - " +
-                safeText(user.phone);
+                list.appendChild(div);
 
-            list.appendChild(item);
-        });
+            });
 
-    } catch (error) {
-
-        console.error(
-            "Load allowed users error:",
-            error
-        );
-    }
-}
-
-// ======================================================
-// RESET APP DATA
-// ======================================================
-
-const clearDataBtn =
-    document.getElementById(
-        "clearDataBtn"
+        }
     );
 
-if (clearDataBtn) {
+}
 
-    clearDataBtn.addEventListener(
+
+// =====================================================
+// 37. RESET APP DATA
+// =====================================================
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const clearBtn =
+        $("clearDataBtn");
+
+    if (!clearBtn) {
+        return;
+    }
+
+    clearBtn.type = "button";
+
+    clearBtn.addEventListener(
         "click",
         function () {
 
-            const confirmed =
+            const confirmReset =
                 confirm(
                     "क्या आप अपना local app data हटाना चाहते हैं?"
                 );
 
-            if (!confirmed) {
+            if (!confirmReset) {
                 return;
             }
 
@@ -2920,60 +2715,103 @@ if (clearDataBtn) {
             );
 
             localStorage.removeItem(
-                "studyLanguage"
+                "studyCurrentUser"
             );
 
             localStorage.removeItem(
-                "studyTheme"
+                "studyLanguage"
             );
 
             setText(
-                document.getElementById(
-                    "settingsMessage"
-                ),
+                "settingsMessage",
                 "App data reset हो गया।"
             );
 
-            setTimeout(function () {
-
-                location.reload();
-
-            }, 800);
         }
     );
-}
 
-// ======================================================
-// EMOJI BUTTON
-// ======================================================
+});
 
-const emojiBtn =
-    document.getElementById(
-        "emojiBtn"
-    );
 
-if (emojiBtn) {
+// =====================================================
+// 38. LOAD SAVED SETTINGS
+// =====================================================
 
-    emojiBtn.addEventListener(
-        "click",
-        function () {
+function loadSavedSettings() {
 
-            if (!messageInput) {
-                return;
-            }
+    const dark =
+        localStorage.getItem(
+            "studyDarkMode"
+        );
 
-            messageInput.value += " 😊";
+    if (dark === "true") {
 
-            messageInput.focus();
+        document.body.classList.add(
+            "dark-mode"
+        );
+
+    }
+
+    if (currentUser) {
+
+        const photo =
+            currentUser.profilePhoto;
+
+        const preview =
+            $("profilePhotoPreview");
+
+        if (photo && preview) {
+
+            preview.src = photo;
+
+            preview.style.display =
+                "block";
+
         }
-    );
+
+    }
+
 }
 
-// ======================================================
-// LOAD SAVED USER
-// ======================================================
 
-function loadSavedUser() {
+// =====================================================
+// 39. SERVICE WORKER / PWA
+// =====================================================
+
+function registerServiceWorker() {
+
+    if (
+        "serviceWorker" in navigator
+    ) {
+
+        navigator.serviceWorker
+            .register("service-worker.js")
+            .then(function () {
+
+                console.log(
+                    "Service Worker registered."
+                );
+
+            })
+            .catch(function (error) {
+
+                console.error(
+                    "Service Worker error:",
+                    error
+                );
+
+            });
+
+    }
+
+}
+
+
+// =====================================================
+// 40. RESTORE USER
+// =====================================================
+
+function restoreUser() {
 
     try {
 
@@ -2986,107 +2824,75 @@ function loadSavedUser() {
             return;
         }
 
-        currentUser =
+        const user =
             JSON.parse(saved);
 
         if (
-            currentUser &&
-            currentUser.name &&
-            currentUser.phone
+            user &&
+            user.name &&
+            user.phone
         ) {
 
-            // Saved login को automatically open नहीं कर रहे,
-            // सिर्फ data memory में रख रहे हैं.
+            currentUser = user;
+
         }
 
     } catch (error) {
 
         console.error(
-            "Saved user error:",
+            "Restore user error:",
             error
         );
 
-        currentUser = null;
     }
+
 }
 
-// ======================================================
-// SERVICE WORKER / PWA
-// ======================================================
 
-async function registerServiceWorker() {
+// =====================================================
+// 41. INITIAL START
+// =====================================================
 
-    if (!("serviceWorker" in navigator)) {
-        return;
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        restoreUser();
+
+        registerServiceWorker();
+
+        // Load groups after Firebase
+        loadFirebase().then(
+            function () {
+
+                renderGroups();
+
+            }
+        );
+
     }
+);
 
-    try {
 
-        await navigator.serviceWorker.register(
-            "service-worker.js"
-        );
-
-        console.log(
-            "Service Worker registered successfully."
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Service Worker registration error:",
-            error
-        );
-    }
-}
-
-// ======================================================
-// BEFORE UNLOAD
-// ======================================================
+// =====================================================
+// 42. PAGE EXIT
+// =====================================================
 
 window.addEventListener(
     "beforeunload",
     function () {
 
-        if (onlineHeartbeat) {
-
-            clearInterval(
-                onlineHeartbeat
-            );
-        }
-
-        // Best effort offline update
-        updateOnlineStatus(false);
-
         if (unsubscribeChat) {
             unsubscribeChat();
         }
 
-        if (unsubscribeOnlineUsers) {
-            unsubscribeOnlineUsers();
-        }
-
-        if (unsubscribeGroups) {
-            unsubscribeGroups();
+        if (unsubscribeOnline) {
+            unsubscribeOnline();
         }
 
         if (unsubscribeGroupMessages) {
             unsubscribeGroupMessages();
         }
+
     }
-);
-
-// ======================================================
-// APP START
-// ======================================================
-
-loadSavedUser();
-
-applyLanguage();
-
-applyTheme();
-
-registerServiceWorker();
-
-console.log(
-    "StudyConnect JavaScript loaded successfully."
 );
