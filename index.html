@@ -34,7 +34,7 @@
 
 
 <!-- ==================================================
-     OPEN SCREEN
+     ACCESS / LOGIN SCREEN
 ================================================== -->
 
 <div
@@ -44,55 +44,128 @@
 
     <div class="password-box">
 
-        <h1>💬 StudyConnect</h1>
+        <h1 id="loginTitle">
+            💬 StudyConnect
+        </h1>
 
-        <p>
+        <p id="loginSubtitle">
             Student Community App
         </p>
 
 
-        <label for="openUserName">
-            👤 अपना नाम
-        </label>
+        <!-- STEP 1 : SCHOOL PASSWORD -->
 
-        <input
-            type="text"
-            id="openUserName"
-            placeholder="अपना नाम लिखें"
-            autocomplete="name"
-        >
+        <div id="schoolPasswordStep">
 
+            <label for="appPassword">
+                🔐 School Password
+            </label>
 
-        <label for="appPassword">
-            🔐 Password
-        </label>
+            <input
+                type="password"
+                id="appPassword"
+                placeholder="School Password डालें"
+                autocomplete="off"
+            >
 
-        <input
-            type="password"
-            id="appPassword"
-            placeholder="Password डालें"
-            autocomplete="off"
-        >
-
-
-        <div class="owner-box">
-
-            <span>👑 App Owner</span>
-
-            <strong>
-                Krishna Yadav
-            </strong>
+            <button
+                type="button"
+                id="unlockBtn"
+            >
+                ➡️ Next
+            </button>
 
         </div>
 
 
-        <button
-            type="button"
-            id="unlockBtn"
-        >
-            🚀 Open StudyConnect
-        </button>
+        <!-- STEP 2 : OWNER -->
 
+        <div
+            id="ownerStep"
+            style="display:none;"
+        >
+
+            <div class="owner-box">
+
+                <span id="ownerLabel">
+                    👑 App Owner
+                </span>
+
+                <strong id="ownerNameDisplay">
+                    Krishna Yadav
+                </strong>
+
+            </div>
+
+            <button
+                type="button"
+                id="ownerNextBtn"
+            >
+                ➡️ Next
+            </button>
+
+        </div>
+
+
+        <!-- STEP 3 : USER DETAILS -->
+
+        <div
+            id="userDetailsStep"
+            style="display:none;"
+        >
+
+            <label for="openUserName">
+                👤 अपना नाम
+            </label>
+
+            <input
+                type="text"
+                id="openUserName"
+                placeholder="अपना नाम लिखें"
+                autocomplete="name"
+            >
+
+
+            <label for="openUserPhone">
+                📱 मोबाइल नंबर
+            </label>
+
+            <input
+                type="tel"
+                id="openUserPhone"
+                placeholder="अपना मोबाइल नंबर लिखें"
+                autocomplete="tel"
+                inputmode="numeric"
+            >
+
+
+            <label for="profilePhotoInput">
+                🖼️ Profile Photo
+            </label>
+
+            <input
+                type="file"
+                id="profilePhotoInput"
+                accept="image/*"
+            >
+
+            <div
+                id="profilePhotoPreview"
+                class="profile-photo-preview"
+            ></div>
+
+
+            <button
+                type="button"
+                id="enterAppBtn"
+            >
+                🚀 Enter StudyConnect
+            </button>
+
+        </div>
+
+
+        <!-- ERROR -->
 
         <p id="passwordError"></p>
 
@@ -103,12 +176,104 @@
 
 
 <!-- ==================================================
+     OWNER CONTACT SCREEN
+================================================== -->
+
+<div
+    id="contactOwnerScreen"
+    class="password-screen"
+    style="display:none;"
+>
+
+    <div class="password-box">
+
+        <h1>
+            🚫 Access Not Allowed
+        </h1>
+
+        <h2 id="contactOwnerTitle">
+            Owner से संपर्क करें
+        </h2>
+
+        <p id="contactOwnerText">
+            आपका नाम और मोबाइल नंबर Owner द्वारा Allow नहीं किया गया है।
+        </p>
+
+
+        <div class="owner-box">
+
+            <span>
+                👑 App Owner
+            </span>
+
+            <strong>
+                Krishna Yadav
+            </strong>
+
+            <p>
+                📱 8738084554
+            </p>
+
+        </div>
+
+
+        <!-- CALL -->
+
+        <a
+            id="callOwnerBtn"
+            href="tel:8738084554"
+            class="contact-button"
+        >
+            📞 Call Owner / फोन करें
+        </a>
+
+
+        <!-- WHATSAPP -->
+
+        <a
+            id="whatsappOwnerBtn"
+            href="https://wa.me/918738084554"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="contact-button"
+        >
+            💬 WhatsApp Owner
+        </a>
+
+
+        <button
+            type="button"
+            id="backToLoginBtn"
+        >
+            ↩️ वापस जाएँ
+        </button>
+
+    </div>
+
+</div>
+
+
+
+<!-- ==================================================
+     MAIN APP
+================================================== -->
+
+<div
+    id="appContainer"
+    style="display:none;"
+>
+
+
+<!-- ==================================================
      HEADER
 ================================================== -->
 
 <header class="topbar">
 
-    <div class="logo">
+    <div
+        class="logo"
+        id="appLogo"
+    >
         💬 StudyConnect
     </div>
 
@@ -117,6 +282,7 @@
         type="button"
         id="menuBtn"
         class="menu-btn"
+        aria-label="Menu"
     >
         ☰
     </button>
@@ -124,32 +290,53 @@
 
     <nav id="navMenu">
 
-        <button type="button" data-page="home">
-            🏠 Home
+        <button
+            type="button"
+            data-page="home"
+        >
+            🏠 <span data-i18n="home">Home</span>
         </button>
 
-        <button type="button" data-page="chat">
-            💬 Chat
+        <button
+            type="button"
+            data-page="chat"
+        >
+            💬 <span data-i18n="chat">Chat</span>
         </button>
 
-        <button type="button" data-page="groups">
-            👥 Groups
+        <button
+            type="button"
+            data-page="groups"
+        >
+            👥 <span data-i18n="groups">Groups</span>
         </button>
 
-        <button type="button" data-page="homework">
-            📚 Homework
+        <button
+            type="button"
+            data-page="homework"
+        >
+            📚 <span data-i18n="homework">Homework</span>
         </button>
 
-        <button type="button" data-page="school">
-            🏫 School
+        <button
+            type="button"
+            data-page="school"
+        >
+            🏫 <span data-i18n="school">School</span>
         </button>
 
-        <button type="button" data-page="notes">
-            📝 Notes
+        <button
+            type="button"
+            data-page="notes"
+        >
+            📝 <span data-i18n="notes">Notes</span>
         </button>
 
-        <button type="button" data-page="settings">
-            ⚙️ Settings
+        <button
+            type="button"
+            data-page="settings"
+        >
+            ⚙️ <span data-i18n="settings">Settings</span>
         </button>
 
     </nav>
@@ -176,11 +363,11 @@
 
     <div class="hero">
 
-        <h1>
+        <h1 data-i18n="welcome">
             Welcome to StudyConnect 👋
         </h1>
 
-        <p>
+        <p data-i18n="welcomeText">
             दोस्तों से जुड़ें, Chat करें
             और School Work संभालें।
         </p>
@@ -188,10 +375,18 @@
     </div>
 
 
+    <!-- CURRENT USER -->
+
     <div class="name-box">
 
+        <div
+            id="currentUserProfile"
+            class="current-user-profile"
+        ></div>
+
+
         <h2>
-            👤 आपका नाम
+            👤 <span data-i18n="yourName">आपका नाम</span>
         </h2>
 
         <input
@@ -204,7 +399,7 @@
             type="button"
             id="saveNameBtn"
         >
-            💾 Save Name
+            💾 <span data-i18n="saveName">Save Name</span>
         </button>
 
         <p id="nameMessage"></p>
@@ -212,21 +407,40 @@
     </div>
 
 
+
     <!-- ONLINE USERS -->
 
     <div class="online-box">
 
-        <h3>
-            🟢 अभी Online
-        </h3>
+        <button
+            type="button"
+            id="onlineToggleBtn"
+            class="online-toggle"
+        >
+
+            <span>
+                🟢 <span data-i18n="onlineNow">अभी Online</span>
+            </span>
+
+            <span id="onlineArrow">
+                ▼
+            </span>
+
+        </button>
+
 
         <strong id="onlineCount">
             0
         </strong>
 
-        <div id="onlineUsers"></div>
+
+        <div
+            id="onlineUsers"
+            style="display:none;"
+        ></div>
 
     </div>
+
 
 
     <!-- HOME CARDS -->
@@ -241,9 +455,11 @@
 
             <span>💬</span>
 
-            <h2>Chat</h2>
+            <h2 data-i18n="chat">
+                Chat
+            </h2>
 
-            <p>
+            <p data-i18n="chatDescription">
                 दोस्तों से बात करें।
             </p>
 
@@ -257,9 +473,11 @@
 
             <span>👥</span>
 
-            <h2>Groups</h2>
+            <h2 data-i18n="groups">
+                Groups
+            </h2>
 
-            <p>
+            <p data-i18n="groupsDescription">
                 Group बनाकर group chat करें।
             </p>
 
@@ -273,9 +491,11 @@
 
             <span>📚</span>
 
-            <h2>Homework</h2>
+            <h2 data-i18n="homework">
+                Homework
+            </h2>
 
-            <p>
+            <p data-i18n="homeworkDescription">
                 सभी subjects का homework।
             </p>
 
@@ -289,9 +509,11 @@
 
             <span>🏫</span>
 
-            <h2>School Update</h2>
+            <h2 data-i18n="schoolUpdate">
+                School Update
+            </h2>
 
-            <p>
+            <p data-i18n="schoolDescription">
                 स्कूल की जानकारी।
             </p>
 
@@ -305,9 +527,11 @@
 
             <span>📝</span>
 
-            <h2>Notes</h2>
+            <h2 data-i18n="notes">
+                Notes
+            </h2>
 
-            <p>
+            <p data-i18n="notesDescription">
                 जरूरी notes।
             </p>
 
@@ -330,9 +554,11 @@
 
     <div class="section-title">
 
-        <h1>💬 Chat</h1>
+        <h1 data-i18n="chatTitle">
+            💬 Chat
+        </h1>
 
-        <p>
+        <p data-i18n="chatDescription">
             दोस्तों से बात करें।
         </p>
 
@@ -371,7 +597,9 @@
                 type="button"
                 id="sendMessageBtn"
             >
-                Send
+                <span data-i18n="send">
+                    Send
+                </span>
             </button>
 
         </div>
@@ -393,18 +621,22 @@
 
     <div class="section-title">
 
-        <h1>👥 Groups</h1>
+        <h1 data-i18n="groupsTitle">
+            👥 Groups
+        </h1>
 
-        <p>
+        <p data-i18n="groupsDescription">
             Group बनाएं और members के साथ chat करें।
         </p>
 
     </div>
 
 
+    <!-- CREATE GROUP -->
+
     <div class="form-box">
 
-        <h2>
+        <h2 data-i18n="createGroup">
             ➕ Create Group
         </h2>
 
@@ -416,20 +648,33 @@
         >
 
 
+        <input
+            id="groupPasswordInput"
+            type="password"
+            placeholder="Group Password"
+            autocomplete="new-password"
+        >
+
+
         <button
             type="button"
             id="createGroupBtn"
         >
-            👥 Create Group
+            👥 <span data-i18n="createGroupButton">
+                Create Group
+            </span>
         </button>
 
     </div>
 
 
+    <!-- GROUP LIST -->
+
     <div
         id="groupList"
         class="list-box"
     ></div>
+
 
 
     <!-- GROUP CHAT -->
@@ -445,73 +690,121 @@
                 👥 Group
             </h2>
 
+            <p id="selectedGroupOwner"></p>
+
         </div>
 
 
-        <!-- ADD MEMBER -->
+        <!-- GROUP PASSWORD -->
 
-        <div class="form-box">
+        <div
+            id="groupPasswordSection"
+            class="form-box"
+        >
 
             <h3>
-                👤 Add Member
+                🔐 Group Password
             </h3>
 
-
             <input
-                id="memberNameInput"
-                type="text"
-                placeholder="Member का नाम"
+                id="enterGroupPasswordInput"
+                type="password"
+                placeholder="Group Password डालें"
+                autocomplete="off"
             >
-
-
-            <input
-                id="memberPhoneInput"
-                type="tel"
-                placeholder="Phone number"
-            >
-
 
             <button
                 type="button"
-                id="addMemberBtn"
+                id="unlockGroupBtn"
             >
-                ➕ Add Member
+                🔓 Open Group
             </button>
 
-
-            <div
-                id="memberList"
-                class="list-box"
-            ></div>
+            <p id="groupPasswordMessage"></p>
 
         </div>
 
 
-        <!-- GROUP CHAT -->
+        <!-- GROUP CONTENT -->
 
-        <div class="chat-box">
-
-            <div
-                id="groupMessages"
-                class="messages"
-            ></div>
+        <div
+            id="groupContent"
+            style="display:none;"
+        >
 
 
-            <div class="chat-input">
+            <!-- ADD MEMBER -->
+
+            <div class="form-box">
+
+                <h3 data-i18n="addMember">
+                    👤 Add Member
+                </h3>
+
 
                 <input
-                    id="groupMessageInput"
+                    id="memberNameInput"
                     type="text"
-                    placeholder="Group में message..."
+                    placeholder="Member का नाम"
+                >
+
+
+                <input
+                    id="memberPhoneInput"
+                    type="tel"
+                    placeholder="Phone number"
+                    inputmode="numeric"
                 >
 
 
                 <button
                     type="button"
-                    id="sendGroupMessageBtn"
+                    id="addMemberBtn"
                 >
-                    Send
+                    ➕ <span data-i18n="addMemberButton">
+                        Add Member
+                    </span>
                 </button>
+
+
+                <div
+                    id="memberList"
+                    class="list-box"
+                ></div>
+
+            </div>
+
+
+            <!-- GROUP CHAT -->
+
+            <div class="chat-box">
+
+                <div
+                    id="groupMessages"
+                    class="messages"
+                ></div>
+
+
+                <div class="chat-input">
+
+                    <input
+                        id="groupMessageInput"
+                        type="text"
+                        placeholder="Group में message..."
+                        autocomplete="off"
+                    >
+
+
+                    <button
+                        type="button"
+                        id="sendGroupMessageBtn"
+                    >
+                        <span data-i18n="send">
+                            Send
+                        </span>
+                    </button>
+
+                </div>
 
             </div>
 
@@ -534,9 +827,11 @@
 
     <div class="section-title">
 
-        <h1>📚 Homework</h1>
+        <h1 data-i18n="homeworkTitle">
+            📚 Homework
+        </h1>
 
-        <p>
+        <p data-i18n="homeworkDescription">
             सभी subjects का homework।
         </p>
 
@@ -547,7 +842,7 @@
 
 
         <label for="homeworkDate">
-            📅 Date
+            📅 <span data-i18n="date">Date</span>
         </label>
 
         <input
@@ -637,7 +932,9 @@
             type="button"
             id="addHomeworkBtn"
         >
-            💾 Save Homework
+            💾 <span data-i18n="saveHomework">
+                Save Homework
+            </span>
         </button>
 
     </div>
@@ -663,9 +960,11 @@
 
     <div class="section-title">
 
-        <h1>🏫 School Update</h1>
+        <h1 data-i18n="schoolUpdateTitle">
+            🏫 School Update
+        </h1>
 
-        <p>
+        <p data-i18n="schoolDescription">
             स्कूल में क्या हुआ?
         </p>
 
@@ -684,7 +983,9 @@
             type="button"
             id="saveSchoolBtn"
         >
-            🏫 Save Update
+            🏫 <span data-i18n="saveUpdate">
+                Save Update
+            </span>
         </button>
 
     </div>
@@ -710,9 +1011,11 @@
 
     <div class="section-title">
 
-        <h1>📝 Notes</h1>
+        <h1 data-i18n="notesTitle">
+            📝 Notes
+        </h1>
 
-        <p>
+        <p data-i18n="notesDescription">
             अपने जरूरी notes रखें।
         </p>
 
@@ -731,7 +1034,9 @@
             type="button"
             id="saveNoteBtn"
         >
-            📝 Save Note
+            📝 <span data-i18n="saveNote">
+                Save Note
+            </span>
         </button>
 
     </div>
@@ -757,9 +1062,11 @@
 
     <div class="section-title">
 
-        <h1>⚙️ Settings</h1>
+        <h1 data-i18n="settingsTitle">
+            ⚙️ Settings
+        </h1>
 
-        <p>
+        <p data-i18n="settingsDescription">
             App को अपनी पसंद के अनुसार बदलें।
         </p>
 
@@ -773,7 +1080,7 @@
 
         <div class="setting-item">
 
-            <h3>
+            <h3 data-i18n="changeName">
                 👤 Change Name
             </h3>
 
@@ -788,7 +1095,9 @@
                 type="button"
                 id="changeNameBtn"
             >
-                ✏️ Change Name
+                ✏️ <span data-i18n="changeNameButton">
+                    Change Name
+                </span>
             </button>
 
 
@@ -797,11 +1106,12 @@
         </div>
 
 
+
         <!-- LANGUAGE -->
 
         <div class="setting-item">
 
-            <h3>
+            <h3 data-i18n="language">
                 🌐 Language
             </h3>
 
@@ -827,11 +1137,12 @@
         </div>
 
 
+
         <!-- THEME -->
 
         <div class="setting-item">
 
-            <h3>
+            <h3 data-i18n="theme">
                 🎨 Theme
             </h3>
 
@@ -846,11 +1157,12 @@
         </div>
 
 
-        <!-- NOTIFICATION -->
+
+        <!-- NOTIFICATIONS -->
 
         <div class="setting-item">
 
-            <h3>
+            <h3 data-i18n="notifications">
                 🔔 Notifications
             </h3>
 
@@ -859,7 +1171,9 @@
                 type="button"
                 id="notificationBtn"
             >
-                🔔 Enable Notifications
+                🔔 <span data-i18n="enableNotifications">
+                    Enable Notifications
+                </span>
             </button>
 
 
@@ -868,11 +1182,101 @@
         </div>
 
 
+
+        <!-- OWNER -->
+
+        <div
+            id="ownerSettingsSection"
+            class="setting-item"
+        >
+
+            <h3>
+                👑 Owner Settings
+            </h3>
+
+            <p>
+                Owner Panel खोलने के लिए Owner Password डालें।
+            </p>
+
+
+            <input
+                id="ownerPasswordInput"
+                type="password"
+                placeholder="Owner Password"
+                autocomplete="off"
+            >
+
+
+            <button
+                type="button"
+                id="ownerLoginBtn"
+            >
+                🔐 Open Owner Panel
+            </button>
+
+
+            <p id="ownerPasswordMessage"></p>
+
+        </div>
+
+
+
+        <!-- OWNER PANEL -->
+
+        <div
+            id="ownerPanel"
+            class="setting-item"
+            style="display:none;"
+        >
+
+            <h3>
+                👑 Allow Users
+            </h3>
+
+
+            <p>
+                जिन लोगों को Allow करोगे,
+                वही StudyConnect इस्तेमाल कर पाएँगे।
+            </p>
+
+
+            <input
+                id="allowedUserNameInput"
+                type="text"
+                placeholder="User का नाम"
+            >
+
+
+            <input
+                id="allowedUserPhoneInput"
+                type="tel"
+                placeholder="Mobile Number"
+                inputmode="numeric"
+            >
+
+
+            <button
+                type="button"
+                id="allowUserBtn"
+            >
+                ✅ Allow User
+            </button>
+
+
+            <div
+                id="allowedUsersList"
+                class="list-box"
+            ></div>
+
+        </div>
+
+
+
         <!-- RESET -->
 
         <div class="setting-item">
 
-            <h3>
+            <h3 data-i18n="appData">
                 🗑️ App Data
             </h3>
 
@@ -882,7 +1286,9 @@
                 id="clearDataBtn"
                 class="danger"
             >
-                Reset App Data
+                🗑️ <span data-i18n="resetAppData">
+                    Reset App Data
+                </span>
             </button>
 
 
@@ -910,10 +1316,14 @@
     </p>
 
     <p>
-        👑 Owner: Krishna Yadav
+        👑 <span data-i18n="owner">Owner</span>:
+        Krishna Yadav
     </p>
 
 </footer>
+
+
+</div>
 
 
 
