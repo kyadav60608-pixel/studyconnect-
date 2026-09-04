@@ -1,1120 +1,1022 @@
-/* =====================================================
-   STUDYCONNECT
-   Firebase + Login + Chat + Groups + Homework
-   School + Notes + Settings + Online Users
-===================================================== */
+// ============================================================
+// STUDYCONNECT - COMPLETE SCRIPT.JS
+// ============================================================
 
+// ---------- FIREBASE IMPORTS ----------
 import { initializeApp } from
-    "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+    "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
     getFirestore,
     collection,
     addDoc,
-    getDocs,
-    getDoc,
     setDoc,
-    updateDoc,
-    deleteDoc,
+    getDoc,
+    getDocs,
     doc,
     query,
     orderBy,
     onSnapshot,
-    arrayUnion
+    serverTimestamp,
+    updateDoc,
+    where
 } from
-    "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+    "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 
-/* =====================================================
-   FIREBASE
-===================================================== */
+// ============================================================
+// 1. FIREBASE CONFIG
+// ============================================================
+// अपने पुराने script.js में जो firebaseConfig था,
+// वही यहाँ पूरा रख दें।
 
 const firebaseConfig = {
-
-    apiKey:
-        "AIzaSyCquRX2YB59FObuIyi3SwWc3aUCdPWypag",
-
-    authDomain:
-        "studyconnect-99006.firebaseapp.com",
-
-    projectId:
-        "studyconnect-99006",
-
-    storageBucket:
-        "studyconnect-99006.firebasestorage.app",
-
-    messagingSenderId:
-        "15964627995",
-
-    appId:
-        "1:15964627995:web:0e8a8cd14c175247ed04be",
-
-    measurementId:
-        "G-SYJYMREJJL"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT.firebasestorage.app",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
-const app =
-    initializeApp(firebaseConfig);
-
-const db =
-    getFirestore(app);
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
 
 
-/* =====================================================
-   CONSTANTS
-===================================================== */
+// ============================================================
+// 2. BASIC SETTINGS
+// ============================================================
 
-const APP_PASSWORD = "123";
-
+const SCHOOL_PASSWORD = "123";
 const OWNER_PASSWORD = "12341";
 
 const OWNER_NAME = "Krishna Yadav";
-
 const OWNER_PHONE = "8738084554";
 
+let currentUser = {
+    name: "",
+    phone: "",
+    photo: ""
+};
 
-let currentUser = null;
-
-let currentGroup = null;
-
-let chatUnsubscribe = null;
-
-let groupUnsubscribe = null;
-
-let presenceUnsubscribe = null;
-
-let heartbeat = null;
+let currentChatUnsubscribe = null;
+let currentGroupUnsubscribe = null;
+let onlineUnsubscribe = null;
+let selectedGroup = null;
 
 
-/* =====================================================
-   HELPERS
-===================================================== */
+// ============================================================
+// 3. HELPER FUNCTIONS
+// ============================================================
 
-function escapeHTML(value) {
+function $(id) {
+    return document.getElementById(id);
+}
 
-    const div =
-        document.createElement("div");
+function showElement(id) {
+    const el = $(id);
+    if (!el) return;
 
-    div.textContent =
-        value ?? "";
+    el.hidden = false;
+    el.style.display = "";
+}
 
+function hideElement(id) {
+    const el = $(id);
+    if (!el) return;
+
+    el.hidden = true;
+    el.style.display = "none";
+}
+
+function setMessage(id, text, type = "") {
+    const el = $(id);
+    if (!el) return;
+
+    el.textContent = text;
+    el.className = type;
+}
+
+function cleanPhone(phone) {
+    return String(phone || "").replace(/\D/g, "");
+}
+
+function escapeHTML(text) {
+    const div = document.createElement("div");
+    div.textContent = text ?? "";
     return div.innerHTML;
 }
 
+function formatTime(timestamp) {
+    if (!timestamp) return "";
 
-function getUserName() {
+    let date;
 
-    return localStorage.getItem(
-        "studyName"
-    ) || "";
-}
-
-
-function getUserPhone() {
-
-    return localStorage.getItem(
-        "studyPhone"
-    ) || "";
-}
-
-
-function saveUser(name, phone) {
-
-    localStorage.setItem(
-        "studyName",
-        name
-    );
-
-    localStorage.setItem(
-        "studyPhone",
-        phone
-    );
-
-    currentUser = {
-        name,
-        phone
-    };
-}
-
-
-function now() {
-
-    return Date.now();
-}
-
-
-function formatDateTime(value) {
-
-    if (!value) return "";
-
-    const date =
-        typeof value === "number"
-            ? new Date(value)
-            : value?.toDate
-                ? value.toDate()
-                : new Date(value);
-
-    if (
-        Number.isNaN(
-            date.getTime()
-        )
-    ) {
-        return "";
+    if (timestamp.toDate) {
+        date = timestamp.toDate();
+    } else {
+        date = new Date(timestamp);
     }
 
-    return date.toLocaleString(
-        "en-IN",
-        {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit"
-        }
-    );
-}
-
-
-/* =====================================================
-   PAGE NAVIGATION
-===================================================== */
-
-function showPage(pageId) {
-
-    document
-        .querySelectorAll(".page")
-        .forEach(page => {
-
-            page.classList.remove(
-                "active"
-            );
-
-        });
-
-    const page =
-        document.getElementById(
-            pageId
-        );
-
-    if (page) {
-
-        page.classList.add(
-            "active"
-        );
-    }
-
-    const navMenu =
-        document.getElementById(
-            "navMenu"
-        );
-
-    if (navMenu) {
-
-        navMenu.classList.remove(
-            "show"
-        );
-    }
-
-    if (pageId === "chat") {
-
-        startRealtimeChat();
-
-    }
-
-    if (pageId === "groups") {
-
-        loadGroups();
-
-    }
-}
-
-
-document
-    .querySelectorAll("[data-page]")
-    .forEach(button => {
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                showPage(
-                    button.getAttribute(
-                        "data-page"
-                    )
-                );
-
-            }
-        );
-
+    return date.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit"
     });
+}
 
 
-document
-    .querySelectorAll(".open-page")
-    .forEach(card => {
+// ============================================================
+// 4. LOGIN SCREEN
+// ============================================================
 
-        card.addEventListener(
-            "click",
-            () => {
+function resetLoginScreen() {
+    hideElement("contactOwnerScreen");
 
-                showPage(
-                    card.getAttribute(
-                        "data-page"
-                    )
-                );
+    showElement("passwordScreen");
 
-            }
-        );
+    showElement("schoolPasswordStep");
+    hideElement("ownerStep");
+    hideElement("userDetailsStep");
 
+    if ($("appPassword")) $("appPassword").value = "";
+
+    if ($("openUserName")) $("openUserName").value = "";
+    if ($("openUserPhone")) $("openUserPhone").value = "";
+
+    setMessage("passwordError", "");
+}
+
+
+// ---------- SCHOOL PASSWORD ----------
+
+if ($("unlockBtn")) {
+    $("unlockBtn").addEventListener("click", () => {
+
+        const password = $("appPassword")?.value.trim();
+
+        if (password !== SCHOOL_PASSWORD) {
+            setMessage(
+                "passwordError",
+                "गलत पासवर्ड। कृपया सही पासवर्ड डालें।"
+            );
+            return;
+        }
+
+        setMessage("passwordError", "");
+
+        hideElement("schoolPasswordStep");
+        showElement("ownerStep");
     });
-
-
-const menuBtn =
-    document.getElementById(
-        "menuBtn"
-    );
-
-const navMenu =
-    document.getElementById(
-        "navMenu"
-    );
-
-
-if (menuBtn && navMenu) {
-
-    menuBtn.addEventListener(
-        "click",
-        () => {
-
-            navMenu.classList.toggle(
-                "show"
-            );
-
-        }
-    );
 }
 
 
-/* =====================================================
-   LOGIN
-===================================================== */
+// ============================================================
+// 5. OWNER NAME SCREEN
+// ============================================================
 
-function loginStep(id) {
+if ($("ownerNameDisplay")) {
+    $("ownerNameDisplay").textContent = OWNER_NAME;
+}
 
-    document
-        .querySelectorAll(
-            ".login-step"
-        )
-        .forEach(step => {
+if ($("ownerNextBtn")) {
+    $("ownerNextBtn").addEventListener("click", () => {
 
-            step.classList.remove(
-                "active"
-            );
+        hideElement("ownerStep");
+        showElement("userDetailsStep");
 
-        });
-
-    const step =
-        document.getElementById(id);
-
-    if (step) {
-
-        step.classList.add(
-            "active"
-        );
-
-    }
+        setMessage("passwordError", "");
+    });
 }
 
 
-/* PASSWORD */
+// ============================================================
+// 6. PROFILE PHOTO
+// ============================================================
 
-document
-    .getElementById("unlockBtn")
-    .addEventListener(
-        "click",
-        () => {
+if ($("profilePhotoInput")) {
 
-            const password =
-                document
-                    .getElementById(
-                        "appPassword"
-                    )
-                    .value
-                    .trim();
+    $("profilePhotoInput").addEventListener("change", function () {
 
-            const error =
-                document.getElementById(
-                    "passwordError"
-                );
+        const file = this.files?.[0];
 
+        if (!file) return;
 
-            if (
-                password !==
-                APP_PASSWORD
-            ) {
+        const reader = new FileReader();
 
-                error.textContent =
-                    "गलत password ❌";
+        reader.onload = function (event) {
 
-                return;
+            currentUser.photo = event.target.result;
+
+            if ($("profilePhotoPreview")) {
+                $("profilePhotoPreview").src = event.target.result;
+                $("profilePhotoPreview").style.display = "block";
             }
+        };
 
-
-            error.textContent = "";
-
-            loginStep(
-                "ownerStep"
-            );
-
-        }
-    );
-
-
-/* OWNER */
-
-document
-    .getElementById("ownerNextBtn")
-    .addEventListener(
-        "click",
-        () => {
-
-            loginStep(
-                "userDetailsStep"
-            );
-
-            document
-                .getElementById(
-                    "openUserName"
-                )
-                .focus();
-
-        }
-    );
-
-
-/* =====================================================
-   ENTER APP
-===================================================== */
-
-document
-    .getElementById("enterAppBtn")
-    .addEventListener(
-        "click",
-        async () => {
-
-            const name =
-                document
-                    .getElementById(
-                        "openUserName"
-                    )
-                    .value
-                    .trim();
-
-            const phone =
-                document
-                    .getElementById(
-                        "openUserPhone"
-                    )
-                    .value
-                    .trim();
-
-            const message =
-                document.getElementById(
-                    "loginMessage"
-                );
-
-
-            message.textContent = "";
-
-
-            if (name.length < 2) {
-
-                message.textContent =
-                    "अपना सही नाम लिखें।";
-
-                return;
-            }
-
-
-            if (
-                !/^[0-9]{10}$/.test(
-                    phone
-                )
-            ) {
-
-                message.textContent =
-                    "10 अंकों का मोबाइल नंबर डालें।";
-
-                return;
-            }
-
-
-            /* OWNER */
-
-            if (
-                name.toLowerCase() ===
-                    OWNER_NAME.toLowerCase()
-                &&
-                phone === OWNER_PHONE
-            ) {
-
-                saveUser(
-                    OWNER_NAME,
-                    OWNER_PHONE
-                );
-
-                openMainApp();
-
-                return;
-            }
-
-
-            const button =
-                document.getElementById(
-                    "enterAppBtn"
-                );
-
-            button.disabled = true;
-
-            button.textContent =
-                "Checking...";
-
-
-            try {
-
-                const userRef =
-                    doc(
-                        db,
-                        "allowedUsers",
-                        phone
-                    );
-
-                const snapshot =
-                    await getDoc(
-                        userRef
-                    );
-
-
-                if (
-                    !snapshot.exists()
-                ) {
-
-                    showContactOwner();
-
-                    return;
-                }
-
-
-                const data =
-                    snapshot.data();
-
-
-                const allowedName =
-                    String(
-                        data.name || ""
-                    )
-                    .trim()
-                    .toLowerCase();
-
-
-                if (
-                    allowedName !==
-                    name.toLowerCase()
-                ) {
-
-                    showContactOwner();
-
-                    return;
-                }
-
-
-                saveUser(
-                    name,
-                    phone
-                );
-
-                openMainApp();
-
-
-            } catch (error) {
-
-                console.error(
-                    "Login error:",
-                    error
-                );
-
-                message.textContent =
-                    "Firebase connection में समस्या है।";
-
-            } finally {
-
-                button.disabled = false;
-
-                button.textContent =
-                    "Open StudyConnect →";
-
-            }
-
-        }
-    );
-
-
-/* =====================================================
-   CONTACT OWNER
-===================================================== */
-
-function showContactOwner() {
-
-    document
-        .getElementById(
-            "passwordScreen"
-        )
-        .style.display = "none";
-
-    document
-        .getElementById(
-            "appContainer"
-        )
-        .style.display = "none";
-
-    document
-        .getElementById(
-            "contactOwnerScreen"
-        )
-        .classList.remove(
-            "hidden"
-        );
+        reader.readAsDataURL(file);
+    });
 }
 
 
-document
-    .getElementById(
-        "backToLoginBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
+// ============================================================
+// 7. ENTER APP
+// ============================================================
 
-            document
-                .getElementById(
-                    "contactOwnerScreen"
-                )
-                .classList.add(
-                    "hidden"
-                );
+if ($("enterAppBtn")) {
 
-            document
-                .getElementById(
-                    "passwordScreen"
-                )
-                .style.display = "flex";
-
-            document
-                .getElementById(
-                    "appPassword"
-                )
-                .value = "";
-
-            document
-                .getElementById(
-                    "openUserName"
-                )
-                .value = "";
-
-            document
-                .getElementById(
-                    "openUserPhone"
-                )
-                .value = "";
-
-            loginStep(
-                "schoolPasswordStep"
-            );
-
-        }
-    );
-
-
-/* =====================================================
-   OPEN APP
-===================================================== */
-
-function openMainApp() {
-
-    document
-        .getElementById(
-            "passwordScreen"
-        )
-        .style.display = "none";
-
-    document
-        .getElementById(
-            "contactOwnerScreen"
-        )
-        .classList.add(
-            "hidden"
-        );
-
-    document
-        .getElementById(
-            "appContainer"
-        )
-        .style.display = "block";
-
-
-    updateHomeProfile();
-
-    startPresence();
-
-    startRealtimeChat();
-
-    loadGroups();
-
-    loadHomework();
-
-    loadSchool();
-
-    loadNotes();
-
-    loadOnlineUsers();
-
+    $("enterAppBtn").addEventListener("click", loginUser);
 }
 
 
-/* =====================================================
-   HOME PROFILE
-===================================================== */
+async function loginUser() {
 
-const studentName =
-    document.getElementById(
-        "studentName"
-    );
+    const name = $("openUserName")?.value.trim();
+    const phone = cleanPhone($("openUserPhone")?.value);
 
-const saveNameBtn =
-    document.getElementById(
-        "saveNameBtn"
-    );
+    if (!name || !phone) {
 
-const nameMessage =
-    document.getElementById(
-        "nameMessage"
-    );
-
-
-function updateHomeProfile() {
-
-    const name =
-        getUserName();
-
-    const phone =
-        getUserPhone();
-
-
-    if (studentName) {
-
-        studentName.value =
-            name;
-
-    }
-
-
-    const welcome =
-        document.getElementById(
-            "homeWelcome"
+        setMessage(
+            "passwordError",
+            "कृपया अपना नाम और मोबाइल नंबर भरें।"
         );
-
-    if (welcome) {
-
-        welcome.textContent =
-            name
-                ? `Welcome, ${name}! 👋`
-                : "आपकी student community एक जगह।";
-
-    }
-
-
-    const profile =
-        document.getElementById(
-            "currentUserProfile"
-        );
-
-    if (profile) {
-
-        profile.innerHTML =
-            name
-                ? `
-                    <strong>${escapeHTML(name)}</strong>
-                    <br>
-                    <small>${escapeHTML(phone)}</small>
-                  `
-                : "";
-
-    }
-
-}
-
-
-if (saveNameBtn) {
-
-    saveNameBtn.addEventListener(
-        "click",
-        () => {
-
-            const name =
-                studentName
-                    .value
-                    .trim();
-
-            if (!name) {
-
-                nameMessage.textContent =
-                    "पहले नाम लिखें।";
-
-                return;
-            }
-
-
-            localStorage.setItem(
-                "studyName",
-                name
-            );
-
-            currentUser = {
-
-                name,
-
-                phone:
-                    getUserPhone()
-
-            };
-
-
-            nameMessage.textContent =
-                "Name saved ✅";
-
-            updateHomeProfile();
-
-            updatePresence();
-
-        }
-    );
-}
-
-
-/* =====================================================
-   REALTIME CHAT
-===================================================== */
-
-const messageInput =
-    document.getElementById(
-        "messageInput"
-    );
-
-const sendMessageBtn =
-    document.getElementById(
-        "sendMessageBtn"
-    );
-
-const chatMessages =
-    document.getElementById(
-        "chatMessages"
-    );
-
-const emojiBtn =
-    document.getElementById(
-        "emojiBtn"
-    );
-
-
-if (emojiBtn) {
-
-    emojiBtn.addEventListener(
-        "click",
-        () => {
-
-            messageInput.value +=
-                " 😊";
-
-            messageInput.focus();
-
-        }
-    );
-}
-
-
-function startRealtimeChat() {
-
-    if (!chatMessages) return;
-
-    if (chatUnsubscribe) {
-
-        chatUnsubscribe();
-
-    }
-
-
-    const messagesQuery =
-        query(
-            collection(
-                db,
-                "messages"
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
-
-
-    chatUnsubscribe =
-        onSnapshot(
-            messagesQuery,
-            snapshot => {
-
-                chatMessages.innerHTML =
-                    "";
-
-
-                if (snapshot.empty) {
-
-                    chatMessages.innerHTML = `
-                        <div class="message other">
-                            <strong>StudyConnect</strong>
-                            <p>अभी कोई message नहीं है। 👋</p>
-                        </div>
-                    `;
-
-                    return;
-                }
-
-
-                snapshot.forEach(
-                    item => {
-
-                        const data =
-                            item.data();
-
-                        renderMessage(
-                            item.id,
-                            data
-                        );
-
-                    }
-                );
-
-
-                chatMessages.scrollTop =
-                    chatMessages.scrollHeight;
-
-            },
-
-            error => {
-
-                console.error(
-                    "Realtime chat error:",
-                    error
-                );
-
-                chatMessages.innerHTML =
-                    "<p>Chat load नहीं हो पाया।</p>";
-
-            }
-        );
-}
-
-
-function renderMessage(
-    id,
-    data
-) {
-
-    const myPhone =
-        getUserPhone();
-
-    const myName =
-        getUserName();
-
-
-    const senderPhone =
-        data.phone ||
-        data.senderPhone ||
-        "";
-
-
-    const senderName =
-        data.name ||
-        data.senderName ||
-        "Student";
-
-
-    const mine =
-        senderPhone
-            ? senderPhone === myPhone
-            : senderName === myName;
-
-
-    const box =
-        document.createElement(
-            "div"
-        );
-
-
-    box.className =
-        mine
-            ? "message mine"
-            : "message other";
-
-
-    const readBy =
-        Array.isArray(
-            data.readBy
-        )
-            ? data.readBy
-            : [];
-
-
-    let ticks = "";
-
-
-    if (mine) {
-
-        if (
-            readBy.some(
-                item =>
-                    item !== myPhone
-            )
-        ) {
-
-            ticks =
-                `<span class="message-tick blue-ticks">✓✓</span>`;
-
-        } else {
-
-            ticks =
-                `<span class="message-tick">✓✓</span>`;
-
-        }
-
-    }
-
-
-    box.innerHTML = `
-
-        <strong>
-            ${escapeHTML(senderName)}
-        </strong>
-
-        <p>
-            ${escapeHTML(
-                data.message || ""
-            )}
-
-            ${ticks}
-        </p>
-
-        <small class="message-time">
-            ${escapeHTML(
-                formatDateTime(
-                    data.createdAt
-                )
-            )}
-        </small>
-
-    `;
-
-
-    if (!mine) {
-
-        markMessageRead(
-            id,
-            data
-        );
-
-    }
-
-
-    chatMessages.appendChild(
-        box
-    );
-}
-
-
-async function markMessageRead(
-    id,
-    data
-) {
-
-    const phone =
-        getUserPhone();
-
-    if (!phone) return;
-
-
-    const readBy =
-        Array.isArray(
-            data.readBy
-        )
-            ? data.readBy
-            : [];
-
-
-    if (
-        readBy.includes(phone)
-    ) {
 
         return;
-
     }
 
+
+    // --------------------------------------------------------
+    // OWNER DIRECT LOGIN
+    // --------------------------------------------------------
+
+    if (
+        name.toLowerCase() === OWNER_NAME.toLowerCase() &&
+        phone === OWNER_PHONE
+    ) {
+
+        currentUser = {
+            name: OWNER_NAME,
+            phone: OWNER_PHONE,
+            photo: currentUser.photo || ""
+        };
+
+        localStorage.setItem(
+            "studyConnectUser",
+            JSON.stringify(currentUser)
+        );
+
+        openMainApp();
+        return;
+    }
+
+
+    // --------------------------------------------------------
+    // OTHER USERS - FIREBASE ALLOWED USERS CHECK
+    // --------------------------------------------------------
 
     try {
 
-        await updateDoc(
-            doc(
-                db,
-                "messages",
-                id
-            ),
-            {
-                readBy:
-                    arrayUnion(
-                        phone
-                    )
-            }
+        const userRef = doc(db, "allowedUsers", phone);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+
+            showContactOwner();
+
+            return;
+        }
+
+        const userData = userSnap.data();
+
+        const savedName =
+            String(userData.name || "").trim().toLowerCase();
+
+        if (savedName !== name.toLowerCase()) {
+
+            showContactOwner();
+
+            return;
+        }
+
+
+        currentUser = {
+            name: name,
+            phone: phone,
+            photo: currentUser.photo || userData.photo || ""
+        };
+
+
+        localStorage.setItem(
+            "studyConnectUser",
+            JSON.stringify(currentUser)
         );
+
+
+        openMainApp();
 
     } catch (error) {
 
-        console.error(
-            "Read receipt error:",
-            error
+        console.error(error);
+
+        setMessage(
+            "passwordError",
+            "Firebase से संपर्क नहीं हो पाया। इंटरनेट और Firebase Config जाँचें।"
+        );
+    }
+}
+
+
+// ============================================================
+// 8. CONTACT OWNER SCREEN
+// ============================================================
+
+function showContactOwner() {
+
+    hideElement("passwordScreen");
+    showElement("contactOwnerScreen");
+
+    if ($("contactOwnerTitle")) {
+        $("contactOwnerTitle").textContent =
+            "Owner से संपर्क करें";
+    }
+
+    if ($("contactOwnerText")) {
+        $("contactOwnerText").textContent =
+            "आपका नाम और मोबाइल नंबर Allowed Users में नहीं है।";
+    }
+}
+
+
+// ---------- CALL OWNER ----------
+
+if ($("callOwnerBtn")) {
+
+    $("callOwnerBtn").addEventListener("click", () => {
+
+        window.location.href = `tel:${OWNER_PHONE}`;
+
+    });
+}
+
+
+// ---------- WHATSAPP OWNER ----------
+
+if ($("whatsappOwnerBtn")) {
+
+    $("whatsappOwnerBtn").addEventListener("click", () => {
+
+        window.open(
+            `https://wa.me/91${OWNER_PHONE}`,
+            "_blank"
         );
 
+    });
+}
+
+
+// ============================================================
+// 9. IMPORTANT: BACK BUTTON FIX
+// ============================================================
+
+if ($("backToLoginBtn")) {
+
+    $("backToLoginBtn").addEventListener("click", () => {
+
+        // Contact screen बंद
+        hideElement("contactOwnerScreen");
+
+        // Login screen वापस
+        showElement("passwordScreen");
+
+        // केवल password वाला पहला step दिखे
+        showElement("schoolPasswordStep");
+
+        hideElement("ownerStep");
+        hideElement("userDetailsStep");
+
+        // पुरानी values साफ
+        if ($("appPassword")) {
+            $("appPassword").value = "";
+        }
+
+        if ($("openUserName")) {
+            $("openUserName").value = "";
+        }
+
+        if ($("openUserPhone")) {
+            $("openUserPhone").value = "";
+        }
+
+        setMessage("passwordError", "");
+
+    });
+}
+
+
+// ============================================================
+// 10. OPEN MAIN APP
+// ============================================================
+
+function openMainApp() {
+
+    hideElement("passwordScreen");
+    hideElement("contactOwnerScreen");
+
+    showElement("appContainer");
+
+    if ($("studentName")) {
+        $("studentName").value = currentUser.name;
     }
+
+    if ($("currentUserProfile")) {
+
+        $("currentUserProfile").textContent =
+            currentUser.name;
+    }
+
+    startChatListener();
+    startOnlineSystem();
+    loadGroups();
+
+}
+
+
+// ============================================================
+// 11. NAVIGATION
+// ============================================================
+
+const pages = [
+    "home",
+    "chat",
+    "groups",
+    "homework",
+    "school",
+    "notes",
+    "settings"
+];
+
+function showPage(pageName) {
+
+    pages.forEach(page => {
+
+        const pageElement = $(page);
+
+        if (!pageElement) return;
+
+        if (page === pageName) {
+            pageElement.style.display = "";
+            pageElement.hidden = false;
+        } else {
+            pageElement.style.display = "none";
+            pageElement.hidden = true;
+        }
+    });
+
+    if ($("navMenu")) {
+        $("navMenu").classList.remove("open");
+    }
+}
+
+
+document.querySelectorAll("[data-page]").forEach(button => {
+
+    button.addEventListener("click", () => {
+
+        const page = button.dataset.page;
+
+        if (page) {
+            showPage(page);
+        }
+
+    });
+
+});
+
+
+// ---------- MENU ----------
+
+if ($("menuBtn")) {
+
+    $("menuBtn").addEventListener("click", () => {
+
+        if ($("navMenu")) {
+            $("navMenu").classList.toggle("open");
+        }
+
+    });
+}
+
+
+// ============================================================
+// 12. SAVE NAME
+// ============================================================
+
+if ($("saveNameBtn")) {
+
+    $("saveNameBtn").addEventListener("click", async () => {
+
+        const name = $("studentName")?.value.trim();
+
+        if (!name) {
+
+            setMessage(
+                "nameMessage",
+                "कृपया अपना नाम लिखें।"
+            );
+
+            return;
+        }
+
+        currentUser.name = name;
+
+        localStorage.setItem(
+            "studyConnectUser",
+            JSON.stringify(currentUser)
+        );
+
+        setMessage(
+            "nameMessage",
+            "नाम सेव हो गया।"
+        );
+
+        if ($("currentUserProfile")) {
+            $("currentUserProfile").textContent = name;
+        }
+
+    });
+}
+
+
+// ============================================================
+// 13. REAL-TIME CHAT
+// ============================================================
+
+function startChatListener() {
+
+    if (currentChatUnsubscribe) {
+        currentChatUnsubscribe();
+    }
+
+    const chatRef = collection(db, "messages");
+
+    const chatQuery = query(
+        chatRef,
+        orderBy("createdAt", "asc")
+    );
+
+    currentChatUnsubscribe = onSnapshot(
+        chatQuery,
+        snapshot => {
+
+            const container = $("chatMessages");
+
+            if (!container) return;
+
+            container.innerHTML = "";
+
+            snapshot.forEach(messageDoc => {
+
+                const message = messageDoc.data();
+
+                renderMessage(
+                    container,
+                    messageDoc.id,
+                    message
+                );
+
+            });
+
+            container.scrollTop =
+                container.scrollHeight;
+
+            markChatAsRead(snapshot);
+
+        },
+        error => {
+
+            console.error(
+                "Chat listener error:",
+                error
+            );
+
+        }
+    );
+}
+
+
+function renderMessage(container, id, message) {
+
+    const wrapper =
+        document.createElement("div");
+
+    const isMine =
+        cleanPhone(message.senderPhone) ===
+        cleanPhone(currentUser.phone);
+
+    wrapper.className =
+        isMine ? "message mine" : "message other";
+
+
+    const sender =
+        escapeHTML(message.senderName || "User");
+
+    const text =
+        escapeHTML(message.text || "");
+
+    const time =
+        formatTime(message.createdAt);
+
+
+    let tick = "";
+
+    if (isMine) {
+
+        if (message.seenBy &&
+            message.seenBy.length > 1) {
+
+            tick = "✓✓";
+
+        } else if (message.delivered) {
+
+            tick = "✓✓";
+
+        } else {
+
+            tick = "✓";
+
+        }
+    }
+
+
+    wrapper.innerHTML = `
+        <div class="message-sender">
+            ${sender}
+        </div>
+
+        <div class="message-text">
+            ${text}
+        </div>
+
+        <div class="message-meta">
+            ${time}
+            <span class="message-tick">
+                ${tick}
+            </span>
+        </div>
+    `;
+
+
+    container.appendChild(wrapper);
+}
+
+
+// ============================================================
+// 14. SEND CHAT MESSAGE
+// ============================================================
+
+if ($("sendMessageBtn")) {
+
+    $("sendMessageBtn").addEventListener(
+        "click",
+        sendMessage
+    );
+}
+
+
+if ($("messageInput")) {
+
+    $("messageInput").addEventListener(
+        "keydown",
+        event => {
+
+            if (
+                event.key === "Enter" &&
+                !event.shiftKey
+            ) {
+
+                event.preventDefault();
+
+                sendMessage();
+            }
+        }
+    );
 }
 
 
 async function sendMessage() {
 
-    const text =
-        messageInput
-            .value
-            .trim();
+    const input = $("messageInput");
 
-    const name =
-        getUserName();
+    if (!input) return;
 
-    const phone =
-        getUserPhone();
-
+    const text = input.value.trim();
 
     if (!text) return;
 
 
-    if (!name || !phone) {
+    try {
+
+        await addDoc(
+            collection(db, "messages"),
+            {
+                text: text,
+                senderName: currentUser.name,
+                senderPhone: currentUser.phone,
+                createdAt: serverTimestamp(),
+                delivered: true,
+                seenBy: [currentUser.phone]
+            }
+        );
+
+        input.value = "";
+
+    } catch (error) {
+
+        console.error(
+            "Message send error:",
+            error
+        );
+
+    }
+}
+
+
+// ============================================================
+// 15. MARK CHAT AS READ
+// ============================================================
+
+async function markChatAsRead(snapshot) {
+
+    for (const messageDoc of snapshot.docs) {
+
+        const data = messageDoc.data();
+
+        if (
+            cleanPhone(data.senderPhone) ===
+            cleanPhone(currentUser.phone)
+        ) {
+            continue;
+        }
+
+        const seenBy =
+            Array.isArray(data.seenBy)
+                ? [...data.seenBy]
+                : [];
+
+        if (
+            !seenBy.includes(currentUser.phone)
+        ) {
+
+            seenBy.push(currentUser.phone);
+
+            try {
+
+                await updateDoc(
+                    doc(
+                        db,
+                        "messages",
+                        messageDoc.id
+                    ),
+                    {
+                        seenBy: seenBy,
+                        delivered: true
+                    }
+                );
+
+            } catch (error) {
+
+                console.error(error);
+
+            }
+        }
+    }
+}
+
+
+// ============================================================
+// 16. ONLINE SYSTEM
+// ============================================================
+
+let onlineInterval = null;
+
+function startOnlineSystem() {
+
+    if (!currentUser.phone) return;
+
+
+    const onlineRef =
+        doc(
+            db,
+            "onlineUsers",
+            currentUser.phone
+        );
+
+
+    const updateOnline = async () => {
+
+        try {
+
+            await setDoc(
+                onlineRef,
+                {
+                    name: currentUser.name,
+                    phone: currentUser.phone,
+                    photo: currentUser.photo || "",
+                    lastSeen: serverTimestamp()
+                },
+                {
+                    merge: true
+                }
+            );
+
+        } catch (error) {
+
+            console.error(
+                "Online error:",
+                error
+            );
+
+        }
+    };
+
+
+    updateOnline();
+
+    if (onlineInterval) {
+        clearInterval(onlineInterval);
+    }
+
+    onlineInterval =
+        setInterval(
+            updateOnline,
+            30000
+        );
+
+
+    listenOnlineUsers();
+}
+
+
+function listenOnlineUsers() {
+
+    if (onlineUnsubscribe) {
+        onlineUnsubscribe();
+    }
+
+
+    const onlineRef =
+        collection(db, "onlineUsers");
+
+
+    onlineUnsubscribe =
+        onSnapshot(
+            onlineRef,
+            snapshot => {
+
+                const users = [];
+
+                const now =
+                    Date.now();
+
+
+                snapshot.forEach(
+                    userDoc => {
+
+                        const user =
+                            userDoc.data();
+
+                        let lastSeenTime = 0;
+
+                        if (user.lastSeen?.toDate) {
+                            lastSeenTime =
+                                user.lastSeen
+                                    .toDate()
+                                    .getTime();
+                        }
+
+
+                        // पिछले 90 सेकंड में active
+                        if (
+                            now -
+                            lastSeenTime
+                            <
+                            90000
+                        ) {
+
+                            users.push(user);
+
+                        }
+
+                    }
+                );
+
+
+                updateOnlineUI(users);
+
+            }
+        );
+}
+
+
+function updateOnlineUI(users) {
+
+    if ($("onlineCount")) {
+
+        $("onlineCount").textContent =
+            users.length;
+    }
+
+
+    const list =
+        $("onlineUsers");
+
+    if (!list) return;
+
+    list.innerHTML = "";
+
+
+    users.forEach(user => {
+
+        const item =
+            document.createElement("div");
+
+        item.className =
+            "online-user";
+
+        item.textContent =
+            user.name || "User";
+
+        list.appendChild(item);
+
+    });
+}
+
+
+// ---------- ONLINE ARROW ----------
+
+if ($("onlineArrow")) {
+
+    $("onlineArrow").addEventListener(
+        "click",
+        () => {
+
+            if ($("onlineUsers")) {
+
+                $("onlineUsers").classList.toggle(
+                    "show"
+                );
+
+            }
+
+        }
+    );
+}
+
+
+if ($("onlineToggleBtn")) {
+
+    $("onlineToggleBtn").addEventListener(
+        "click",
+        () => {
+
+            if ($("onlineUsers")) {
+
+                $("onlineUsers").classList.toggle(
+                    "show"
+                );
+
+            }
+
+        }
+    );
+}
+
+
+// ============================================================
+// 17. GROUPS
+// ============================================================
+
+if ($("createGroupBtn")) {
+
+    $("createGroupBtn").addEventListener(
+        "click",
+        createGroup
+    );
+}
+
+
+async function createGroup() {
+
+    const name =
+        $("groupInput")?.value.trim();
+
+    const password =
+        $("groupPasswordInput")?.value.trim();
+
+
+    if (!name || !password) {
 
         alert(
-            "पहले login करें।"
+            "Group name और password दोनों भरें।"
         );
 
         return;
@@ -1123,1037 +1025,479 @@ async function sendMessage() {
 
     try {
 
-        await addDoc(
-            collection(
-                db,
-                "messages"
-            ),
-            {
+        const groupDoc =
+            await addDoc(
+                collection(db, "groups"),
+                {
+                    name: name,
+                    password: password,
+                    ownerName: currentUser.name,
+                    ownerPhone: currentUser.phone,
+                    members: [
+                        {
+                            name: currentUser.name,
+                            phone: currentUser.phone
+                        }
+                    ],
+                    createdAt: serverTimestamp()
+                }
+            );
 
-                name,
-
-                phone,
-
-                message: text,
-
-                createdAt:
-                    now(),
-
-                readBy: [
-                    phone
-                ]
-
-            }
-        );
-
-
-        messageInput.value = "";
-
-    } catch (error) {
-
-        console.error(
-            "Message error:",
-            error
-        );
-
-        alert(
-            "Message send नहीं हुआ।"
-        );
-
-    }
-}
-
-
-sendMessageBtn.addEventListener(
-    "click",
-    sendMessage
-);
-
-
-messageInput.addEventListener(
-    "keydown",
-    event => {
-
-        if (
-            event.key ===
-            "Enter"
-        ) {
-
-            event.preventDefault();
-
-            sendMessage();
-
-        }
-
-    }
-);
-
-
-/* =====================================================
-   ONLINE PRESENCE
-===================================================== */
-
-async function updatePresence() {
-
-    const name =
-        getUserName();
-
-    const phone =
-        getUserPhone();
-
-
-    if (!name || !phone) return;
-
-
-    try {
 
         await setDoc(
             doc(
                 db,
-                "presence",
-                phone
+                "groups",
+                groupDoc.id,
+                "members",
+                currentUser.phone
             ),
             {
-
-                name,
-
-                phone,
-
-                online: true,
-
-                lastSeen:
-                    now()
-
-            },
-
-            {
-                merge: true
+                name: currentUser.name,
+                phone: currentUser.phone,
+                addedAt: serverTimestamp()
             }
         );
+
+
+        $("groupInput").value = "";
+        $("groupPasswordInput").value = "";
+
+        alert("Group बन गया।");
 
     } catch (error) {
 
-        console.error(
-            "Presence error:",
-            error
+        console.error(error);
+
+        alert(
+            "Group बनाने में समस्या हुई।"
         );
 
     }
 }
 
 
-function startPresence() {
+// ============================================================
+// 18. LOAD GROUPS
+// ============================================================
 
-    if (heartbeat) {
+function loadGroups() {
 
-        clearInterval(
-            heartbeat
-        );
-
-    }
-
-
-    updatePresence();
+    const groupsRef =
+        collection(db, "groups");
 
 
-    heartbeat =
-        setInterval(
-            updatePresence,
-            30000
-        );
+    onSnapshot(
+        groupsRef,
+        snapshot => {
 
-}
+            const list =
+                $("groupList");
 
+            if (!list) return;
 
-window.addEventListener(
-    "beforeunload",
-    () => {
-
-        const phone =
-            getUserPhone();
-
-        if (!phone) return;
+            list.innerHTML = "";
 
 
-        updateDoc(
-            doc(
-                db,
-                "presence",
-                phone
-            ),
-            {
-                online: false,
-                lastSeen: now()
-            }
-        ).catch(() => {});
+            snapshot.forEach(
+                groupDoc => {
 
-    }
-);
+                    const group =
+                        groupDoc.data();
+
+                    const members =
+                        Array.isArray(group.members)
+                            ? group.members
+                            : [];
 
 
-/* =====================================================
-   ONLINE USERS LIST
-===================================================== */
-
-function loadOnlineUsers() {
-
-    const list =
-        document.getElementById(
-            "onlineUsers"
-        );
-
-    if (!list) return;
-
-
-    if (presenceUnsubscribe) {
-
-        presenceUnsubscribe();
-
-    }
-
-
-    presenceUnsubscribe =
-        onSnapshot(
-            collection(
-                db,
-                "presence"
-            ),
-
-            snapshot => {
-
-                list.innerHTML = "";
-
-                let count = 0;
-
-
-                snapshot.forEach(
-                    item => {
-
-                        const data =
-                            item.data();
-
-                        if (
-                            data.online !== true
-                        ) {
-
-                            return;
-
-                        }
-
-
-                        const lastSeen =
-                            Number(
-                                data.lastSeen ||
-                                0
-                            );
-
-
-                        if (
-                            now() -
-                            lastSeen >
-                            90000
-                        ) {
-
-                            return;
-
-                        }
-
-
-                        count++;
-
-
-                        const div =
-                            document.createElement(
-                                "div"
-                            );
-
-                        div.className =
-                            "online-user";
-
-                        div.innerHTML = `
-                            🟢
-                            <strong>
-                                ${escapeHTML(
-                                    data.name ||
-                                    "Student"
-                                )}
-                            </strong>
-                        `;
-
-
-                        list.appendChild(
-                            div
+                    const isMember =
+                        members.some(
+                            member =>
+                                cleanPhone(
+                                    member.phone
+                                ) ===
+                                cleanPhone(
+                                    currentUser.phone
+                                )
                         );
 
-                    }
-                );
+
+                    if (!isMember) return;
 
 
-                document
-                    .getElementById(
-                        "onlineCount"
-                    )
-                    .textContent =
-                    count;
+                    const button =
+                        document.createElement("button");
 
+                    button.type = "button";
 
-                if (!count) {
+                    button.textContent =
+                        group.name;
 
-                    list.innerHTML =
-                        "<p>अभी कोई दूसरा user online नहीं है।</p>";
+                    button.addEventListener(
+                        "click",
+                        () => {
 
-                }
+                            openGroup(
+                                groupDoc.id,
+                                group
+                            );
 
-            },
-
-            error => {
-
-                console.error(
-                    "Online users error:",
-                    error
-                );
-
-            }
-        );
-}
-
-
-const onlineToggleBtn =
-    document.getElementById(
-        "onlineToggleBtn"
-    );
-
-const onlineArrow =
-    document.getElementById(
-        "onlineArrow"
-    );
-
-const onlineUsers =
-    document.getElementById(
-        "onlineUsers"
-    );
-
-
-function toggleOnlineList() {
-
-    onlineUsers.classList.toggle(
-        "show"
-    );
-
-    const visible =
-        onlineUsers.classList.contains(
-            "show"
-        );
-
-    onlineToggleBtn.textContent =
-        visible
-            ? "Hide"
-            : "Show";
-
-    onlineArrow.textContent =
-        visible
-            ? "▲"
-            : "▼";
-
-}
-
-
-onlineToggleBtn.addEventListener(
-    "click",
-    toggleOnlineList
-);
-
-onlineArrow.addEventListener(
-    "click",
-    toggleOnlineList
-);
-
-
-/* =====================================================
-   GROUPS
-===================================================== */
-
-const groupInput =
-    document.getElementById(
-        "groupInput"
-    );
-
-const groupPasswordInput =
-    document.getElementById(
-        "groupPasswordInput"
-    );
-
-const createGroupBtn =
-    document.getElementById(
-        "createGroupBtn"
-    );
-
-const groupList =
-    document.getElementById(
-        "groupList"
-    );
-
-
-async function loadGroups() {
-
-    if (!groupList) return;
-
-
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "groups"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(q);
-
-
-        groupList.innerHTML = "";
-
-
-        snapshot.forEach(
-            item => {
-
-                const data =
-                    item.data();
-
-
-                const members =
-                    Array.isArray(
-                        data.members
-                    )
-                        ? data.members
-                        : [];
-
-
-                const phone =
-                    getUserPhone();
-
-
-                const isMember =
-                    members.some(
-                        member =>
-                            typeof member ===
-                            "object"
-                                ? member.phone ===
-                                  phone
-                                : member ===
-                                  getUserName()
+                        }
                     );
 
 
-                if (
-                    !isMember
-                ) {
-
-                    return;
+                    list.appendChild(button);
 
                 }
-
-
-                const box =
-                    document.createElement(
-                        "div"
-                    );
-
-                box.className =
-                    "group-item";
-
-
-                box.innerHTML = `
-
-                    <strong>
-                        👥
-                        ${escapeHTML(
-                            data.name ||
-                            "Group"
-                        )}
-                    </strong>
-
-                    <p>
-                        👤
-                        ${members.length}
-                        members
-                    </p>
-
-                    <small>
-                        Created by:
-                        ${escapeHTML(
-                            data.ownerName ||
-                            ""
-                        )}
-                    </small>
-
-                `;
-
-
-                box.addEventListener(
-                    "click",
-                    () => {
-
-                        openGroup(
-                            item.id,
-                            data
-                        );
-
-                    }
-                );
-
-
-                groupList.appendChild(
-                    box
-                );
-
-            }
-        );
-
-
-        if (
-            !groupList.children.length
-        ) {
-
-            groupList.innerHTML =
-                "<p>अभी आपका कोई group नहीं है।</p>";
+            );
 
         }
-
-
-    } catch (error) {
-
-        console.error(
-            "Groups error:",
-            error
-        );
-
-        groupList.innerHTML =
-            "<p>Groups load नहीं हुए।</p>";
-
-    }
-
+    );
 }
 
 
-createGroupBtn.addEventListener(
-    "click",
-    async () => {
+// ============================================================
+// 19. OPEN GROUP
+// ============================================================
 
-        const name =
-            groupInput
-                .value
-                .trim();
+function openGroup(groupId, group) {
 
-        const password =
-            groupPasswordInput
-                .value
-                .trim();
-
-
-        if (!name) {
-
-            alert(
-                "Group का नाम लिखें।"
-            );
-
-            return;
-        }
-
-
-        if (!password) {
-
-            alert(
-                "Group password रखें।"
-            );
-
-            return;
-        }
-
-
-        const ownerName =
-            getUserName();
-
-        const ownerPhone =
-            getUserPhone();
-
-
-        try {
-
-            await addDoc(
-                collection(
-                    db,
-                    "groups"
-                ),
-                {
-
-                    name,
-
-                    password,
-
-                    ownerName,
-
-                    ownerPhone,
-
-                    members: [
-
-                        {
-                            name:
-                                ownerName,
-
-                            phone:
-                                ownerPhone
-                        }
-
-                    ],
-
-                    createdAt:
-                        now()
-
-                }
-            );
-
-
-            groupInput.value = "";
-
-            groupPasswordInput.value = "";
-
-            await loadGroups();
-
-
-            alert(
-                "Group बन गया ✅"
-            );
-
-
-        } catch (error) {
-
-            console.error(
-                error
-            );
-
-            alert(
-                "Group create नहीं हुआ।"
-            );
-
-        }
-
-    }
-);
-
-
-/* =====================================================
-   OPEN GROUP
-===================================================== */
-
-function openGroup(
-    groupId,
-    groupData
-) {
-
-    currentGroup = {
-
+    selectedGroup = {
         id: groupId,
-
-        data: groupData
-
+        ...group
     };
 
 
-    document
-        .getElementById(
-            "groupChatSection"
-        )
-        .classList.remove(
-            "hidden"
-        );
+    showElement("groupChatSection");
+
+    hideElement("groupContent");
+
+    showElement("groupPasswordSection");
 
 
-    document
-        .getElementById(
-            "selectedGroupName"
-        )
-        .textContent =
-        "👥 " +
-        groupData.name;
+    if ($("selectedGroupName")) {
+        $("selectedGroupName").textContent =
+            group.name;
+    }
 
 
-    document
-        .getElementById(
-            "selectedGroupOwner"
-        )
-        .textContent =
-        "Owner: " +
-        (
-            groupData.ownerName ||
-            ""
-        );
+    if ($("selectedGroupOwner")) {
+
+        $("selectedGroupOwner").textContent =
+            `Owner: ${group.ownerName}`;
+    }
 
 
-    document
-        .getElementById(
-            "groupPasswordSection"
-        )
-        .classList.remove(
-            "hidden"
-        );
+    if ($("enterGroupPasswordInput")) {
+        $("enterGroupPasswordInput").value = "";
+    }
 
-
-    document
-        .getElementById(
-            "groupContent"
-        )
-        .classList.add(
-            "hidden"
-        );
-
-
-    document
-        .getElementById(
-            "enterGroupPasswordInput"
-        )
-        .value = "";
-
+    setMessage(
+        "groupPasswordMessage",
+        ""
+    );
 }
 
 
-/* =====================================================
-   UNLOCK GROUP
-===================================================== */
+// ============================================================
+// 20. UNLOCK GROUP
+// ============================================================
 
-document
-    .getElementById(
-        "unlockGroupBtn"
-    )
-    .addEventListener(
+if ($("unlockGroupBtn")) {
+
+    $("unlockGroupBtn").addEventListener(
         "click",
         () => {
 
-            if (!currentGroup) return;
+            if (!selectedGroup) return;
 
 
-            const entered =
-                document
-                    .getElementById(
-                        "enterGroupPasswordInput"
-                    )
-                    .value;
-
-
-            const actual =
-                currentGroup.data.password;
-
-
-            const message =
-                document
-                    .getElementById(
-                        "groupPasswordMessage"
-                    );
+            const password =
+                $("enterGroupPasswordInput")
+                    ?.value.trim();
 
 
             if (
-                entered !== actual
+                password !==
+                selectedGroup.password
             ) {
 
-                message.textContent =
-                    "गलत group password ❌";
+                setMessage(
+                    "groupPasswordMessage",
+                    "गलत Group Password।"
+                );
 
                 return;
             }
 
 
-            message.textContent =
-                "Group unlocked ✅";
-
-
-            document
-                .getElementById(
-                    "groupPasswordSection"
-                )
-                .classList.add(
-                    "hidden"
-                );
-
-
-            document
-                .getElementById(
-                    "groupContent"
-                )
-                .classList.remove(
-                    "hidden"
-                );
-
-
-            renderMembers(
-                currentGroup.data
+            setMessage(
+                "groupPasswordMessage",
+                ""
             );
 
 
-            startGroupChat(
-                currentGroup.id
+            hideElement(
+                "groupPasswordSection"
+            );
+
+            showElement(
+                "groupContent"
+            );
+
+
+            showGroupMembers();
+
+            startGroupMessages(
+                selectedGroup.id
             );
 
         }
     );
+}
 
 
-/* =====================================================
-   MEMBERS
-===================================================== */
+// ============================================================
+// 21. GROUP MEMBERS
+// ============================================================
 
-function renderMembers(
-    data
-) {
+function showGroupMembers() {
 
     const list =
-        document.getElementById(
-            "memberList"
-        );
+        $("memberList");
 
+    if (!list || !selectedGroup) return;
 
     list.innerHTML = "";
 
 
     const members =
-        Array.isArray(
-            data.members
-        )
-            ? data.members
+        Array.isArray(selectedGroup.members)
+            ? selectedGroup.members
             : [];
 
 
-    members.forEach(
-        member => {
+    members.forEach(member => {
 
-            const div =
-                document.createElement(
-                    "div"
-                );
+        const item =
+            document.createElement("div");
 
-            div.className =
-                "member-item";
+        item.textContent =
+            `${member.name} - ${member.phone}`;
 
+        list.appendChild(item);
 
-            if (
-                typeof member ===
-                "object"
-            ) {
-
-                div.textContent =
-                    `👤 ${member.name} — ${member.phone}`;
-
-            } else {
-
-                div.textContent =
-                    `👤 ${member}`;
-
-            }
-
-
-            list.appendChild(
-                div
-            );
-
-        }
-    );
-
+    });
 }
 
 
-document
-    .getElementById(
-        "addMemberBtn"
-    )
-    .addEventListener(
+// ============================================================
+// 22. ADD GROUP MEMBER
+// ============================================================
+
+if ($("addMemberBtn")) {
+
+    $("addMemberBtn").addEventListener(
         "click",
-        async () => {
-
-            if (!currentGroup) return;
-
-
-            const name =
-                document
-                    .getElementById(
-                        "memberNameInput"
-                    )
-                    .value
-                    .trim();
-
-            const phone =
-                document
-                    .getElementById(
-                        "memberPhoneInput"
-                    )
-                    .value
-                    .trim();
-
-
-            if (
-                name.length < 2
-            ) {
-
-                alert(
-                    "Member का नाम लिखें।"
-                );
-
-                return;
-            }
-
-
-            if (
-                !/^[0-9]{10}$/.test(
-                    phone
-                )
-            ) {
-
-                alert(
-                    "सही 10 अंकों का mobile डालें।"
-                );
-
-                return;
-            }
-
-
-            try {
-
-                const allowedRef =
-                    doc(
-                        db,
-                        "allowedUsers",
-                        phone
-                    );
-
-
-                const allowed =
-                    await getDoc(
-                        allowedRef
-                    );
-
-
-                if (
-                    !allowed.exists()
-                    &&
-                    phone !==
-                    OWNER_PHONE
-                ) {
-
-                    alert(
-                        "यह user अभी allowed नहीं है।"
-                    );
-
-                    return;
-                }
-
-
-                const groupRef =
-                    doc(
-                        db,
-                        "groups",
-                        currentGroup.id
-                    );
-
-
-                await updateDoc(
-                    groupRef,
-                    {
-
-                        members:
-                            arrayUnion(
-                                {
-                                    name,
-                                    phone
-                                }
-                            )
-
-                    }
-                );
-
-
-                currentGroup.data.members =
-                    [
-                        ...(currentGroup.data.members || []),
-                        {
-                            name,
-                            phone
-                        }
-                    ];
-
-
-                renderMembers(
-                    currentGroup.data
-                );
-
-
-                document
-                    .getElementById(
-                        "memberNameInput"
-                    )
-                    .value = "";
-
-                document
-                    .getElementById(
-                        "memberPhoneInput"
-                    )
-                    .value = "";
-
-
-                alert(
-                    "Member add हो गया ✅"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-                alert(
-                    "Member add नहीं हुआ।"
-                );
-
-            }
-
-        }
+        addGroupMember
     );
+}
 
 
-/* =====================================================
-   GROUP CHAT
-===================================================== */
+async function addGroupMember() {
 
-function startGroupChat(
-    groupId
-) {
+    if (!selectedGroup) return;
 
-    const messages =
-        document.getElementById(
-            "groupMessages"
+
+    const name =
+        $("memberNameInput")?.value.trim();
+
+    const phone =
+        cleanPhone(
+            $("memberPhoneInput")?.value
         );
 
 
-    if (groupUnsubscribe) {
+    if (!name || !phone) {
 
-        groupUnsubscribe();
+        alert(
+            "Member का नाम और मोबाइल नंबर भरें।"
+        );
 
+        return;
     }
 
 
-    const q =
-        query(
-            collection(
+    if (
+        cleanPhone(
+            selectedGroup.ownerPhone
+        ) !==
+        cleanPhone(
+            currentUser.phone
+        )
+    ) {
+
+        alert(
+            "सिर्फ Group Owner member जोड़ सकता है।"
+        );
+
+        return;
+    }
+
+
+    try {
+
+        const allowedRef =
+            doc(
+                db,
+                "allowedUsers",
+                phone
+            );
+
+        const allowedSnap =
+            await getDoc(allowedRef);
+
+
+        if (!allowedSnap.exists()) {
+
+            alert(
+                "यह user Allowed Users में नहीं है।"
+            );
+
+            return;
+        }
+
+
+        const allowedData =
+            allowedSnap.data();
+
+
+        if (
+            String(
+                allowedData.name || ""
+            ).toLowerCase()
+            !==
+            name.toLowerCase()
+        ) {
+
+            alert(
+                "नाम और मोबाइल नंबर match नहीं करते।"
+            );
+
+            return;
+        }
+
+
+        const members =
+            Array.isArray(
+                selectedGroup.members
+            )
+                ? [...selectedGroup.members]
+                : [];
+
+
+        const alreadyMember =
+            members.some(
+                member =>
+                    cleanPhone(member.phone)
+                    === phone
+            );
+
+
+        if (alreadyMember) {
+
+            alert(
+                "यह member पहले से group में है।"
+            );
+
+            return;
+        }
+
+
+        members.push({
+            name: name,
+            phone: phone
+        });
+
+
+        await updateDoc(
+            doc(
                 db,
                 "groups",
-                groupId,
-                "messages"
+                selectedGroup.id
             ),
+            {
+                members: members
+            }
+        );
+
+
+        await setDoc(
+            doc(
+                db,
+                "groups",
+                selectedGroup.id,
+                "members",
+                phone
+            ),
+            {
+                name: name,
+                phone: phone,
+                addedAt: serverTimestamp()
+            }
+        );
+
+
+        selectedGroup.members =
+            members;
+
+
+        $("memberNameInput").value = "";
+        $("memberPhoneInput").value = "";
+
+        showGroupMembers();
+
+        alert(
+            "Member successfully add हो गया।"
+        );
+
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            "Member add करने में समस्या हुई।"
+        );
+
+    }
+}
+
+
+// ============================================================
+// 23. GROUP CHAT
+// ============================================================
+
+function startGroupMessages(groupId) {
+
+    if (currentGroupUnsubscribe) {
+        currentGroupUnsubscribe();
+    }
+
+
+    const messagesRef =
+        collection(
+            db,
+            "groups",
+            groupId,
+            "messages"
+        );
+
+
+    const messagesQuery =
+        query(
+            messagesRef,
             orderBy(
                 "createdAt",
                 "asc"
@@ -2161,30 +1505,38 @@ function startGroupChat(
         );
 
 
-    groupUnsubscribe =
+    currentGroupUnsubscribe =
         onSnapshot(
-            q,
+            messagesQuery,
             snapshot => {
 
-                messages.innerHTML =
-                    "";
+                const container =
+                    $("groupMessages");
+
+                if (!container) return;
+
+                container.innerHTML = "";
 
 
                 snapshot.forEach(
-                    item => {
+                    messageDoc => {
 
-                        const data =
-                            item.data();
-
-
-                        const mine =
-                            data.phone ===
-                            getUserPhone();
+                        const message =
+                            messageDoc.data();
 
 
                         const div =
                             document.createElement(
                                 "div"
+                            );
+
+
+                        const mine =
+                            cleanPhone(
+                                message.senderPhone
+                            ) ===
+                            cleanPhone(
+                                currentUser.phone
                             );
 
 
@@ -2195,99 +1547,65 @@ function startGroupChat(
 
 
                         div.innerHTML = `
+                            <div>
+                                <strong>
+                                    ${escapeHTML(
+                                        message.senderName || "User"
+                                    )}
+                                </strong>
+                            </div>
 
-                            <strong>
+                            <div>
                                 ${escapeHTML(
-                                    data.name ||
-                                    "Student"
+                                    message.text || ""
                                 )}
-                            </strong>
+                            </div>
 
-                            <p>
-                                ${escapeHTML(
-                                    data.message ||
-                                    ""
-                                )}
-                            </p>
-
-                            <small
-                                class="message-time"
-                            >
-                                ${escapeHTML(
-                                    formatDateTime(
-                                        data.createdAt
-                                    )
+                            <small>
+                                ${formatTime(
+                                    message.createdAt
                                 )}
                             </small>
-
                         `;
 
 
-                        messages.appendChild(
-                            div
-                        );
+                        container.appendChild(div);
 
                     }
                 );
 
 
-                messages.scrollTop =
-                    messages.scrollHeight;
+                container.scrollTop =
+                    container.scrollHeight;
 
             }
         );
-
 }
 
 
-document
-    .getElementById(
-        "sendGroupMessageBtn"
-    )
-    .addEventListener(
-        "click",
-        sendGroupMessage
-    );
+if ($("sendGroupMessageBtn")) {
 
-
-document
-    .getElementById(
-        "groupMessageInput"
-    )
-    .addEventListener(
-        "keydown",
-        event => {
-
-            if (
-                event.key ===
-                "Enter"
-            ) {
-
-                event.preventDefault();
-
-                sendGroupMessage();
-
-            }
-
-        }
-    );
+    $("sendGroupMessageBtn")
+        .addEventListener(
+            "click",
+            sendGroupMessage
+        );
+}
 
 
 async function sendGroupMessage() {
 
-    if (!currentGroup) return;
+    if (!selectedGroup) return;
 
 
     const input =
-        document
-            .getElementById(
-                "groupMessageInput"
-            );
+        $("groupMessageInput");
+
+    if (!input) return;
 
 
     const text =
         input.value.trim();
-
 
     if (!text) return;
 
@@ -2298,23 +1616,14 @@ async function sendGroupMessage() {
             collection(
                 db,
                 "groups",
-                currentGroup.id,
+                selectedGroup.id,
                 "messages"
             ),
             {
-
-                name:
-                    getUserName(),
-
-                phone:
-                    getUserPhone(),
-
-                message:
-                    text,
-
-                createdAt:
-                    now()
-
+                text: text,
+                senderName: currentUser.name,
+                senderPhone: currentUser.phone,
+                createdAt: serverTimestamp()
             }
         );
 
@@ -2323,1161 +1632,819 @@ async function sendGroupMessage() {
 
     } catch (error) {
 
-        console.error(
-            error
-        );
-
-        alert(
-            "Group message send नहीं हुआ।"
-        );
+        console.error(error);
 
     }
-
 }
 
 
-/* =====================================================
-   HOMEWORK
-===================================================== */
+// ============================================================
+// 24. HOMEWORK
+// ============================================================
 
-const homeworkDate =
-    document.getElementById(
-        "homeworkDate"
+if ($("addHomeworkBtn")) {
+
+    $("addHomeworkBtn")
+        .addEventListener(
+            "click",
+            saveHomework
+        );
+}
+
+
+function saveHomework() {
+
+    const date =
+        $("homeworkDate")?.value ||
+        new Date().toISOString().slice(0, 10);
+
+
+    const homework = {
+
+        date: date,
+
+        hindi:
+            $("hindiHomework")?.value || "",
+
+        english:
+            $("englishHomework")?.value || "",
+
+        math:
+            $("mathHomework")?.value || "",
+
+        science:
+            $("scienceHomework")?.value || "",
+
+        sst:
+            $("sstHomework")?.value || "",
+
+        computer:
+            $("computerHomework")?.value || "",
+
+        art:
+            $("artHomework")?.value || ""
+
+    };
+
+
+    const old =
+        JSON.parse(
+            localStorage.getItem(
+                "studyHomework"
+            ) || "[]"
+        );
+
+
+    old.push(homework);
+
+
+    localStorage.setItem(
+        "studyHomework",
+        JSON.stringify(old)
     );
 
-const homeworkInputs = {
 
-    hindi:
-        document.getElementById(
-            "hindiHomework"
-        ),
+    displayHomework();
 
-    english:
-        document.getElementById(
-            "englishHomework"
-        ),
-
-    maths:
-        document.getElementById(
-            "mathHomework"
-        ),
-
-    science:
-        document.getElementById(
-            "scienceHomework"
-        ),
-
-    sst:
-        document.getElementById(
-            "sstHomework"
-        ),
-
-    computer:
-        document.getElementById(
-            "computerHomework"
-        ),
-
-    art:
-        document.getElementById(
-            "artHomework"
-        )
-
-};
+    alert(
+        "Homework save हो गया।"
+    );
+}
 
 
-async function loadHomework() {
+function displayHomework() {
 
     const list =
-        document.getElementById(
-            "homeworkList"
-        );
+        $("homeworkList");
 
     if (!list) return;
 
 
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "homework"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(q);
-
-
-        list.innerHTML = "";
-
-
-        snapshot.forEach(
-            item => {
-
-                const data =
-                    item.data();
-
-
-                const div =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                div.className =
-                    "homework-item";
-
-
-                div.innerHTML = `
-
-                    <h3>
-                        📅
-                        ${escapeHTML(
-                            data.date ||
-                            ""
-                        )}
-                    </h3>
-
-                    <p>
-                        <strong>Hindi:</strong>
-                        ${escapeHTML(
-                            data.hindi ||
-                            ""
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>English:</strong>
-                        ${escapeHTML(
-                            data.english ||
-                            ""
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Maths:</strong>
-                        ${escapeHTML(
-                            data.maths ||
-                            ""
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Science:</strong>
-                        ${escapeHTML(
-                            data.science ||
-                            ""
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>SST:</strong>
-                        ${escapeHTML(
-                            data.sst ||
-                            ""
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Computer:</strong>
-                        ${escapeHTML(
-                            data.computer ||
-                            ""
-                        )}
-                    </p>
-
-                    <p>
-                        <strong>Art:</strong>
-                        ${escapeHTML(
-                            data.art ||
-                            ""
-                        )}
-                    </p>
-
-                    <small>
-                        👤
-                        ${escapeHTML(
-                            data.name ||
-                            "Student"
-                        )}
-                    </small>
-
-                `;
-
-
-                list.appendChild(
-                    div
-                );
-
-            }
+    const data =
+        JSON.parse(
+            localStorage.getItem(
+                "studyHomework"
+            ) || "[]"
         );
 
 
-    } catch (error) {
+    list.innerHTML = "";
 
-        console.error(
-            error
-        );
 
-    }
+    data.forEach(homework => {
 
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "homework-item";
+
+
+        div.innerHTML = `
+            <strong>
+                Date: ${escapeHTML(homework.date)}
+            </strong>
+
+            <p>Hindi: ${escapeHTML(homework.hindi)}</p>
+            <p>English: ${escapeHTML(homework.english)}</p>
+            <p>Math: ${escapeHTML(homework.math)}</p>
+            <p>Science: ${escapeHTML(homework.science)}</p>
+            <p>SST: ${escapeHTML(homework.sst)}</p>
+            <p>Computer: ${escapeHTML(homework.computer)}</p>
+            <p>Art: ${escapeHTML(homework.art)}</p>
+        `;
+
+
+        list.appendChild(div);
+
+    });
 }
 
 
-document
-    .getElementById(
-        "addHomeworkBtn"
-    )
-    .addEventListener(
-        "click",
-        async () => {
+// ============================================================
+// 25. SCHOOL UPDATES
+// ============================================================
 
-            const date =
-                homeworkDate.value;
+if ($("saveSchoolBtn")) {
 
-
-            if (!date) {
-
-                alert(
-                    "Date चुनें।"
-                );
-
-                return;
-            }
+    $("saveSchoolBtn")
+        .addEventListener(
+            "click",
+            saveSchoolUpdate
+        );
+}
 
 
-            try {
+function saveSchoolUpdate() {
 
-                await addDoc(
-                    collection(
-                        db,
-                        "homework"
-                    ),
-                    {
+    const text =
+        $("schoolInput")?.value.trim();
 
-                        date,
-
-                        hindi:
-                            homeworkInputs
-                                .hindi
-                                .value
-                                .trim(),
-
-                        english:
-                            homeworkInputs
-                                .english
-                                .value
-                                .trim(),
-
-                        maths:
-                            homeworkInputs
-                                .maths
-                                .value
-                                .trim(),
-
-                        science:
-                            homeworkInputs
-                                .science
-                                .value
-                                .trim(),
-
-                        sst:
-                            homeworkInputs
-                                .sst
-                                .value
-                                .trim(),
-
-                        computer:
-                            homeworkInputs
-                                .computer
-                                .value
-                                .trim(),
-
-                        art:
-                            homeworkInputs
-                                .art
-                                .value
-                                .trim(),
-
-                        name:
-                            getUserName(),
-
-                        createdAt:
-                            now()
-
-                    }
-                );
+    if (!text) return;
 
 
-                Object.values(
-                    homeworkInputs
-                ).forEach(
-                    input => {
-
-                        input.value = "";
-
-                    }
-                );
+    const data =
+        JSON.parse(
+            localStorage.getItem(
+                "studySchoolUpdates"
+            ) || "[]"
+        );
 
 
-                homeworkDate.value = "";
+    data.push({
+        text: text,
+        date: new Date().toLocaleString()
+    });
 
 
-                await loadHomework();
-
-
-                alert(
-                    "Homework Save हो गया ✅"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-                alert(
-                    "Homework save नहीं हुआ।"
-                );
-
-            }
-
-        }
+    localStorage.setItem(
+        "studySchoolUpdates",
+        JSON.stringify(data)
     );
 
 
-/* =====================================================
-   SCHOOL
-===================================================== */
+    $("schoolInput").value = "";
 
-async function loadSchool() {
+    displaySchoolUpdates();
+}
+
+
+function displaySchoolUpdates() {
 
     const list =
-        document.getElementById(
-            "schoolList"
+        $("schoolList");
+
+    if (!list) return;
+
+
+    const data =
+        JSON.parse(
+            localStorage.getItem(
+                "studySchoolUpdates"
+            ) || "[]"
         );
 
 
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "school"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
+    list.innerHTML = "";
 
 
-        const snapshot =
-            await getDocs(q);
+    data.forEach(update => {
+
+        const div =
+            document.createElement("div");
+
+        div.className =
+            "school-update";
 
 
-        list.innerHTML = "";
+        div.innerHTML = `
+            <p>
+                ${escapeHTML(update.text)}
+            </p>
+
+            <small>
+                ${escapeHTML(update.date)}
+            </small>
+        `;
 
 
-        snapshot.forEach(
-            item => {
+        list.appendChild(div);
 
-                const data =
-                    item.data();
-
-
-                const div =
-                    document.createElement(
-                        "div"
-                    );
-
-
-                div.className =
-                    "school-item";
-
-
-                div.innerHTML = `
-
-                    <strong>
-                        🏫
-                        ${escapeHTML(
-                            data.name ||
-                            "Student"
-                        )}
-                    </strong>
-
-                    <p>
-                        ${escapeHTML(
-                            data.update ||
-                            ""
-                        )}
-                    </p>
-
-                    <small>
-                        ${escapeHTML(
-                            formatDateTime(
-                                data.createdAt
-                            )
-                        )}
-                    </small>
-
-                `;
-
-
-                list.appendChild(
-                    div
-                );
-
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            error
-        );
-
-    }
-
+    });
 }
 
 
-document
-    .getElementById(
-        "saveSchoolBtn"
-    )
-    .addEventListener(
-        "click",
-        async () => {
+// ============================================================
+// 26. NOTES
+// ============================================================
 
-            const input =
-                document.getElementById(
-                    "schoolInput"
-                );
+if ($("saveNoteBtn")) {
 
-
-            const text =
-                input.value.trim();
+    $("saveNoteBtn")
+        .addEventListener(
+            "click",
+            saveNote
+        );
+}
 
 
-            if (!text) {
+function saveNote() {
 
-                alert(
-                    "School update लिखें।"
-                );
+    const text =
+        $("noteInput")?.value.trim();
 
-                return;
-            }
+    if (!text) return;
 
 
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "school"
-                    ),
-                    {
-
-                        name:
-                            getUserName(),
-
-                        update:
-                            text,
-
-                        createdAt:
-                            now()
-
-                    }
-                );
+    const notes =
+        JSON.parse(
+            localStorage.getItem(
+                "studyNotes"
+            ) || "[]"
+        );
 
 
-                input.value = "";
+    notes.push({
+        text: text,
+        date: new Date().toLocaleString()
+    });
 
-                await loadSchool();
 
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-            }
-
-        }
+    localStorage.setItem(
+        "studyNotes",
+        JSON.stringify(notes)
     );
 
 
-/* =====================================================
-   NOTES
-===================================================== */
+    $("noteInput").value = "";
 
-async function loadNotes() {
+    displayNotes();
+}
+
+
+function displayNotes() {
 
     const list =
-        document.getElementById(
-            "notesList"
+        $("notesList");
+
+    if (!list) return;
+
+
+    const notes =
+        JSON.parse(
+            localStorage.getItem(
+                "studyNotes"
+            ) || "[]"
         );
 
 
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "notes"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
+    list.innerHTML = "";
 
 
-        const snapshot =
-            await getDocs(q);
+    notes.forEach(note => {
+
+        const div =
+            document.createElement("div");
 
 
-        list.innerHTML = "";
+        div.className =
+            "note-item";
 
 
-        snapshot.forEach(
-            item => {
+        div.innerHTML = `
+            <p>
+                ${escapeHTML(note.text)}
+            </p>
 
-                const data =
-                    item.data();
-
-
-                const div =
-                    document.createElement(
-                        "div"
-                    );
+            <small>
+                ${escapeHTML(note.date)}
+            </small>
+        `;
 
 
-                div.className =
-                    "note-item";
+        list.appendChild(div);
 
-
-                div.innerHTML = `
-
-                    <strong>
-                        📝
-                        ${escapeHTML(
-                            data.name ||
-                            "Student"
-                        )}
-                    </strong>
-
-                    <p>
-                        ${escapeHTML(
-                            data.note ||
-                            ""
-                        )}
-                    </p>
-
-                    <small>
-                        ${escapeHTML(
-                            formatDateTime(
-                                data.createdAt
-                            )
-                        )}
-                    </small>
-
-                `;
-
-
-                list.appendChild(
-                    div
-                );
-
-            }
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            error
-        );
-
-    }
-
+    });
 }
 
 
-document
-    .getElementById(
-        "saveNoteBtn"
-    )
-    .addEventListener(
-        "click",
-        async () => {
+// ============================================================
+// 27. CHANGE NAME
+// ============================================================
 
-            const input =
-                document.getElementById(
-                    "noteInput"
+if ($("changeNameBtn")) {
+
+    $("changeNameBtn")
+        .addEventListener(
+            "click",
+            () => {
+
+                const name =
+                    $("changeNameInput")
+                        ?.value.trim();
+
+
+                if (!name) {
+
+                    setMessage(
+                        "changeNameMessage",
+                        "नया नाम लिखें।"
+                    );
+
+                    return;
+                }
+
+
+                currentUser.name =
+                    name;
+
+
+                localStorage.setItem(
+                    "studyConnectUser",
+                    JSON.stringify(
+                        currentUser
+                    )
                 );
 
 
-            const text =
-                input.value.trim();
+                if ($("studentName")) {
+                    $("studentName").value =
+                        name;
+                }
 
 
-            if (!text) {
-
-                alert(
-                    "Note लिखें।"
-                );
-
-                return;
-            }
+                if ($("currentUserProfile")) {
+                    $("currentUserProfile")
+                        .textContent =
+                        name;
+                }
 
 
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "notes"
-                    ),
-                    {
-
-                        name:
-                            getUserName(),
-
-                        note:
-                            text,
-
-                        createdAt:
-                            now()
-
-                    }
-                );
-
-
-                input.value = "";
-
-                await loadNotes();
-
-            } catch (error) {
-
-                console.error(
-                    error
+                setMessage(
+                    "changeNameMessage",
+                    "नाम बदल दिया गया।"
                 );
 
             }
-
-        }
-    );
-
-
-/* =====================================================
-   SETTINGS — NAME
-===================================================== */
-
-document
-    .getElementById(
-        "changeNameBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            const input =
-                document.getElementById(
-                    "changeNameInput"
-                );
+        );
+}
 
 
-            const message =
-                document.getElementById(
-                    "changeNameMessage"
-                );
-
-
-            const name =
-                input.value.trim();
-
-
-            if (!name) {
-
-                message.textContent =
-                    "नया नाम लिखें।";
-
-                return;
-            }
-
-
-            localStorage.setItem(
-                "studyName",
-                name
-            );
-
-
-            currentUser = {
-
-                name,
-
-                phone:
-                    getUserPhone()
-
-            };
-
-
-            message.textContent =
-                "Name changed ✅";
-
-
-            input.value = "";
-
-
-            updateHomeProfile();
-
-            updatePresence();
-
-        }
-    );
-
-
-/* =====================================================
-   LANGUAGE
-===================================================== */
+// ============================================================
+// 28. LANGUAGE
+// ============================================================
 
 const translations = {
 
     hi: {
 
-        home: "🏠 Home",
-        chat: "💬 Chat",
-        groups: "👥 Groups",
-        homework: "📚 Homework",
-        school: "🏫 School",
-        notes: "📝 Notes",
-        settings: "⚙️ Settings"
+        home: "होम",
+        chat: "चैट",
+        groups: "ग्रुप्स",
+        homework: "होमवर्क",
+        school: "स्कूल",
+        notes: "नोट्स",
+        settings: "सेटिंग्स",
+
+        welcome: "StudyConnect में आपका स्वागत है",
+        welcomeText:
+            "अपने दोस्तों और स्कूल के साथ जुड़े रहें।",
+
+        yourName: "आपका नाम",
+        saveName: "नाम सेव करें",
+
+        onlineNow: "अभी ऑनलाइन",
+
+        chatTitle: "चैट",
+        send: "भेजें",
+
+        groupsTitle: "ग्रुप्स",
+        createGroup: "ग्रुप बनाएँ",
+        createGroupButton: "ग्रुप बनाएँ",
+
+        addMember: "Member जोड़ें",
+        addMemberButton: "Member जोड़ें",
+
+        homeworkTitle: "होमवर्क",
+        date: "तारीख",
+        saveHomework: "होमवर्क सेव करें",
+
+        schoolUpdateTitle: "स्कूल अपडेट",
+        saveUpdate: "अपडेट सेव करें",
+
+        notesTitle: "नोट्स",
+        saveNote: "नोट सेव करें",
+
+        settingsTitle: "सेटिंग्स",
+
+        changeName: "नाम बदलें",
+        changeNameButton: "नाम बदलें",
+
+        language: "भाषा",
+        theme: "थीम",
+
+        notifications: "नोटिफिकेशन",
+        enableNotifications:
+            "नोटिफिकेशन चालू करें",
+
+        resetAppData:
+            "App Data Reset करें",
+
+        owner: "Owner"
 
     },
 
     en: {
 
-        home: "🏠 Home",
-        chat: "💬 Chat",
-        groups: "👥 Groups",
-        homework: "📚 Homework",
-        school: "🏫 School",
-        notes: "📝 Notes",
-        settings: "⚙️ Settings"
+        home: "Home",
+        chat: "Chat",
+        groups: "Groups",
+        homework: "Homework",
+        school: "School",
+        notes: "Notes",
+        settings: "Settings",
+
+        welcome: "Welcome to StudyConnect",
+        welcomeText:
+            "Stay connected with your friends and school.",
+
+        yourName: "Your Name",
+        saveName: "Save Name",
+
+        onlineNow: "Online Now",
+
+        chatTitle: "Chat",
+        send: "Send",
+
+        groupsTitle: "Groups",
+        createGroup: "Create Group",
+        createGroupButton: "Create Group",
+
+        addMember: "Add Member",
+        addMemberButton: "Add Member",
+
+        homeworkTitle: "Homework",
+        date: "Date",
+        saveHomework: "Save Homework",
+
+        schoolUpdateTitle: "School Update",
+        saveUpdate: "Save Update",
+
+        notesTitle: "Notes",
+        saveNote: "Save Note",
+
+        settingsTitle: "Settings",
+
+        changeName: "Change Name",
+        changeNameButton: "Change Name",
+
+        language: "Language",
+        theme: "Theme",
+
+        notifications: "Notifications",
+        enableNotifications:
+            "Enable Notifications",
+
+        resetAppData:
+            "Reset App Data",
+
+        owner: "Owner"
 
     }
 
 };
 
 
-function applyLanguage(
-    language
-) {
+function setLanguage(language) {
 
-    localStorage.setItem(
-        "studyLanguage",
-        language
-    );
-
-
-    const t =
+    const selected =
         translations[language];
+
+    if (!selected) return;
 
 
     document
-        .querySelectorAll(
-            "[data-page]"
-        )
-        .forEach(button => {
+        .querySelectorAll("[data-i18n]")
+        .forEach(element => {
 
-            const page =
-                button.getAttribute(
-                    "data-page"
-                );
+            const key =
+                element.dataset.i18n;
 
+            if (selected[key]) {
 
-            if (t[page]) {
-
-                button.textContent =
-                    t[page];
+                element.textContent =
+                    selected[key];
 
             }
 
         });
 
 
-    document
-        .getElementById(
-            "languageMessage"
-        )
-        .textContent =
-        language === "hi"
-            ? "भाषा हिंदी कर दी गई।"
-            : "Language changed to English.";
-
+    localStorage.setItem(
+        "studyLanguage",
+        language
+    );
 }
 
 
-document
-    .getElementById(
-        "hindiLanguageBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
+if ($("hindiLanguageBtn")) {
 
-            applyLanguage(
-                "hi"
-            );
+    $("hindiLanguageBtn")
+        .addEventListener(
+            "click",
+            () => {
 
-        }
-    );
+                setLanguage("hi");
 
-
-document
-    .getElementById(
-        "englishLanguageBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            applyLanguage(
-                "en"
-            );
-
-        }
-    );
-
-
-/* =====================================================
-   DARK MODE
-===================================================== */
-
-document
-    .getElementById(
-        "themeBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            document.body
-                .classList
-                .toggle(
-                    "dark"
+                setMessage(
+                    "languageMessage",
+                    "भाषा हिन्दी कर दी गई।"
                 );
 
-
-            localStorage.setItem(
-                "darkMode",
-                document.body.classList.contains(
-                    "dark"
-                )
-            );
-
-        }
-    );
-
-
-if (
-    localStorage.getItem(
-        "darkMode"
-    ) === "true"
-) {
-
-    document.body
-        .classList
-        .add("dark");
-
+            }
+        );
 }
 
 
-/* =====================================================
-   NOTIFICATIONS
-===================================================== */
+if ($("englishLanguageBtn")) {
 
-document
-    .getElementById(
-        "notificationBtn"
-    )
-    .addEventListener(
-        "click",
-        async () => {
+    $("englishLanguageBtn")
+        .addEventListener(
+            "click",
+            () => {
 
-            const message =
-                document.getElementById(
-                    "notificationMessage"
+                setLanguage("en");
+
+                setMessage(
+                    "languageMessage",
+                    "Language changed to English."
+                );
+
+            }
+        );
+}
+
+
+// ============================================================
+// 29. THEME
+// ============================================================
+
+if ($("themeBtn")) {
+
+    $("themeBtn")
+        .addEventListener(
+            "click",
+            () => {
+
+                document.body.classList.toggle(
+                    "dark-mode"
                 );
 
 
-            if (
-                !("Notification" in window)
-            ) {
-
-                message.textContent =
-                    "इस browser में notifications supported नहीं हैं।";
-
-                return;
-            }
-
-
-            const permission =
-                await Notification.requestPermission();
-
-
-            if (
-                permission ===
-                "granted"
-            ) {
-
-                message.textContent =
-                    "Notifications enabled ✅";
-
-
-                new Notification(
-                    "StudyConnect",
-                    {
-                        body:
-                            "Notifications अब चालू हैं।"
-                    }
-                );
-
-            } else {
-
-                message.textContent =
-                    "Notification permission नहीं मिली।";
-
-            }
-
-        }
-    );
-
-
-/* =====================================================
-   OWNER PANEL
-===================================================== */
-
-document
-    .getElementById(
-        "ownerLoginBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
-
-            const password =
-                document
-                    .getElementById(
-                        "ownerPasswordInput"
-                    )
-                    .value;
-
-
-            const message =
-                document
-                    .getElementById(
-                        "ownerPasswordMessage"
+                const dark =
+                    document.body.classList.contains(
+                        "dark-mode"
                     );
 
 
-            if (
-                password !==
-                OWNER_PASSWORD
-            ) {
-
-                message.textContent =
-                    "गलत Owner password ❌";
-
-                return;
-            }
-
-
-            if (
-                getUserPhone() !==
-                OWNER_PHONE
-            ) {
-
-                message.textContent =
-                    "Owner panel सिर्फ Owner के लिए है।";
-
-                return;
-            }
-
-
-            message.textContent =
-                "Owner Panel opened ✅";
-
-
-            document
-                .getElementById(
-                    "ownerPanel"
-                )
-                .classList
-                .remove(
-                    "hidden"
+                localStorage.setItem(
+                    "studyDarkMode",
+                    dark
+                        ? "true"
+                        : "false"
                 );
 
-
-            loadAllowedUsers();
-
-        }
-    );
-
-
-/* =====================================================
-   ALLOW USER
-===================================================== */
-
-document
-    .getElementById(
-        "allowUserBtn"
-    )
-    .addEventListener(
-        "click",
-        async () => {
-
-            if (
-                getUserPhone() !==
-                OWNER_PHONE
-            ) {
-
-                alert(
-                    "Owner only."
-                );
-
-                return;
             }
+        );
+}
 
 
-            const name =
-                document
-                    .getElementById(
-                        "allowedUserNameInput"
-                    )
-                    .value
-                    .trim();
+// ============================================================
+// 30. NOTIFICATIONS
+// ============================================================
+
+if ($("notificationBtn")) {
+
+    $("notificationBtn")
+        .addEventListener(
+            "click",
+            async () => {
+
+                if (
+                    !("Notification" in window)
+                ) {
+
+                    setMessage(
+                        "notificationMessage",
+                        "इस browser में notifications उपलब्ध नहीं हैं।"
+                    );
+
+                    return;
+                }
 
 
-            const phone =
-                document
-                    .getElementById(
-                        "allowedUserPhoneInput"
-                    )
-                    .value
-                    .trim();
+                try {
+
+                    const permission =
+                        await Notification.requestPermission();
 
 
-            if (
-                name.length < 2
-            ) {
+                    if (
+                        permission ===
+                        "granted"
+                    ) {
 
-                alert(
-                    "User name लिखें।"
-                );
-
-                return;
-            }
-
-
-            if (
-                !/^[0-9]{10}$/.test(
-                    phone
-                )
-            ) {
-
-                alert(
-                    "सही mobile number डालें।"
-                );
-
-                return;
-            }
+                        setMessage(
+                            "notificationMessage",
+                            "Notifications चालू हो गए।"
+                        );
 
 
-            try {
+                        new Notification(
+                            "StudyConnect",
+                            {
+                                body:
+                                    "Notifications successfully enabled."
+                            }
+                        );
 
-                await setDoc(
-                    doc(
-                        db,
-                        "allowedUsers",
-                        phone
-                    ),
-                    {
+                    } else {
 
-                        name,
-
-                        phone,
-
-                        allowed: true,
-
-                        addedBy:
-                            OWNER_NAME,
-
-                        createdAt:
-                            now()
+                        setMessage(
+                            "notificationMessage",
+                            "Notifications की अनुमति नहीं मिली।"
+                        );
 
                     }
-                );
 
+                } catch (error) {
 
-                document
-                    .getElementById(
-                        "allowedUserNameInput"
-                    )
-                    .value = "";
+                    console.error(error);
 
-                document
-                    .getElementById(
-                        "allowedUserPhoneInput"
-                    )
-                    .value = "";
-
-
-                await loadAllowedUsers();
-
-
-                alert(
-                    "User allowed ✅"
-                );
-
-
-            } catch (error) {
-
-                console.error(
-                    error
-                );
-
-                alert(
-                    "User allow नहीं हुआ।"
-                );
+                }
 
             }
+        );
+}
 
-        }
+
+// ============================================================
+// 31. OWNER PANEL
+// ============================================================
+
+if ($("ownerLoginBtn")) {
+
+    $("ownerLoginBtn")
+        .addEventListener(
+            "click",
+            openOwnerPanel
+        );
+}
+
+
+function openOwnerPanel() {
+
+    const password =
+        $("ownerPasswordInput")
+            ?.value.trim();
+
+
+    if (
+        password !==
+        OWNER_PASSWORD
+    ) {
+
+        setMessage(
+            "ownerPasswordMessage",
+            "गलत Owner Password।"
+        );
+
+        return;
+    }
+
+
+    showElement("ownerPanel");
+
+    setMessage(
+        "ownerPasswordMessage",
+        "Owner Panel खुल गया।"
     );
 
 
-/* =====================================================
-   LOAD ALLOWED USERS
-===================================================== */
+    loadAllowedUsers();
+}
+
+
+// ============================================================
+// 32. ADD ALLOWED USER
+// ============================================================
+
+if ($("allowUserBtn")) {
+
+    $("allowUserBtn")
+        .addEventListener(
+            "click",
+            allowUser
+        );
+}
+
+
+async function allowUser() {
+
+    const name =
+        $("allowedUserNameInput")
+            ?.value.trim();
+
+
+    const phone =
+        cleanPhone(
+            $("allowedUserPhoneInput")
+                ?.value
+        );
+
+
+    if (!name || !phone) {
+
+        alert(
+            "User का नाम और मोबाइल नंबर भरें।"
+        );
+
+        return;
+    }
+
+
+    try {
+
+        await setDoc(
+            doc(
+                db,
+                "allowedUsers",
+                phone
+            ),
+            {
+                name: name,
+                phone: phone,
+                addedAt: serverTimestamp()
+            }
+        );
+
+
+        $("allowedUserNameInput")
+            .value = "";
+
+        $("allowedUserPhoneInput")
+            .value = "";
+
+
+        loadAllowedUsers();
+
+
+        alert(
+            "User को अनुमति दे दी गई।"
+        );
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            "User add करने में समस्या हुई।"
+        );
+
+    }
+}
+
+
+// ============================================================
+// 33. LOAD ALLOWED USERS
+// ============================================================
 
 async function loadAllowedUsers() {
 
     const list =
-        document.getElementById(
-            "allowedUsersList"
-        );
+        $("allowedUsersList");
+
+    if (!list) return;
 
 
     try {
@@ -3495,192 +2462,201 @@ async function loadAllowedUsers() {
 
 
         snapshot.forEach(
-            item => {
+            userDoc => {
 
-                const data =
-                    item.data();
+                const user =
+                    userDoc.data();
 
 
-                const div =
+                const item =
                     document.createElement(
                         "div"
                     );
 
 
-                div.className =
-                    "member-item";
+                item.textContent =
+                    `${user.name} - ${user.phone}`;
 
 
-                div.innerHTML = `
-
-                    👤
-                    <strong>
-                        ${escapeHTML(
-                            data.name ||
-                            ""
-                        )}
-                    </strong>
-
-                    <br>
-
-                    📱
-                    ${escapeHTML(
-                        data.phone ||
-                        item.id
-                    )}
-
-                `;
-
-
-                list.appendChild(
-                    div
-                );
+                list.appendChild(item);
 
             }
         );
 
-
     } catch (error) {
 
-        console.error(
-            error
-        );
+        console.error(error);
 
     }
-
 }
 
 
-/* =====================================================
-   RESET LOCAL DATA
-===================================================== */
+// ============================================================
+// 34. RESET APP DATA
+// ============================================================
 
-document
-    .getElementById(
-        "clearDataBtn"
-    )
-    .addEventListener(
-        "click",
-        () => {
+if ($("clearDataBtn")) {
 
-            const yes =
-                confirm(
-                    "क्या इस device का StudyConnect login data reset करना है?"
+    $("clearDataBtn")
+        .addEventListener(
+            "click",
+            () => {
+
+                const confirmReset =
+                    confirm(
+                        "क्या आप App का local data हटाना चाहते हैं?"
+                    );
+
+
+                if (!confirmReset) return;
+
+
+                localStorage.removeItem(
+                    "studyHomework"
+                );
+
+                localStorage.removeItem(
+                    "studySchoolUpdates"
+                );
+
+                localStorage.removeItem(
+                    "studyNotes"
+                );
+
+                localStorage.removeItem(
+                    "studyDarkMode"
                 );
 
 
-            if (!yes) return;
+                setMessage(
+                    "settingsMessage",
+                    "App data reset हो गया।"
+                );
 
 
-            localStorage.removeItem(
-                "studyName"
-            );
+                displayHomework();
+                displaySchoolUpdates();
+                displayNotes();
 
-            localStorage.removeItem(
-                "studyPhone"
-            );
-
-            localStorage.removeItem(
-                "studyLanguage"
-            );
-
-            localStorage.removeItem(
-                "darkMode"
-            );
+            }
+        );
+}
 
 
-            location.reload();
+// ============================================================
+// 35. RESTORE SETTINGS
+// ============================================================
 
-        }
-    );
+const savedLanguage =
+    localStorage.getItem(
+        "studyLanguage"
+    ) || "hi";
 
-
-/* =====================================================
-   LOGOUT BY DOUBLE CLICK ON BRAND
-   (simple local logout)
-===================================================== */
-
-document
-    .querySelector(".brand")
-    .addEventListener(
-        "dblclick",
-        () => {
-
-            localStorage.removeItem(
-                "studyName"
-            );
-
-            localStorage.removeItem(
-                "studyPhone"
-            );
-
-            location.reload();
-
-        }
-    );
-
-
-/* =====================================================
-   INITIAL START
-===================================================== */
-
-document
-    .getElementById(
-        "appContainer"
-    )
-    .style.display = "none";
-
-
-document
-    .getElementById(
-        "contactOwnerScreen"
-    )
-    .classList.add(
-        "hidden"
-    );
-
-
-loginStep(
-    "schoolPasswordStep"
-);
-
-
-/* Saved user information */
-
-const savedName =
-    getUserName();
-
-const savedPhone =
-    getUserPhone();
+setLanguage(savedLanguage);
 
 
 if (
-    savedName &&
-    savedPhone
+    localStorage.getItem(
+        "studyDarkMode"
+    ) === "true"
 ) {
 
-    currentUser = {
+    document.body.classList.add(
+        "dark-mode"
+    );
+}
 
-        name:
-            savedName,
 
-        phone:
-            savedPhone
+// ============================================================
+// 36. RESTORE USER
+// ============================================================
 
-    };
+try {
+
+    const savedUser =
+        JSON.parse(
+            localStorage.getItem(
+                "studyConnectUser"
+            )
+        );
+
+
+    if (
+        savedUser &&
+        savedUser.name &&
+        savedUser.phone
+    ) {
+
+        currentUser =
+            savedUser;
+
+    }
+
+} catch (error) {
+
+    console.error(error);
 
 }
 
 
-/* Language */
+// ============================================================
+// 37. INITIAL LOCAL DATA
+// ============================================================
 
-applyLanguage(
-    localStorage.getItem(
-        "studyLanguage"
-    ) || "hi"
-);
+displayHomework();
+displaySchoolUpdates();
+displayNotes();
+
+
+// ============================================================
+// 38. DEFAULT PAGE
+// ============================================================
+
+showPage("home");
+
+
+// ============================================================
+// 39. SERVICE WORKER / PWA
+// ============================================================
+
+if (
+    "serviceWorker" in navigator
+) {
+
+    window.addEventListener(
+        "load",
+        () => {
+
+            navigator.serviceWorker
+                .register(
+                    "./service-worker.js"
+                )
+                .then(
+                    registration => {
+
+                        console.log(
+                            "Service Worker registered:",
+                            registration.scope
+                        );
+
+                    }
+                )
+                .catch(
+                    error => {
+
+                        console.error(
+                            "Service Worker error:",
+                            error
+                        );
+
+                    }
+                );
+
+        }
+    );
+}
 
 
 console.log(
-    "StudyConnect is ready ✅"
+    "StudyConnect JavaScript loaded successfully."
 );
