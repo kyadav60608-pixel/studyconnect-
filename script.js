@@ -1,11 +1,12 @@
-/* =========================================================
-   STUDYCONNECT - FINAL SCRIPT
-   Firebase + Realtime Chat + Groups + Online Users
-   ========================================================= */
+// ============================================================
+// STUDYCONNECT - COMPLETE JAVASCRIPT
+// ============================================================
+// Login + Firebase + Realtime Chat + Groups + Online Users
+// Homework + School + Notes + Settings
+// ============================================================
 
-import {
-    initializeApp
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { initializeApp } from
+    "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
 import {
     getFirestore,
@@ -13,20 +14,22 @@ import {
     addDoc,
     getDocs,
     getDoc,
-    doc,
     setDoc,
     updateDoc,
     deleteDoc,
+    doc,
     query,
     orderBy,
     onSnapshot,
+    serverTimestamp,
     arrayUnion
-} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+} from
+    "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
-/* =========================================================
-   FIREBASE
-   ========================================================= */
+// ============================================================
+// FIREBASE
+// ============================================================
 
 const firebaseConfig = {
     apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3AUCdPWypag",
@@ -41,741 +44,832 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
+console.log("StudyConnect Firebase connected.");
 
-/* =========================================================
-   APP SETTINGS
-   ========================================================= */
+
+// ============================================================
+// SETTINGS
+// ============================================================
 
 const APP_PASSWORD = "123";
 
 const OWNER_NAME = "Krishna Yadav";
+const OWNER_SHORT_NAME = "Krishna";
 
 const OWNER_SETTINGS_PASSWORD = "12341";
 
-const OWNER_CONTACT_NUMBER = "8738084554";
-
-const ONLINE_TIMEOUT = 70000;
+const OWNER_PHONE = "8738084554";
 
 
-/* =========================================================
-   COMMON HELPERS
-   ========================================================= */
+// ============================================================
+// GLOBAL VARIABLES
+// ============================================================
 
-function now() {
-    return Date.now();
+let currentUserName = "";
+
+let currentGroupId = null;
+let currentGroupData = null;
+
+let chatUnsubscribe = null;
+let groupUnsubscribe = null;
+let groupsUnsubscribe = null;
+let onlineUnsubscribe = null;
+
+let onlineHeartbeat = null;
+
+let loginStep = 1;
+
+
+// ============================================================
+// HELPER FUNCTIONS
+// ============================================================
+
+function escapeHTML(value) {
+
+    const div = document.createElement("div");
+
+    div.textContent = value ?? "";
+
+    return div.innerHTML;
 }
 
 
 function getUserName() {
+
     return localStorage.getItem("studyName") || "";
 }
 
 
-function escapeHTML(value) {
-    return String(value ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
+function setUserName(name) {
+
+    currentUserName = name;
+
+    localStorage.setItem("studyName", name);
 }
 
 
-function formatDateTime(timestamp) {
-    if (!timestamp) return "";
+function getCurrentUser() {
 
-    try {
-        return new Date(timestamp).toLocaleString("hi-IN", {
-            dateStyle: "short",
-            timeStyle: "short"
-        });
-    } catch (error) {
+    return currentUserName || getUserName();
+}
+
+
+function getNow() {
+
+    return Date.now();
+}
+
+
+function formatDateTime(value) {
+
+    if (!value) {
         return "";
     }
-}
 
+    let date;
 
-function safeId(text) {
-    return btoa(
-        unescape(
-            encodeURIComponent(String(text))
-        )
-    ).replace(/[^a-zA-Z0-9]/g, "");
-}
+    if (typeof value === "number") {
 
+        date = new Date(value);
 
-/* =========================================================
-   ALLOWED USERS
-   ========================================================= */
+    } else if (value && typeof value.toDate === "function") {
 
-function getAllowedUsers() {
+        date = value.toDate();
 
-    const saved = localStorage.getItem("studyAllowedUsers");
+    } else {
 
-    if (!saved) {
-        return [OWNER_NAME];
+        date = new Date(value);
     }
 
-    try {
+    if (Number.isNaN(date.getTime())) {
 
-        const users = JSON.parse(saved);
-
-        if (!Array.isArray(users)) {
-            return [OWNER_NAME];
-        }
-
-        if (!users.includes(OWNER_NAME)) {
-            users.unshift(OWNER_NAME);
-        }
-
-        return users;
-
-    } catch (error) {
-
-        return [OWNER_NAME];
+        return "";
     }
+
+    return date.toLocaleString("en-IN", {
+
+        day: "2-digit",
+
+        month: "short",
+
+        year: "numeric",
+
+        hour: "2-digit",
+
+        minute: "2-digit"
+    });
 }
 
 
-function saveAllowedUsers(users) {
+// ============================================================
+// PAGE NAVIGATION
+// ============================================================
 
-    const cleaned = [];
+function showPage(pageId) {
 
-    users.forEach(name => {
+    document.querySelectorAll(".page").forEach(page => {
 
-        const value = String(name).trim();
+        page.classList.remove("active");
 
-        if (!value) return;
-
-        if (!cleaned.includes(value)) {
-            cleaned.push(value);
-        }
     });
 
-    if (!cleaned.includes(OWNER_NAME)) {
-        cleaned.unshift(OWNER_NAME);
+    const page = document.getElementById(pageId);
+
+    if (page) {
+
+        page.classList.add("active");
     }
 
-    localStorage.setItem(
-        "studyAllowedUsers",
-        JSON.stringify(cleaned)
-    );
-}
+    const navMenu = document.getElementById("navMenu");
 
+    if (navMenu) {
 
-function isAllowedUser(name) {
-
-    const allowed = getAllowedUsers();
-
-    return allowed.some(
-        user =>
-            user.toLowerCase() ===
-            String(name).trim().toLowerCase()
-    );
-}
-
-
-/* =========================================================
-   LOGIN / OPEN SCREEN
-   ========================================================= */
-
-const passwordScreen =
-    document.getElementById("passwordScreen");
-
-const openUserName =
-    document.getElementById("openUserName");
-
-const appPassword =
-    document.getElementById("appPassword");
-
-const unlockBtn =
-    document.getElementById("unlockBtn");
-
-const passwordError =
-    document.getElementById("passwordError");
-
-
-function showApp() {
-
-    if (passwordScreen) {
-        passwordScreen.style.display = "none";
-    }
-
-    document.body.classList.add("study-app-open");
-
-    startOnlineStatus();
-
-    startRealtimeData();
-
-    updateOnlineArrow();
-
-    applyLanguage(
-        localStorage.getItem("studyLanguage") || "hi"
-    );
-}
-
-
-function showPasswordError(message) {
-
-    if (passwordError) {
-        passwordError.textContent = message;
-        passwordError.style.display = "block";
+        navMenu.classList.remove("show");
     }
 }
 
+
+// Navigation buttons
+
+document.querySelectorAll("[data-page]").forEach(button => {
+
+    button.addEventListener("click", () => {
+
+        const page = button.getAttribute("data-page");
+
+        if (page) {
+
+            showPage(page);
+        }
+    });
+});
+
+
+// Home cards
+
+document.querySelectorAll(".open-page").forEach(card => {
+
+    card.addEventListener("click", () => {
+
+        const page = card.getAttribute("data-page");
+
+        if (page) {
+
+            showPage(page);
+        }
+    });
+});
+
+
+// Menu
+
+const menuBtn = document.getElementById("menuBtn");
+
+const navMenu = document.getElementById("navMenu");
+
+if (menuBtn && navMenu) {
+
+    menuBtn.addEventListener("click", () => {
+
+        navMenu.classList.toggle("show");
+
+    });
+}
+
+
+// ============================================================
+// LOGIN
+// ============================================================
+// IMPORTANT:
+// Existing HTML IDs are used.
+// passwordScreen
+// openUserName
+// appPassword
+// unlockBtn
+// passwordError
+// ============================================================
 
 function setupLogin() {
 
-    if (!unlockBtn) return;
+    const screen = document.getElementById("passwordScreen");
 
-    const savedName = getUserName();
+    const nameInput = document.getElementById("openUserName");
 
-    if (savedName && openUserName) {
-        openUserName.value = savedName;
-    }
+    const passwordInput = document.getElementById("appPassword");
 
-    unlockBtn.addEventListener("click", () => {
+    const unlockBtn = document.getElementById("unlockBtn");
 
-        const name =
-            openUserName?.value.trim() || savedName;
+    const errorBox = document.getElementById("passwordError");
 
-        const password =
-            appPassword?.value || "";
-
-        if (!name) {
-
-            showPasswordError(
-                "पहले अपना नाम लिखें।"
-            );
-
-            return;
-        }
-
-        if (!password) {
-
-            showPasswordError(
-                "Password लिखें।"
-            );
-
-            return;
-        }
-
-        if (password !== APP_PASSWORD) {
-
-            showPasswordError(
-                "गलत Password!"
-            );
-
-            return;
-        }
-
-        if (!isAllowedUser(name)) {
-
-            showPasswordError(
-                "यह नाम StudyConnect में allowed नहीं है।\n\n" +
-                "कृपया App Owner से संपर्क करें।\n" +
-                "Owner: " +
-                OWNER_NAME +
-                "\n" +
-                "Contact: " +
-                OWNER_CONTACT_NUMBER
-            );
-
-            return;
-        }
-
-        localStorage.setItem(
-            "studyName",
-            name
-        );
-
-        sessionStorage.setItem(
-            "studyUnlocked",
-            "true"
-        );
-
-        if (passwordError) {
-            passwordError.style.display = "none";
-        }
-
-        showApp();
-    });
-}
-
-
-setupLogin();
-
-
-/* =========================================================
-   NAVIGATION
-   ========================================================= */
-
-function showPage(pageName) {
-
-    const pages =
-        document.querySelectorAll(".page");
-
-    pages.forEach(page => {
-
-        const pageId =
-            page.id ||
-            page.getAttribute("data-page");
-
-        const pageNameAttribute =
-            page.getAttribute("data-page");
-
-        if (
-            pageId === pageName ||
-            pageNameAttribute === pageName ||
-            page.id === pageName + "Page"
-        ) {
-            page.style.display = "";
-            page.classList.add("active");
-        } else {
-            page.style.display = "none";
-            page.classList.remove("active");
-        }
-    });
-
-    const navMenu =
-        document.getElementById("navMenu");
-
-    if (navMenu) {
-        navMenu.classList.remove("open");
-    }
-}
-
-
-function setupNavigation() {
-
-    const menuBtn =
-        document.getElementById("menuBtn");
-
-    const navMenu =
-        document.getElementById("navMenu");
-
-    if (menuBtn && navMenu) {
-
-        menuBtn.addEventListener("click", () => {
-
-            navMenu.classList.toggle("open");
-
-        });
-    }
-
-
-    document.querySelectorAll("[data-page]").forEach(item => {
-
-        item.addEventListener("click", () => {
-
-            const page =
-                item.getAttribute("data-page");
-
-            if (page) {
-                showPage(page);
-            }
-        });
-    });
-
-
-    document.querySelectorAll(".open-page").forEach(item => {
-
-        item.addEventListener("click", () => {
-
-            const page =
-                item.getAttribute("data-page");
-
-            if (page) {
-                showPage(page);
-            }
-        });
-    });
-}
-
-
-setupNavigation();
-
-
-/* =========================================================
-   HOME NAME
-   ========================================================= */
-
-const studentName =
-    document.getElementById("studentName");
-
-const saveNameBtn =
-    document.getElementById("saveNameBtn");
-
-const nameMessage =
-    document.getElementById("nameMessage");
-
-const changeNameInput =
-    document.getElementById("changeNameInput");
-
-const changeNameBtn =
-    document.getElementById("changeNameBtn");
-
-const changeNameMessage =
-    document.getElementById("changeNameMessage");
-
-
-function loadSavedName() {
-
-    const name = getUserName();
-
-    if (!name) return;
-
-    if (studentName) {
-        studentName.value = name;
-        studentName.disabled = true;
-    }
-
-    if (saveNameBtn) {
-        saveNameBtn.style.display = "none";
-    }
-
-    if (nameMessage) {
-        nameMessage.textContent =
-            "आपका नाम: " + name;
-    }
-
-    if (changeNameInput) {
-        changeNameInput.value = name;
-    }
-}
-
-
-if (saveNameBtn && studentName) {
-
-    saveNameBtn.addEventListener(
-        "click",
-        () => {
-
-            const name =
-                studentName.value.trim();
-
-            if (!name) {
-                if (nameMessage) {
-                    nameMessage.textContent =
-                        "पहले नाम लिखें।";
-                }
-                return;
-            }
-
-            if (!isAllowedUser(name)) {
-
-                if (nameMessage) {
-                    nameMessage.textContent =
-                        "यह नाम allowed नहीं है। App Owner से संपर्क करें: " +
-                        OWNER_CONTACT_NUMBER;
-                }
-
-                return;
-            }
-
-            localStorage.setItem(
-                "studyName",
-                name
-            );
-
-            studentName.disabled = true;
-
-            saveNameBtn.style.display = "none";
-
-            if (nameMessage) {
-                nameMessage.textContent =
-                    "नाम Save हो गया।";
-            }
-
-            startOnlineStatus();
-        }
-    );
-}
-
-
-if (changeNameBtn && changeNameInput) {
-
-    changeNameBtn.addEventListener(
-        "click",
-        () => {
-
-            const newName =
-                changeNameInput.value.trim();
-
-            if (!newName) {
-
-                if (changeNameMessage) {
-                    changeNameMessage.textContent =
-                        "नाम लिखें।";
-                }
-
-                return;
-            }
-
-            if (!isAllowedUser(newName)) {
-
-                if (changeNameMessage) {
-                    changeNameMessage.textContent =
-                        "यह नाम allowed नहीं है।";
-                }
-
-                return;
-            }
-
-            localStorage.setItem(
-                "studyName",
-                newName
-            );
-
-            loadSavedName();
-
-            if (changeNameMessage) {
-                changeNameMessage.textContent =
-                    "नाम बदल दिया गया।";
-            }
-
-            startOnlineStatus();
-        }
-    );
-}
-
-
-loadSavedName();
-
-
-/* =========================================================
-   ONLINE USERS
-   ========================================================= */
-
-const onlineCount =
-    document.getElementById("onlineCount");
-
-const onlineUsers =
-    document.getElementById("onlineUsers");
-
-let onlineHeartbeat = null;
-
-let onlineUnsubscribe = null;
-
-
-function createOnlineArrow() {
-
-    if (!onlineCount) return;
 
     if (
-        document.getElementById(
-            "onlineArrowButton"
-        )
+        !screen ||
+        !nameInput ||
+        !passwordInput ||
+        !unlockBtn
     ) {
+
+        console.error(
+            "StudyConnect login elements नहीं मिले।"
+        );
+
         return;
     }
 
-    const parent =
-        onlineCount.parentElement;
 
-    if (!parent) return;
+    const savedName = getUserName();
 
-    const arrow =
-        document.createElement("button");
 
-    arrow.id = "onlineArrowButton";
+    // --------------------------------------------------------
+    // FIRST OPEN
+    // --------------------------------------------------------
 
-    arrow.type = "button";
+    if (!savedName) {
 
-    arrow.textContent = "▼";
+        nameInput.style.display = "block";
 
-    arrow.title = "Online students देखें";
+        passwordInput.style.display = "none";
 
-    arrow.style.border = "none";
-    arrow.style.background = "transparent";
-    arrow.style.cursor = "pointer";
-    arrow.style.fontSize = "14px";
-    arrow.style.marginLeft = "6px";
+        unlockBtn.textContent = "Next →";
 
-    arrow.addEventListener(
-        "click",
-        () => {
+        if (errorBox) {
 
-            if (!onlineUsers) return;
-
-            if (
-                onlineUsers.style.display === "none" ||
-                !onlineUsers.style.display
-            ) {
-
-                onlineUsers.style.display =
-                    "block";
-
-                arrow.textContent = "▲";
-
-            } else {
-
-                onlineUsers.style.display =
-                    "none";
-
-                arrow.textContent = "▼";
-            }
+            errorBox.textContent = "";
         }
-    );
 
-    parent.appendChild(arrow);
+        loginStep = 1;
 
-    if (onlineUsers) {
-        onlineUsers.style.display =
-            "none";
+    } else {
+
+        // ----------------------------------------------------
+        // RETURNING USER
+        // ----------------------------------------------------
+
+        nameInput.value = savedName;
+
+        nameInput.style.display = "none";
+
+        passwordInput.style.display = "block";
+
+        unlockBtn.textContent = "Next →";
+
+        loginStep = 2;
+
     }
+
+
+    unlockBtn.addEventListener("click", async () => {
+
+        // ====================================================
+        // STEP 1 - NAME
+        // ====================================================
+
+        if (loginStep === 1) {
+
+            const name = nameInput.value.trim();
+
+
+            if (!name) {
+
+                if (errorBox) {
+
+                    errorBox.textContent =
+                        "पहले अपना नाम लिखें।";
+                }
+
+                return;
+            }
+
+
+            setUserName(name);
+
+
+            nameInput.style.display = "none";
+
+            passwordInput.style.display = "block";
+
+            passwordInput.value = "";
+
+            passwordInput.focus();
+
+            unlockBtn.textContent = "Next →";
+
+            if (errorBox) {
+
+                errorBox.textContent = "";
+            }
+
+            loginStep = 2;
+
+            return;
+        }
+
+
+        // ====================================================
+        // STEP 2 - PASSWORD
+        // ====================================================
+
+        if (loginStep === 2) {
+
+            const password = passwordInput.value;
+
+
+            if (password !== APP_PASSWORD) {
+
+                if (errorBox) {
+
+                    errorBox.textContent =
+                        "गलत password ❌";
+                }
+
+                passwordInput.value = "";
+
+                passwordInput.focus();
+
+                return;
+            }
+
+
+            passwordInput.style.display = "none";
+
+
+            if (errorBox) {
+
+                errorBox.textContent = "";
+            }
+
+
+            unlockBtn.textContent = "Next →";
+
+
+            // Owner screen
+
+            const parent = unlockBtn.parentElement;
+
+            if (parent) {
+
+                const oldOwnerText =
+                    parent.querySelector(".study-owner-login");
+
+                if (oldOwnerText) {
+
+                    oldOwnerText.remove();
+                }
+
+
+                const ownerText =
+                    document.createElement("div");
+
+                ownerText.className =
+                    "study-owner-login";
+
+                ownerText.style.margin = "12px 0";
+
+                ownerText.innerHTML =
+                    `
+                    <h3>👑 App Owner</h3>
+                    <p>
+                        Owner:
+                        <strong>
+                            ${escapeHTML(OWNER_NAME)}
+                        </strong>
+                    </p>
+                    <p>
+                        StudyConnect खोलने के लिए
+                        Next दबाएँ।
+                    </p>
+                    `;
+
+                parent.insertBefore(
+                    ownerText,
+                    unlockBtn
+                );
+            }
+
+
+            loginStep = 3;
+
+            return;
+        }
+
+
+        // ====================================================
+        // STEP 3 - OWNER NAME / NEXT
+        // ====================================================
+
+        if (loginStep === 3) {
+
+            if (errorBox) {
+
+                errorBox.textContent = "";
+            }
+
+
+            unlockBtn.textContent =
+                "Open StudyConnect";
+
+            loginStep = 4;
+
+            return;
+        }
+
+
+        // ====================================================
+        // STEP 4 - OPEN STUDYCONNECT
+        // ====================================================
+
+        if (loginStep === 4) {
+
+            screen.style.display = "none";
+
+
+            currentUserName = getUserName();
+
+
+            const studentName =
+                document.getElementById("studentName");
+
+            if (studentName) {
+
+                studentName.value =
+                    currentUserName;
+            }
+
+
+            // Home खोलो
+
+            showPage("home");
+
+
+            // Realtime systems शुरू करो
+
+            startRealtimeSystems();
+
+
+            console.log(
+                "StudyConnect successfully opened."
+            );
+        }
+
+    });
+
+
+    // Enter key
+
+    nameInput.addEventListener("keydown", event => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            unlockBtn.click();
+        }
+    });
+
+
+    passwordInput.addEventListener("keydown", event => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            unlockBtn.click();
+        }
+    });
 }
 
 
-function updateOnlineUser() {
+// ============================================================
+// REALTIME SYSTEMS
+// ============================================================
 
-    const name = getUserName();
+function startRealtimeSystems() {
 
-    if (!name) return;
+    const name = getCurrentUser();
 
-    const id = safeId(name);
+    if (!name) {
 
-    setDoc(
-        doc(db, "onlineUsers", id),
-        {
-            name: name,
-            online: true,
-            lastSeen: now()
-        },
-        {
-            merge: true
-        }
-    ).catch(error => {
+        return;
+    }
+
+
+    currentUserName = name;
+
+
+    startOnlineSystem();
+
+    startRealtimeChat();
+
+    startRealtimeGroups();
+
+    startRealtimeHomework();
+
+    startRealtimeSchool();
+
+    startRealtimeNotes();
+}
+
+
+// ============================================================
+// ONLINE USERS
+// ============================================================
+
+function makeSafeId(name) {
+
+    return encodeURIComponent(name)
+        .replace(/\./g, "%2E");
+}
+
+
+async function updateOnlineStatus() {
+
+    const name = getCurrentUser();
+
+    if (!name) {
+
+        return;
+    }
+
+
+    const safeId = makeSafeId(name);
+
+
+    try {
+
+        await setDoc(
+
+            doc(db, "onlineUsers", safeId),
+
+            {
+
+                name: name,
+
+                online: true,
+
+                lastSeen: getNow()
+
+            },
+
+            {
+                merge: true
+            }
+
+        );
+
+    } catch (error) {
 
         console.error(
             "Online status error:",
             error
         );
-
-    });
+    }
 }
 
 
-function startOnlineStatus() {
+function startOnlineSystem() {
+
+    updateOnlineStatus();
+
 
     if (onlineHeartbeat) {
-        clearInterval(
-            onlineHeartbeat
+
+        clearInterval(onlineHeartbeat);
+    }
+
+
+    onlineHeartbeat = setInterval(() => {
+
+        updateOnlineStatus();
+
+    }, 30000);
+
+
+    window.addEventListener(
+        "beforeunload",
+        () => {
+
+            const name = getCurrentUser();
+
+            if (!name) {
+
+                return;
+            }
+
+
+            const safeId =
+                makeSafeId(name);
+
+
+            updateDoc(
+
+                doc(
+                    db,
+                    "onlineUsers",
+                    safeId
+                ),
+
+                {
+
+                    online: false,
+
+                    lastSeen: getNow()
+
+                }
+
+            ).catch(() => {});
+
+        }
+    );
+
+
+    startOnlineListener();
+}
+
+
+// ------------------------------------------------------------
+// ONLINE LISTENER
+// ------------------------------------------------------------
+
+function startOnlineListener() {
+
+    const countBox =
+        document.getElementById("onlineCount");
+
+    const usersBox =
+        document.getElementById("onlineUsers");
+
+
+    if (!countBox || !usersBox) {
+
+        return;
+    }
+
+
+    // Arrow बनाओ
+
+    let arrow = document.getElementById(
+        "onlineArrowButton"
+    );
+
+
+    if (!arrow) {
+
+        arrow =
+            document.createElement("button");
+
+        arrow.type = "button";
+
+        arrow.id = "onlineArrowButton";
+
+        arrow.textContent = "▾";
+
+        arrow.style.border = "none";
+
+        arrow.style.background =
+            "transparent";
+
+        arrow.style.cursor = "pointer";
+
+        arrow.style.fontSize = "16px";
+
+        arrow.style.marginLeft = "5px";
+
+
+        countBox.parentNode.insertBefore(
+
+            arrow,
+
+            countBox.nextSibling
+        );
+
+
+        arrow.addEventListener(
+            "click",
+            () => {
+
+                const hidden =
+                    usersBox.style.display ===
+                    "none";
+
+
+                usersBox.style.display =
+                    hidden ? "block" : "none";
+
+
+                arrow.textContent =
+                    hidden ? "▴" : "▾";
+            }
         );
     }
 
-    updateOnlineUser();
 
-    onlineHeartbeat =
-        setInterval(
-            updateOnlineUser,
-            30000
-        );
-}
+    usersBox.style.display = "none";
 
-
-function loadRealtimeOnlineUsers() {
-
-    if (!onlineCount) return;
 
     if (onlineUnsubscribe) {
+
         onlineUnsubscribe();
     }
 
-    onlineUnsubscribe =
-        onSnapshot(
-            collection(db, "onlineUsers"),
-            snapshot => {
 
-                const currentTime =
-                    now();
+    onlineUnsubscribe = onSnapshot(
 
-                const users = [];
+        collection(db, "onlineUsers"),
 
-                snapshot.forEach(item => {
+        snapshot => {
 
-                    const data =
-                        item.data();
+            const now = getNow();
 
-                    if (
-                        data.online === true &&
-                        currentTime -
-                        Number(data.lastSeen || 0) <
-                        ONLINE_TIMEOUT
-                    ) {
-                        users.push(data.name);
-                    }
-                });
+            const users = [];
 
-                users.sort(
-                    (a, b) =>
-                        String(a).localeCompare(
-                            String(b)
-                        )
-                );
 
-                onlineCount.textContent =
-                    "🟢 Online: " +
-                    users.length;
+            snapshot.forEach(item => {
 
-                createOnlineArrow();
+                const data = item.data();
 
-                if (onlineUsers) {
 
-                    onlineUsers.innerHTML = "";
+                if (
+                    data.online === true &&
+                    data.lastSeen &&
+                    now - data.lastSeen < 70000
+                ) {
 
-                    if (users.length === 0) {
-
-                        onlineUsers.innerHTML =
-                            "<div>कोई online नहीं है।</div>";
-
-                    } else {
-
-                        users.forEach(name => {
-
-                            const row =
-                                document.createElement(
-                                    "div"
-                                );
-
-                            row.style.padding =
-                                "5px 0";
-
-                            row.textContent =
-                                "🟢 " + name;
-
-                            onlineUsers.appendChild(
-                                row
-                            );
-                        });
-                    }
+                    users.push(data.name);
                 }
-            },
-            error => {
+            });
 
-                console.error(
-                    "Online users error:",
-                    error
-                );
+
+            users.sort(
+                (a, b) =>
+                    a.localeCompare(
+                        b,
+                        "hi"
+                    )
+            );
+
+
+            countBox.textContent =
+                `🟢 Online: ${users.length}`;
+
+
+            // Arrow दोबारा बनाना पड़ सकता है
+
+            if (!document.getElementById(
+                "onlineArrowButton"
+            )) {
+
+                startOnlineListener();
+
+                return;
             }
-        );
+
+
+            usersBox.innerHTML = "";
+
+
+            if (users.length === 0) {
+
+                usersBox.innerHTML =
+                    "<p>कोई user online नहीं है।</p>";
+
+                return;
+            }
+
+
+            users.forEach(name => {
+
+                const user =
+                    document.createElement("div");
+
+                user.style.padding = "6px 0";
+
+                user.innerHTML =
+                    `
+                    <span>🟢</span>
+                    <strong>
+                        ${escapeHTML(name)}
+                    </strong>
+                    `;
+
+                usersBox.appendChild(user);
+            });
+
+        },
+
+        error => {
+
+            console.error(
+                "Online users listener error:",
+                error
+            );
+        }
+    );
 }
 
 
-function updateOnlineArrow() {
-
-    createOnlineArrow();
-
-    loadRealtimeOnlineUsers();
-}
-
-
-/* =========================================================
-   MAIN CHAT
-   ========================================================= */
-
-const chatMessages =
-    document.getElementById("chatMessages");
+// ============================================================
+// MAIN CHAT
+// ============================================================
 
 const messageInput =
     document.getElementById("messageInput");
@@ -783,138 +877,390 @@ const messageInput =
 const sendMessageBtn =
     document.getElementById("sendMessageBtn");
 
+const chatMessages =
+    document.getElementById("chatMessages");
+
 const emojiBtn =
     document.getElementById("emojiBtn");
 
 
-let chatUnsubscribe = null;
+// Emoji
 
+if (emojiBtn && messageInput) {
 
-function displayMessagesRealtime() {
+    emojiBtn.addEventListener(
+        "click",
+        () => {
 
-    if (!chatMessages) return;
+            messageInput.value += " 😊";
 
-    if (chatUnsubscribe) {
-        chatUnsubscribe();
-    }
+            messageInput.focus();
 
-    const q =
-        query(
-            collection(db, "messages"),
-            orderBy("createdAt", "asc")
-        );
-
-    chatUnsubscribe =
-        onSnapshot(
-            q,
-            snapshot => {
-
-                chatMessages.innerHTML = "";
-
-                snapshot.forEach(item => {
-
-                    const data =
-                        item.data();
-
-                    const box =
-                        document.createElement(
-                            "div"
-                        );
-
-                    const mine =
-                        data.name ===
-                        getUserName();
-
-                    box.className =
-                        mine
-                            ? "message mine"
-                            : "message";
-
-                    const ticks =
-                        mine
-                            ? "✓✓"
-                            : "";
-
-                    box.innerHTML = `
-                        <strong>
-                            ${escapeHTML(data.name || "Student")}
-                        </strong>
-
-                        <div>
-                            ${escapeHTML(data.message || "")}
-                        </div>
-
-                        <small>
-                            ${escapeHTML(
-                                formatDateTime(
-                                    data.createdAt
-                                )
-                            )}
-                            ${mine
-                                ? `<span class="message-ticks">${ticks}</span>`
-                                : ""}
-                        </small>
-                    `;
-
-                    chatMessages.appendChild(
-                        box
-                    );
-                });
-
-                chatMessages.scrollTop =
-                    chatMessages.scrollHeight;
-            },
-            error => {
-
-                console.error(
-                    "Chat realtime error:",
-                    error
-                );
-            }
-        );
+        }
+    );
 }
 
 
+// ============================================================
+// MESSAGE TICKS
+// ============================================================
+
+function getTickHTML(data, mine) {
+
+    if (!mine) {
+
+        return "";
+    }
+
+
+    const seenBy =
+        Array.isArray(data.seenBy)
+            ? data.seenBy
+            : [];
+
+
+    if (seenBy.length > 0) {
+
+        return `
+            <span
+                class="message-tick blue-ticks"
+                style="color:#2196f3;"
+                title="Seen"
+            >
+                ✓✓
+            </span>
+        `;
+    }
+
+
+    if (data.delivered === true) {
+
+        return `
+            <span
+                class="message-tick"
+                title="Delivered"
+            >
+                ✓✓
+            </span>
+        `;
+    }
+
+
+    return `
+        <span
+            class="message-tick"
+            title="Sent"
+        >
+            ✓
+        </span>
+    `;
+}
+
+
+// ============================================================
+// MARK MESSAGE SEEN
+// ============================================================
+
+async function markMessageSeen(
+    messageId,
+    data
+) {
+
+    const myName = getCurrentUser();
+
+    if (!myName) {
+
+        return;
+    }
+
+
+    if (data.name === myName) {
+
+        return;
+    }
+
+
+    const seenBy =
+        Array.isArray(data.seenBy)
+            ? data.seenBy
+            : [];
+
+
+    if (seenBy.includes(myName)) {
+
+        return;
+    }
+
+
+    try {
+
+        await updateDoc(
+
+            doc(
+                db,
+                "messages",
+                messageId
+            ),
+
+            {
+
+                delivered: true,
+
+                seenBy: arrayUnion(myName)
+
+            }
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Seen update error:",
+            error
+        );
+    }
+}
+
+
+// ============================================================
+// REALTIME CHAT
+// ============================================================
+
+function startRealtimeChat() {
+
+    if (!chatMessages) {
+
+        return;
+    }
+
+
+    if (chatUnsubscribe) {
+
+        chatUnsubscribe();
+    }
+
+
+    const q = query(
+
+        collection(db, "messages"),
+
+        orderBy("createdAt", "asc")
+    );
+
+
+    chatUnsubscribe = onSnapshot(
+
+        q,
+
+        snapshot => {
+
+            chatMessages.innerHTML = "";
+
+
+            if (snapshot.empty) {
+
+                chatMessages.innerHTML = `
+                    <div class="message other">
+                        <strong>
+                            StudyConnect
+                        </strong>
+
+                        <p>
+                            अभी कोई message नहीं है। 👋
+                        </p>
+                    </div>
+                `;
+
+                return;
+            }
+
+
+            const myName =
+                getCurrentUser();
+
+
+            snapshot.forEach(item => {
+
+                const data = item.data();
+
+
+                const sender =
+                    data.name || "Student";
+
+
+                const text =
+                    data.message || "";
+
+
+                const mine =
+                    sender === myName;
+
+
+                const box =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                box.className =
+                    mine
+                        ? "message mine"
+                        : "message other";
+
+
+                box.innerHTML = `
+
+                    <strong>
+                        ${escapeHTML(sender)}
+                    </strong>
+
+                    <p>
+
+                        ${escapeHTML(text)}
+
+                        ${getTickHTML(
+                            data,
+                            mine
+                        )}
+
+                    </p>
+
+                    <small
+                        class="message-time"
+                    >
+                        ${escapeHTML(
+                            formatDateTime(
+                                data.createdAt
+                            )
+                        )}
+                    </small>
+
+                    ${
+                        mine &&
+                        Array.isArray(
+                            data.seenBy
+                        ) &&
+                        data.seenBy.length > 0
+
+                        ?
+
+                        `
+                        <small>
+                            👀 Seen by:
+                            ${escapeHTML(
+                                data.seenBy.join(
+                                    ", "
+                                )
+                            )}
+                        </small>
+                        `
+
+                        :
+
+                        ""
+                    }
+
+                `;
+
+
+                if (!mine) {
+
+                    markMessageSeen(
+                        item.id,
+                        data
+                    );
+                }
+
+
+                chatMessages.appendChild(
+                    box
+                );
+
+            });
+
+
+            chatMessages.scrollTop =
+                chatMessages.scrollHeight;
+        },
+
+        error => {
+
+            console.error(
+                "Realtime chat error:",
+                error
+            );
+        }
+    );
+}
+
+
+// ============================================================
+// SEND MAIN CHAT MESSAGE
+// ============================================================
+
 async function sendMessage() {
 
-    if (!messageInput) return;
+    if (!messageInput) {
 
-    const message =
+        return;
+    }
+
+
+    const text =
         messageInput.value.trim();
 
+
     const name =
-        getUserName();
+        getCurrentUser();
+
+
+    if (!text) {
+
+        return;
+    }
+
 
     if (!name) {
 
         alert(
-            "पहले अपना नाम Save करें।"
+            "पहले StudyConnect खोलें।"
         );
 
         return;
     }
 
-    if (!message) return;
 
     try {
 
         await addDoc(
-            collection(db, "messages"),
+
+            collection(
+                db,
+                "messages"
+            ),
+
             {
+
                 name: name,
-                message: message,
-                createdAt: now(),
-                deliveredTo: [],
-                seenBy: [name]
+
+                message: text,
+
+                createdAt: getNow(),
+
+                delivered: false,
+
+                seenBy: []
+
             }
         );
 
+
         messageInput.value = "";
+
 
     } catch (error) {
 
         console.error(
-            "Message send error:",
+            "Message sending error:",
             error
         );
 
@@ -941,8 +1287,7 @@ if (messageInput) {
         event => {
 
             if (
-                event.key === "Enter" &&
-                !event.shiftKey
+                event.key === "Enter"
             ) {
 
                 event.preventDefault();
@@ -954,229 +1299,147 @@ if (messageInput) {
 }
 
 
-if (emojiBtn && messageInput) {
-
-    emojiBtn.addEventListener(
-        "click",
-        () => {
-
-            const emojis =
-                ["😀", "😂", "👍", "❤️", "🔥", "😊", "🎉"];
-
-            const emoji =
-                emojis[
-                    Math.floor(
-                        Math.random() *
-                        emojis.length
-                    )
-                ];
-
-            messageInput.value += emoji;
-
-            messageInput.focus();
-        }
-    );
-}
-
-
-/* =========================================================
-   GROUP VARIABLES
-   ========================================================= */
+// ============================================================
+// GROUPS
+// ============================================================
 
 const groupInput =
     document.getElementById("groupInput");
 
 const createGroupBtn =
-    document.getElementById("createGroupBtn");
+    document.getElementById(
+        "createGroupBtn"
+    );
 
 const groupList =
     document.getElementById("groupList");
 
-const groupChatSection =
-    document.getElementById(
-        "groupChatSection"
-    );
 
-const selectedGroupName =
-    document.getElementById(
-        "selectedGroupName"
-    );
+// ============================================================
+// GROUP REALTIME LISTENER
+// ============================================================
 
-const memberNameInput =
-    document.getElementById(
-        "memberNameInput"
-    );
+function startRealtimeGroups() {
 
-const memberPhoneInput =
-    document.getElementById(
-        "memberPhoneInput"
-    );
+    if (!groupList) {
 
-const addMemberBtn =
-    document.getElementById(
-        "addMemberBtn"
-    );
+        return;
+    }
 
-const memberList =
-    document.getElementById(
-        "memberList"
-    );
-
-const groupMessages =
-    document.getElementById(
-        "groupMessages"
-    );
-
-const groupMessageInput =
-    document.getElementById(
-        "groupMessageInput"
-    );
-
-const sendGroupMessageBtn =
-    document.getElementById(
-        "sendGroupMessageBtn"
-    );
-
-
-let currentGroupId = null;
-
-let currentGroupData = null;
-
-let groupMessageUnsubscribe = null;
-
-
-/* =========================================================
-   GROUP PASSWORD HASH
-   ========================================================= */
-
-async function hashText(text) {
-
-    const encoder =
-        new TextEncoder();
-
-    const data =
-        encoder.encode(text);
-
-    const hash =
-        await crypto.subtle.digest(
-            "SHA-256",
-            data
-        );
-
-    return Array.from(
-        new Uint8Array(hash)
-    )
-        .map(
-            byte =>
-                byte.toString(16)
-                    .padStart(2, "0")
-        )
-        .join("");
-}
-
-
-/* =========================================================
-   LOAD GROUPS
-   ========================================================= */
-
-let groupsUnsubscribe = null;
-
-
-function loadGroupsRealtime() {
-
-    if (!groupList) return;
 
     if (groupsUnsubscribe) {
+
         groupsUnsubscribe();
     }
 
-    const q =
-        query(
-            collection(db, "groups"),
-            orderBy("createdAt", "asc")
-        );
 
-    groupsUnsubscribe =
-        onSnapshot(
-            q,
-            snapshot => {
+    const q = query(
 
-                groupList.innerHTML = "";
+        collection(db, "groups"),
 
-                snapshot.forEach(item => {
+        orderBy("createdAt", "asc")
+    );
 
-                    const data =
-                        item.data();
 
-                    const box =
-                        document.createElement(
-                            "div"
+    groupsUnsubscribe = onSnapshot(
+
+        q,
+
+        snapshot => {
+
+            groupList.innerHTML = "";
+
+
+            snapshot.forEach(item => {
+
+                const data =
+                    item.data();
+
+
+                const box =
+                    document.createElement(
+                        "div"
+                    );
+
+
+                box.className =
+                    "group-item";
+
+
+                const members =
+                    Array.isArray(
+                        data.members
+                    )
+                        ? data.members
+                        : [];
+
+
+                box.innerHTML = `
+
+                    <strong>
+                        👥
+                        ${escapeHTML(
+                            data.name ||
+                            "Group"
+                        )}
+                    </strong>
+
+                    <p>
+                        👤 Members:
+                        ${members.length}
+                    </p>
+
+                    <small>
+                        Created by:
+                        ${escapeHTML(
+                            data.owner ||
+                            ""
+                        )}
+                    </small>
+
+                `;
+
+
+                box.addEventListener(
+                    "click",
+                    () => {
+
+                        openGroup(
+                            item.id,
+                            data
                         );
 
-                    box.className =
-                        "group-item";
-
-                    const members =
-                        Array.isArray(
-                            data.members
-                        )
-                            ? data.members
-                            : [];
-
-                    box.innerHTML = `
-                        <strong>
-                            👥 ${escapeHTML(
-                                data.name ||
-                                "Group"
-                            )}
-                        </strong>
-
-                        <p>
-                            👤 Members:
-                            ${members.length}
-                        </p>
-
-                        <small>
-                            Created by:
-                            ${escapeHTML(
-                                data.owner ||
-                                ""
-                            )}
-                        </small>
-                    `;
-
-                    box.addEventListener(
-                        "click",
-                        () => {
-
-                            openGroup(
-                                item.id,
-                                data
-                            );
-                        }
-                    );
-
-                    groupList.appendChild(
-                        box
-                    );
-                });
-            },
-            error => {
-
-                console.error(
-                    "Groups realtime error:",
-                    error
+                    }
                 );
-            }
-        );
+
+
+                groupList.appendChild(
+                    box
+                );
+
+            });
+
+        },
+
+        error => {
+
+            console.error(
+                "Groups realtime error:",
+                error
+            );
+        }
+    );
 }
 
 
-/* =========================================================
-   CREATE GROUP
-   ========================================================= */
+// ============================================================
+// CREATE GROUP
+// ============================================================
 
-if (createGroupBtn && groupInput) {
+if (
+    createGroupBtn &&
+    groupInput
+) {
 
     createGroupBtn.addEventListener(
         "click",
@@ -1185,8 +1448,10 @@ if (createGroupBtn && groupInput) {
             const name =
                 groupInput.value.trim();
 
+
             const owner =
-                getUserName();
+                getCurrentUser();
+
 
             if (!name) {
 
@@ -1197,394 +1462,57 @@ if (createGroupBtn && groupInput) {
                 return;
             }
 
+
             if (!owner) {
 
                 alert(
-                    "पहले अपना नाम Save करें।"
+                    "पहले StudyConnect खोलें।"
                 );
 
                 return;
             }
+
+
+            // Group password
 
             const groupPassword =
                 prompt(
-                    "इस Group का Password बनाइए:"
+                    "इस Group के लिए password बनाइए:"
                 );
 
+
             if (
-                groupPassword === null ||
-                groupPassword.trim() === ""
+                groupPassword === null
+            ) {
+
+                return;
+            }
+
+
+            if (
+                groupPassword.trim()
+                    .length < 1
             ) {
 
                 alert(
-                    "Group Password जरूरी है।"
+                    "Group password खाली नहीं हो सकता।"
                 );
 
                 return;
             }
 
-            try {
 
-                const passwordHash =
-                    await hashText(
-                        groupPassword.trim()
-                    );
+            try {
 
                 await addDoc(
-                    collection(db, "groups"),
+
+                    collection(
+                        db,
+                        "groups"
+                    ),
+
                     {
+
                         name: name,
-                        owner: owner,
 
-                        members: [
-                            {
-                                name: owner,
-                                phone: ""
-                            }
-                        ],
-
-                        passwordHash:
-                            passwordHash,
-
-                        createdAt: now()
-                    }
-                );
-
-                groupInput.value = "";
-
-                alert(
-                    "✅ Group बन गया!"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Group create error:",
-                    error
-                );
-
-                alert(
-                    "Group create नहीं हुआ।"
-                );
-            }
-        }
-    );
-}
-
-
-/* =========================================================
-   OPEN GROUP
-   ========================================================= */
-
-async function openGroup(
-    groupId,
-    groupData
-) {
-
-    if (!groupId || !groupData) {
-        return;
-    }
-
-    const currentUser =
-        getUserName();
-
-    const members =
-        Array.isArray(
-            groupData.members
-        )
-            ? groupData.members
-            : [];
-
-    const isMember =
-        members.some(member => {
-
-            if (
-                typeof member ===
-                "string"
-            ) {
-                return (
-                    member.toLowerCase() ===
-                    currentUser.toLowerCase()
-                );
-            }
-
-            return (
-                String(
-                    member.name || ""
-                ).toLowerCase() ===
-                currentUser.toLowerCase()
-            );
-        });
-
-
-    if (!isMember) {
-
-        const password =
-            prompt(
-                "यह private Group है।\nGroup Password डालें:"
-            );
-
-        if (password === null) {
-            return;
-        }
-
-        try {
-
-            const passwordHash =
-                await hashText(
-                    password.trim()
-                );
-
-            if (
-                passwordHash !==
-                groupData.passwordHash
-            ) {
-
-                alert(
-                    "❌ गलत Group Password!"
-                );
-
-                return;
-            }
-
-            await addMemberToCurrentGroup(
-                groupId,
-                groupData,
-                currentUser,
-                ""
-            );
-
-            groupData.members =
-                Array.isArray(
-                    groupData.members
-                )
-                    ? [
-                        ...groupData.members,
-                        {
-                            name: currentUser,
-                            phone: ""
-                        }
-                    ]
-                    : [
-                        {
-                            name: currentUser,
-                            phone: ""
-                        }
-                    ];
-
-        } catch (error) {
-
-            console.error(
-                "Group open error:",
-                error
-            );
-
-            alert(
-                "Group खोलने में समस्या हुई।"
-            );
-
-            return;
-        }
-    }
-
-
-    currentGroupId =
-        groupId;
-
-    currentGroupData =
-        groupData;
-
-
-    if (groupChatSection) {
-
-        groupChatSection.style.display =
-            "block";
-
-        groupChatSection.scrollIntoView({
-            behavior: "smooth",
-            block: "start"
-        });
-    }
-
-
-    if (selectedGroupName) {
-
-        selectedGroupName.textContent =
-            "👥 " +
-            (
-                groupData.name ||
-                "Group"
-            );
-    }
-
-
-    displayGroupMembers();
-
-    displayGroupMessagesRealtime();
-
-    createPersonalChatArea();
-}
-
-
-/* =========================================================
-   ADD MEMBER TO FIRESTORE
-   ========================================================= */
-
-async function addMemberToCurrentGroup(
-    groupId,
-    groupData,
-    name,
-    phone
-) {
-
-    const ref =
-        doc(
-            db,
-            "groups",
-            groupId
-        );
-
-    const members =
-        Array.isArray(
-            groupData.members
-        )
-            ? groupData.members
-            : [];
-
-    const exists =
-        members.some(member => {
-
-            const memberName =
-                typeof member === "string"
-                    ? member
-                    : member.name;
-
-            return (
-                String(
-                    memberName || ""
-                ).toLowerCase() ===
-                String(name).toLowerCase()
-            );
-        });
-
-    if (exists) {
-        return;
-    }
-
-    await updateDoc(
-        ref,
-        {
-            members: arrayUnion({
-                name: name,
-                phone: phone || ""
-            })
-        }
-    );
-}
-
-
-/* =========================================================
-   ADD MEMBER BUTTON
-   ========================================================= */
-
-if (addMemberBtn) {
-
-    addMemberBtn.addEventListener(
-        "click",
-        async () => {
-
-            if (!currentGroupId) {
-
-                alert(
-                    "पहले कोई Group खोलें।"
-                );
-
-                return;
-            }
-
-            const name =
-                memberNameInput?.value.trim();
-
-            const phone =
-                memberPhoneInput?.value.trim() ||
-                "";
-
-            if (!name) {
-
-                alert(
-                    "Member का नाम लिखें।"
-                );
-
-                return;
-            }
-
-            try {
-
-                await addMemberToCurrentGroup(
-                    currentGroupId,
-                    currentGroupData,
-                    name,
-                    phone
-                );
-
-                currentGroupData.members =
-                    Array.isArray(
-                        currentGroupData.members
-                    )
-                        ? [
-                            ...currentGroupData.members,
-                            {
-                                name: name,
-                                phone: phone
-                            }
-                        ]
-                        : [
-                            {
-                                name: name,
-                                phone: phone
-                            }
-                        ];
-
-                if (memberNameInput) {
-                    memberNameInput.value = "";
-                }
-
-                if (memberPhoneInput) {
-                    memberPhoneInput.value = "";
-                }
-
-                displayGroupMembers();
-
-                alert(
-                    "✅ Member add हो गया!"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Add member error:",
-                    error
-                );
-
-                alert(
-                    "Member add नहीं हुआ।"
-                );
-            }
-        }
-    );
-}
-
-
-/* =========================================================
-   DISPLAY GROUP MEMBERS
-   ========================================================= */
-
-function displayGroupMembers() {
-
-    if (!memberList) return;
-
-    memberList.innerHTML = "";
-
-    if (!currentGroupData) return;
-
-    const members =
+                        owner
