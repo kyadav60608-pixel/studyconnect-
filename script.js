@@ -1,3088 +1,2602 @@
-// ======================================================
-// STUDYCONNECT - COMPLETE JAVASCRIPT
-// Login + Firebase + Chat + Groups + Homework
-// School + Notes + Settings + Online Users
-// ======================================================
-
-import { initializeApp } from
-    "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
 import {
-    getFirestore,
-    collection,
-    addDoc,
-    getDocs,
-    getDoc,
-    setDoc,
-    updateDoc,
-    deleteDoc,
-    doc,
-    query,
-    orderBy,
-    where,
-    onSnapshot
-} from
-    "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  setDoc,
+  updateDoc,
+  doc,
+  query,
+  orderBy,
+  where,
+  onSnapshot,
+  limit,
+  arrayUnion,
+  serverTimestamp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
-
-// ======================================================
-// FIREBASE
-// ======================================================
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3aUCdPWypag",
-    authDomain: "studyconnect-99006.firebaseapp.com",
-    projectId: "studyconnect-99006",
-    storageBucket: "studyconnect-99006.firebasestorage.app",
-    messagingSenderId: "15964627995",
-    appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
-    measurementId: "G-SYJYMREJJL"
+  apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3aUCdPWypag",
+  authDomain: "studyconnect-99006.firebaseapp.com",
+  projectId: "studyconnect-99006",
+  storageBucket: "studyconnect-99006.firebasestorage.app",
+  messagingSenderId: "15964627995",
+  appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
+  measurementId: "G-SYJYMREJJL"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-
-
-// ======================================================
-// APP SETTINGS
-// ======================================================
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
 
 const APP_PASSWORD = "123";
-
 const OWNER_NAME = "Krishna Yadav";
-
-// अपना पूरा मोबाइल नंबर यहाँ डालना
-const OWNER_PHONE = "87380";
-
+const OWNER_PHONE = "8738084554";
 const OWNER_PASSWORD = "12341";
 
-
-// ======================================================
-// GLOBAL VARIABLES
-// ======================================================
-
 let currentUser = {
-    name: "",
-    phone: ""
+  name: "",
+  phone: ""
 };
 
-let chatUnsubscribe = null;
-let onlineUnsubscribe = null;
+let selectedGroupId = null;
+let selectedGroupData = null;
+
+let unsubscribeChat = null;
+let unsubscribeGroupChat = null;
+let unsubscribeOnline = null;
 let onlineHeartbeat = null;
 
-let selectedItems = new Set();
 
+/* =========================
+   HELPERS
+========================= */
 
-// ======================================================
-// HELPER FUNCTIONS
-// ======================================================
-
-function escapeHTML(text) {
-    const div = document.createElement("div");
-    div.textContent = text ?? "";
-    return div.innerHTML;
-}
-
+const $ = id => document.getElementById(id);
 
 function normalizePhone(phone) {
-    return String(phone || "")
-        .replace(/\D/g, "")
-        .slice(-10);
+  return String(phone || "")
+    .replace(/\D/g, "")
+    .slice(-10);
 }
 
-
-function getSavedName() {
-    return localStorage.getItem("studyName") || "";
+function normalizeName(name) {
+  return String(name || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 }
 
-
-function getSavedPhone() {
-    return localStorage.getItem("studyPhone") || "";
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
+function formatTime(value) {
+  if (!value) return "अभी";
+
+  try {
+    const date = value.toDate
+      ? value.toDate()
+      : new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      return "अभी";
+    }
+
+    return date.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  } catch {
+    return "अभी";
+  }
+}
+
+function setMessage(element, text, type = "error") {
+  if (!element) return;
+
+  element.textContent = text;
+  element.style.color =
+    type === "success"
+      ? "var(--success)"
+      : "var(--danger)";
+}
+
+function buttonBusy(button, busy) {
+  if (!button) return;
+
+  if (busy) {
+    button.disabled = true;
+    button.dataset.oldText = button.textContent;
+    button.textContent = "⏳ Please wait...";
+  } else {
+    button.disabled = false;
+
+    if (button.dataset.oldText) {
+      button.textContent = button.dataset.oldText;
+    }
+  }
+}
+
+async function hashText(text) {
+  const data = new TextEncoder().encode(text);
+
+  const hash = await crypto.subtle.digest(
+    "SHA-256",
+    data
+  );
+
+  return [...new Uint8Array(hash)]
+    .map(byte =>
+      byte.toString(16).padStart(2, "0")
+    )
+    .join("");
+}
 
 function setUser(name, phone) {
-    currentUser.name = name;
-    currentUser.phone = phone;
+  currentUser = {
+    name: String(name).trim(),
+    phone: normalizePhone(phone)
+  };
 
-    localStorage.setItem("studyName", name);
-    localStorage.setItem("studyPhone", phone);
+  localStorage.setItem(
+    "studyUser",
+    JSON.stringify(currentUser)
+  );
 }
 
+function getSavedUser() {
+  try {
+    const saved =
+      localStorage.getItem("studyUser");
 
-function clearUser() {
-    currentUser = {
-        name: "",
-        phone: ""
+    if (!saved) return null;
+
+    const user = JSON.parse(saved);
+
+    if (!user?.name || !user?.phone) {
+      return null;
+    }
+
+    return {
+      name: user.name,
+      phone: normalizePhone(user.phone)
     };
-
-    localStorage.removeItem("studyName");
-    localStorage.removeItem("studyPhone");
+  } catch {
+    return null;
+  }
 }
 
 
-function showPage(pageId) {
+/* =========================
+   NAVIGATION
+========================= */
 
-    document.querySelectorAll(".page").forEach(page => {
-        page.classList.remove("active");
+function showPage(pageName) {
+
+  document
+    .querySelectorAll(".page")
+    .forEach(page => {
+      page.classList.remove("active");
     });
 
-    const page = document.getElementById(pageId);
+  const page =
+    $(`${pageName}Page`);
 
-    if (page) {
-        page.classList.add("active");
-    }
+  if (page) {
+    page.classList.add("active");
+  }
 
-    const navMenu = document.getElementById("navMenu");
+  $("navMenu")?.classList.remove("open");
 
-    if (navMenu) {
-        navMenu.classList.remove("show");
-    }
+  if (pageName === "chat") {
+    startChatListener();
+  } else {
+    stopChatListener();
+  }
+
+  if (pageName === "groups") {
+    loadGroups();
+  }
+
+  if (pageName === "home") {
+    startOnlineListener();
+  } else {
+    stopOnlineListener();
+  }
 }
 
+function setupNavigation() {
 
-// ======================================================
-// NAVIGATION
-// ======================================================
+  $("menuBtn")?.addEventListener(
+    "click",
+    () => {
+      $("navMenu")
+        ?.classList.toggle("open");
+    }
+  );
 
-document.querySelectorAll("[data-page]").forEach(button => {
+  document
+    .querySelectorAll("[data-page]")
+    .forEach(button => {
 
-    button.addEventListener("click", () => {
+      button.addEventListener(
+        "click",
+        () => {
 
-        const page = button.getAttribute("data-page");
+          const page =
+            button.dataset.page;
 
-        showPage(page);
-
+          if (page) {
+            showPage(page);
+          }
+        }
+      );
     });
 
-});
+  document.addEventListener(
+    "click",
+    event => {
 
+      const menu = $("navMenu");
+      const menuButton = $("menuBtn");
 
-document.querySelectorAll(".open-page").forEach(card => {
-
-    card.addEventListener("click", () => {
-
-        const page = card.getAttribute("data-page");
-
-        showPage(page);
-
-    });
-
-});
-
-
-const menuBtn = document.getElementById("menuBtn");
-const navMenu = document.getElementById("navMenu");
-
-if (menuBtn && navMenu) {
-
-    menuBtn.addEventListener("click", () => {
-
-        navMenu.classList.toggle("show");
-
-    });
-
+      if (
+        menu &&
+        menu.classList.contains("open") &&
+        !menu.contains(event.target) &&
+        !menuButton?.contains(event.target)
+      ) {
+        menu.classList.remove("open");
+      }
+    }
+  );
 }
 
 
-// ======================================================
-// LOGIN SYSTEM
-//
-// Password
-//    ↓
-// Owner
-//    ↓
-// Name + Mobile
-//    ↓
-// Firebase Permission
-//    ↓
-// StudyConnect
-// ======================================================
+/* =========================
+   LOGIN
+========================= */
 
-const passwordScreen =
-    document.getElementById("passwordScreen");
+async function checkAllowedUser(
+  phone,
+  name = "",
+  exactName = false
+) {
 
-const schoolPasswordStep =
-    document.getElementById("schoolPasswordStep");
+  const cleanPhone =
+    normalizePhone(phone);
 
-const appPassword =
-    document.getElementById("appPassword");
+  const ref =
+    doc(db, "allowedUsers", cleanPhone);
 
-const unlockBtn =
-    document.getElementById("unlockBtn");
+  const snap =
+    await getDoc(ref);
 
-const ownerStep =
-    document.getElementById("ownerStep");
+  if (!snap.exists()) {
+    return false;
+  }
 
-const ownerNameDisplay =
-    document.getElementById("ownerNameDisplay");
+  const data = snap.data();
 
-const ownerNextBtn =
-    document.getElementById("ownerNextBtn");
+  if (data.allowed !== true) {
+    return false;
+  }
 
-const userDetailsStep =
-    document.getElementById("userDetailsStep");
+  if (exactName) {
+    return (
+      normalizeName(data.name) ===
+      normalizeName(name)
+    );
+  }
 
-const openUserName =
-    document.getElementById("openUserName");
-
-const openUserPhone =
-    document.getElementById("openUserPhone");
-
-const enterAppBtn =
-    document.getElementById("enterAppBtn");
-
-const passwordError =
-    document.getElementById("passwordError");
-
-
-// ======================================================
-// CONTACT OWNER
-// ======================================================
-
-const contactOwnerScreen =
-    document.getElementById("contactOwnerScreen");
-
-const callOwnerBtn =
-    document.getElementById("callOwnerBtn");
-
-const whatsappOwnerBtn =
-    document.getElementById("whatsappOwnerBtn");
-
-const backToLoginBtn =
-    document.getElementById("backToLoginBtn");
-
-
-function showContactOwner() {
-
-    if (passwordScreen) {
-        passwordScreen.style.display = "none";
-    }
-
-    if (contactOwnerScreen) {
-        contactOwnerScreen.style.display = "flex";
-    }
-
+  return true;
 }
 
+function showContactScreen() {
 
-function showPasswordScreen() {
+  $("passwordScreen")
+    ?.classList.add("hidden");
 
-    if (contactOwnerScreen) {
-        contactOwnerScreen.style.display = "none";
-    }
-
-    if (passwordScreen) {
-        passwordScreen.style.display = "flex";
-    }
-
-    resetLoginSteps();
-
+  $("contactScreen")
+    ?.classList.remove("hidden");
 }
 
+function openApp() {
 
-function resetLoginSteps() {
+  $("passwordScreen")
+    ?.classList.add("hidden");
 
-    if (schoolPasswordStep) {
-        schoolPasswordStep.style.display = "block";
-    }
+  $("contactScreen")
+    ?.classList.add("hidden");
 
-    if (ownerStep) {
-        ownerStep.style.display = "none";
-    }
+  $("app")
+    ?.classList.remove("hidden");
 
-    if (userDetailsStep) {
-        userDetailsStep.style.display = "none";
-    }
+  updateProfileUI();
 
-    if (appPassword) {
-        appPassword.value = "";
-    }
+  loadHomework();
+  loadSchool();
+  loadNotes();
+  loadGroups();
 
-    if (openUserName) {
-        openUserName.value = "";
-    }
-
-    if (openUserPhone) {
-        openUserPhone.value = "";
-    }
-
-    if (passwordError) {
-        passwordError.textContent = "";
-    }
-
+  showPage("home");
 }
 
-
-if (backToLoginBtn) {
-
-    backToLoginBtn.addEventListener("click", () => {
-
-        showPasswordScreen();
-
-    });
-
-}
-
-
-// ======================================================
-// PASSWORD
-// ======================================================
-
-if (unlockBtn) {
-
-    unlockBtn.addEventListener("click", () => {
-
-        const password =
-            appPassword?.value.trim() || "";
-
-        if (password !== APP_PASSWORD) {
-
-            if (passwordError) {
-                passwordError.textContent =
-                    "गलत Password ❌";
-            }
-
-            if (appPassword) {
-                appPassword.value = "";
-                appPassword.focus();
-            }
-
-            return;
-        }
-
-
-        if (schoolPasswordStep) {
-            schoolPasswordStep.style.display = "none";
-        }
-
-        if (ownerStep) {
-            ownerStep.style.display = "block";
-        }
-
-        if (ownerNameDisplay) {
-            ownerNameDisplay.textContent = OWNER_NAME;
-        }
-
-        if (passwordError) {
-            passwordError.textContent = "";
-        }
-
-    });
-
-}
-
-
-// ======================================================
-// OWNER NEXT
-// ======================================================
-
-if (ownerNextBtn) {
-
-    ownerNextBtn.addEventListener("click", () => {
-
-        if (ownerStep) {
-            ownerStep.style.display = "none";
-        }
-
-        if (userDetailsStep) {
-            userDetailsStep.style.display = "block";
-        }
-
-        if (openUserName) {
-            openUserName.focus();
-        }
-
-    });
-
-}
-
-
-// ======================================================
-// CHECK USER PERMISSION
-// ======================================================
-
-async function checkUserPermission(name, phone) {
-
-    const cleanName =
-        name.trim().toLowerCase();
-
-    const cleanPhone =
-        normalizePhone(phone);
-
-
-    // --------------------------------------------------
-    // OWNER BYPASS
-    // --------------------------------------------------
-
-    const ownerNameMatch =
-        cleanName === OWNER_NAME.toLowerCase();
-
-    const ownerPhoneMatch =
-        cleanPhone === normalizePhone(OWNER_PHONE);
-
-
-    if (ownerNameMatch && ownerPhoneMatch) {
-
-        return true;
-
-    }
-
-
-    // --------------------------------------------------
-    // FIREBASE ALLOWED USERS
-    // --------------------------------------------------
-
-    try {
-
-        const usersRef =
-            collection(db, "allowedUsers");
-
-        const q =
-            query(
-                usersRef,
-                where("phone", "==", cleanPhone)
-            );
-
-        const snapshot =
-            await getDocs(q);
-
-
-        if (snapshot.empty) {
-            return false;
-        }
-
-
-        let allowed = false;
-
-
-        snapshot.forEach(item => {
-
-            const data = item.data();
-
-            const allowedName =
-                String(data.name || "")
-                    .trim()
-                    .toLowerCase();
-
-            const allowedPhone =
-                normalizePhone(data.phone);
-
-            if (
-                allowedName === cleanName &&
-                allowedPhone === cleanPhone
-            ) {
-
-                allowed = true;
-
-            }
-
-        });
-
-
-        return allowed;
-
-    } catch (error) {
-
-        console.error(
-            "Permission check error:",
-            error
+function setupLogin() {
+
+  $("unlockBtn")?.addEventListener(
+    "click",
+    async () => {
+
+      const password =
+        $("appPassword")?.value.trim();
+
+      if (!password) {
+        setMessage(
+          $("passwordError"),
+          "App password डालें।"
         );
+        return;
+      }
 
-        return false;
+      if (password !== APP_PASSWORD) {
+        setMessage(
+          $("passwordError"),
+          "❌ गलत App Password"
+        );
+        return;
+      }
 
-    }
+      setMessage(
+        $("passwordError"),
+        ""
+      );
 
-}
+      const savedUser =
+        getSavedUser();
 
-
-// ======================================================
-// ENTER APP
-// ======================================================
-
-if (enterAppBtn) {
-
-    enterAppBtn.addEventListener("click", async () => {
-
-        const name =
-            openUserName?.value.trim() || "";
-
-        const phone =
-            normalizePhone(
-                openUserPhone?.value || ""
-            );
-
-
-        if (!name) {
-
-            alert("अपना नाम लिखें।");
-
-            return;
-
-        }
-
-
-        if (phone.length !== 10) {
-
-            alert("सही 10 अंकों का मोबाइल नंबर डालें।");
-
-            return;
-
-        }
-
-
-        enterAppBtn.disabled = true;
-
-        enterAppBtn.textContent =
-            "Checking...";
-
+      if (savedUser) {
 
         try {
 
-            const allowed =
-                await checkUserPermission(
-                    name,
-                    phone
-                );
+          const allowed =
+            await checkAllowedUser(
+              savedUser.phone
+            );
 
+          if (!allowed) {
+            showContactScreen();
+            return;
+          }
 
-            if (!allowed) {
+          setUser(
+            savedUser.name,
+            savedUser.phone
+          );
 
-                showContactOwner();
-
-                return;
-
-            }
-
-
-            // ------------------------------------------
-            // USER ALLOWED
-            // ------------------------------------------
-
-            setUser(name, phone);
-
-
-            if (passwordScreen) {
-                passwordScreen.style.display = "none";
-            }
-
-            if (contactOwnerScreen) {
-                contactOwnerScreen.style.display = "none";
-            }
-
-            const appContainer =
-                document.getElementById("appContainer");
-
-            if (appContainer) {
-                appContainer.style.display = "block";
-            }
-
-
-            updateHomeUser();
-
-            setupNameSettings();
-
-            startOnlineStatus();
-
-            showPage("home");
-
+          openApp();
 
         } catch (error) {
 
-            console.error(
-                "Login error:",
-                error
-            );
+          console.error(error);
 
-            alert(
-                "Login में समस्या आई। Firebase connection check करें।"
-            );
-
-        } finally {
-
-            enterAppBtn.disabled = false;
-
-            enterAppBtn.textContent =
-                "Open StudyConnect";
-
+          setMessage(
+            $("passwordError"),
+            "Firebase connection में समस्या है।"
+          );
         }
 
-    });
-
-}
-
-
-// ======================================================
-// AUTO LOGIN
-// ======================================================
-
-function checkExistingLogin() {
-
-    const name = getSavedName();
-    const phone = getSavedPhone();
-
-    if (!name || !phone) {
-
         return;
+      }
 
+      $("loginStep")
+        ?.classList.add("hidden");
+
+      $("userStep")
+        ?.classList.remove("hidden");
+
+      $("openUserName")?.focus();
     }
+  );
 
 
-    checkUserPermission(name, phone)
-        .then(allowed => {
+  $("enterAppBtn")?.addEventListener(
+    "click",
+    async () => {
 
-            if (!allowed) {
+      const name =
+        $("openUserName")?.value.trim();
 
-                clearUser();
+      const phone =
+        normalizePhone(
+          $("openUserPhone")?.value
+        );
 
-                return;
+      if (!name) {
+        setMessage(
+          $("loginMessage"),
+          "अपना नाम लिखें।"
+        );
+        return;
+      }
 
-            }
+      if (phone.length !== 10) {
+        setMessage(
+          $("loginMessage"),
+          "सही 10 digit mobile number डालें।"
+        );
+        return;
+      }
+
+      buttonBusy(
+        $("enterAppBtn"),
+        true
+      );
+
+      try {
+
+        const allowed =
+          await checkAllowedUser(
+            phone,
+            name,
+            true
+          );
+
+        if (!allowed) {
+          showContactScreen();
+          return;
+        }
+
+        setUser(name, phone);
+
+        openApp();
+
+      } catch (error) {
+
+        console.error(error);
+
+        setMessage(
+          $("loginMessage"),
+          "Internet/Firebase connection में समस्या है।"
+        );
+
+      } finally {
+
+        buttonBusy(
+          $("enterAppBtn"),
+          false
+        );
+      }
+    }
+  );
 
 
-            setUser(name, phone);
+  $("backToLoginBtn")?.addEventListener(
+    "click",
+    () => {
 
+      $("contactScreen")
+        ?.classList.add("hidden");
 
-            if (passwordScreen) {
-                passwordScreen.style.display = "none";
-            }
+      $("passwordScreen")
+        ?.classList.remove("hidden");
 
-            if (contactOwnerScreen) {
-                contactOwnerScreen.style.display = "none";
-            }
+      $("loginStep")
+        ?.classList.remove("hidden");
 
-            const appContainer =
-                document.getElementById("appContainer");
+      $("userStep")
+        ?.classList.add("hidden");
 
-            if (appContainer) {
-                appContainer.style.display = "block";
-            }
-
-            updateHomeUser();
-
-            startOnlineStatus();
-
-        })
-        .catch(error => {
-
-            console.error(
-                "Auto login error:",
-                error
-            );
-
-        });
-
+      if ($("appPassword")) {
+        $("appPassword").value = "";
+      }
+    }
+  );
 }
 
 
-// ======================================================
-// HOME USER
-// ======================================================
+/* =========================
+   PROFILE
+========================= */
 
-function updateHomeUser() {
+function updateProfileUI() {
 
-    const studentName =
-        document.getElementById("studentName");
+  if ($("currentUserProfile")) {
+    $("currentUserProfile").textContent =
+      `${currentUser.name} • ${currentUser.phone}`;
+  }
 
-    const homeUserName =
-        document.getElementById("homeUserName");
+  if ($("studentName")) {
+    $("studentName").value =
+      currentUser.name;
+  }
 
-    const currentUserProfile =
-        document.getElementById("currentUserProfile");
-
-
-    const name = getSavedName();
-
-
-    if (studentName) {
-
-        studentName.value = name;
-
-        studentName.disabled = true;
-
-    }
-
-
-    if (homeUserName) {
-
-        homeUserName.textContent =
-            name || "Student";
-
-    }
-
-
-    if (currentUserProfile) {
-
-        currentUserProfile.textContent =
-            name || "Student";
-
-    }
-
+  if ($("changeNameInput")) {
+    $("changeNameInput").value =
+      currentUser.name;
+  }
 }
-
-
-// ======================================================
-// NAME SETTINGS
-// Save Name button disappears after saving
-// ======================================================
 
 function setupNameSettings() {
 
-    const studentName =
-        document.getElementById("studentName");
-
-    const saveNameBtn =
-        document.getElementById("saveNameBtn");
-
-    const nameMessage =
-        document.getElementById("nameMessage");
-
-
-    if (!studentName || !saveNameBtn) {
-        return;
-    }
-
-
-    const savedName =
-        getSavedName();
-
-
-    if (savedName) {
-
-        studentName.value =
-            savedName;
-
-        studentName.disabled =
-            true;
-
-        saveNameBtn.style.display =
-            "none";
-
-        if (nameMessage) {
-
-            nameMessage.textContent =
-                `Welcome, ${savedName}! 👋`;
-
-        }
-
-        return;
-
-    }
-
-
-    saveNameBtn.addEventListener(
-        "click",
-        () => {
-
-            const name =
-                studentName.value.trim();
-
-
-            if (!name) {
-
-                if (nameMessage) {
-
-                    nameMessage.textContent =
-                        "पहले अपना नाम लिखें।";
-
-                }
-
-                return;
-
-            }
-
-
-            localStorage.setItem(
-                "studyName",
-                name
-            );
-
-
-            studentName.disabled =
-                true;
-
-
-            // SAVE BUTTON HIDE
-            saveNameBtn.style.display =
-                "none";
-
-
-            if (nameMessage) {
-
-                nameMessage.textContent =
-                    `Welcome, ${name}! 👋`;
-
-            }
-
-
-            updateHomeUser();
-
-            updateOnlineUserName(name);
-
-        }
-    );
-
-}
-
-
-// ======================================================
-// CHAT
-// ======================================================
-
-const messageInput =
-    document.getElementById("messageInput");
-
-const sendMessageBtn =
-    document.getElementById("sendMessageBtn");
-
-const chatMessages =
-    document.getElementById("chatMessages");
-
-const emojiBtn =
-    document.getElementById("emojiBtn");
-
-
-function formatDateTime(value) {
-
-    if (!value) {
-        return "";
-    }
-
-    const date =
-        typeof value === "number"
-            ? new Date(value)
-            : value?.toDate
-                ? value.toDate()
-                : new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return "";
-    }
-
-    return date.toLocaleString(
-        "en-IN",
-        {
-            day: "2-digit",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit"
-        }
-    );
-
-}
-
-
-function getTickHTML(data, mine) {
-
-    if (!mine) {
-        return "";
-    }
-
-
-    const seen =
-        Array.isArray(data.seenBy) &&
-        data.seenBy.length > 0;
-
-
-    if (seen) {
-
-        return `
-            <span class="message-tick blue-ticks">
-                ✓✓
-            </span>
-        `;
-
-    }
-
-
-    if (data.delivered === true) {
-
-        return `
-            <span class="message-tick">
-                ✓✓
-            </span>
-        `;
-
-    }
-
-
-    return `
-        <span class="message-tick">
-            ✓
-        </span>
-    `;
-
-}
-
-
-async function markMessageSeen(
-    messageId,
-    data
-) {
-
-    const name =
-        getSavedName();
-
-    if (!name) {
-        return;
-    }
-
-    if (data.name === name) {
-        return;
-    }
-
-
-    const seenBy =
-        Array.isArray(data.seenBy)
-            ? data.seenBy
-            : [];
-
-
-    if (seenBy.includes(name)) {
-        return;
-    }
-
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "messages",
-                messageId
-            ),
-            {
-                delivered: true,
-                seenBy: [
-                    ...seenBy,
-                    name
-                ]
-            }
+  $("saveNameBtn")?.addEventListener(
+    "click",
+    () => {
+
+      const name =
+        $("studentName")?.value.trim();
+
+      if (!name) {
+        setMessage(
+          $("nameMessage"),
+          "नाम खाली नहीं हो सकता।"
         );
+        return;
+      }
 
-    } catch (error) {
+      setUser(
+        name,
+        currentUser.phone
+      );
 
-        console.error(
-            "Seen error:",
-            error
+      updateProfileUI();
+
+      setMessage(
+        $("nameMessage"),
+        "✅ Name saved",
+        "success"
+      );
+
+      updateOnlineUser();
+    }
+  );
+
+
+  $("changeNameBtn")?.addEventListener(
+    "click",
+    () => {
+
+      const name =
+        $("changeNameInput")?.value.trim();
+
+      if (!name) {
+        setMessage(
+          $("changeNameMessage"),
+          "नया नाम डालें।"
         );
+        return;
+      }
 
+      setUser(
+        name,
+        currentUser.phone
+      );
+
+      updateProfileUI();
+
+      setMessage(
+        $("changeNameMessage"),
+        "✅ Name changed successfully",
+        "success"
+      );
+
+      updateOnlineUser();
     }
-
+  );
 }
 
 
-function renderChat(snapshot) {
+/* =========================
+   MAIN CHAT
+========================= */
 
-    if (!chatMessages) {
-        return;
-    }
+function stopChatListener() {
 
-
-    chatMessages.innerHTML = "";
-
-
-    if (snapshot.empty) {
-
-        chatMessages.innerHTML = `
-            <div class="message other">
-                <strong>StudyConnect</strong>
-                <p>अभी कोई message नहीं है। 👋</p>
-            </div>
-        `;
-
-        return;
-
-    }
-
-
-    const myName =
-        getSavedName();
-
-
-    snapshot.forEach(item => {
-
-        const data =
-            item.data();
-
-        const name =
-            data.name || "Student";
-
-        const text =
-            data.message || "";
-
-        const mine =
-            name === myName;
-
-
-        const box =
-            document.createElement("div");
-
-
-        box.className =
-            mine
-                ? "message mine"
-                : "message other";
-
-
-        const seenBy =
-            Array.isArray(data.seenBy)
-                ? data.seenBy
-                : [];
-
-
-        box.innerHTML = `
-            <strong>
-                ${escapeHTML(name)}
-            </strong>
-
-            <p>
-                ${escapeHTML(text)}
-
-                ${getTickHTML(
-                    data,
-                    mine
-                )}
-            </p>
-
-            <small>
-                ${escapeHTML(
-                    formatDateTime(
-                        data.createdAt
-                    )
-                )}
-            </small>
-
-            ${
-                mine && seenBy.length
-                    ? `
-                        <br>
-                        <small>
-                            👀 Seen by:
-                            ${escapeHTML(
-                                seenBy.join(", ")
-                            )}
-                        </small>
-                    `
-                    : ""
-            }
-        `;
-
-
-        if (!mine) {
-
-            markMessageSeen(
-                item.id,
-                data
-            );
-
-        }
-
-
-        chatMessages.appendChild(box);
-
-    });
-
-
-    chatMessages.scrollTop =
-        chatMessages.scrollHeight;
-
+  if (unsubscribeChat) {
+    unsubscribeChat();
+    unsubscribeChat = null;
+  }
 }
-
 
 function startChatListener() {
 
-    if (!chatMessages) {
-        return;
-    }
+  if (unsubscribeChat) return;
 
+  const messagesQuery =
+    query(
+      collection(db, "messages"),
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
 
-    if (chatUnsubscribe) {
+  unsubscribeChat =
+    onSnapshot(
+      messagesQuery,
+      snapshot => {
 
-        chatUnsubscribe();
+        const messages =
+          snapshot.docs
+            .map(item => ({
+              id: item.id,
+              ...item.data()
+            }))
+            .reverse();
 
-    }
-
-
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "messages"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        chatUnsubscribe =
-            onSnapshot(
-                q,
-                snapshot => {
-
-                    renderChat(snapshot);
-
-                },
-                error => {
-
-                    console.error(
-                        "Chat listener error:",
-                        error
-                    );
-
-                }
-            );
-
-    } catch (error) {
-
-        console.error(
-            "Chat start error:",
-            error
+        renderMessages(
+          $("chatMessages"),
+          messages
         );
 
-    }
+        markMessagesSeen(
+          messages,
+          "messages"
+        );
+      },
+      error => {
 
+        console.error(error);
+
+        if ($("chatMessages")) {
+          $("chatMessages").innerHTML = `
+            <div class="empty-state">
+              <span>⚠️</span>
+              <p>Chat load नहीं हो पाया।</p>
+            </div>
+          `;
+        }
+      }
+    );
 }
 
+function renderMessages(
+  container,
+  messages
+) {
+
+  if (!container) return;
+
+  if (!messages.length) {
+
+    container.innerHTML = `
+      <div class="empty-state">
+        <span>💬</span>
+        <p>अभी कोई message नहीं है।</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML =
+    messages.map(message => {
+
+      const mine =
+        normalizePhone(message.phone) ===
+        normalizePhone(currentUser.phone);
+
+      const seen =
+        Array.isArray(message.seenBy) &&
+        message.seenBy.length > 0;
+
+      const tick =
+        mine
+          ? (
+              seen
+                ? `<span title="Seen">✓✓</span>`
+                : `<span title="Sent">✓</span>`
+            )
+          : "";
+
+      return `
+        <div class="message ${mine ? "mine" : ""}">
+          <div class="message-name">
+            ${escapeHTML(
+              message.name || "Student"
+            )}
+          </div>
+
+          <div class="message-text">
+            ${escapeHTML(
+              message.text || ""
+            )}
+          </div>
+
+          <div class="message-meta">
+            ${formatTime(message.createdAt)}
+            ${tick}
+          </div>
+        </div>
+      `;
+
+    }).join("");
+
+  container.scrollTop =
+    container.scrollHeight;
+}
 
 async function sendMessage() {
 
-    if (!messageInput) {
-        return;
-    }
+  const input =
+    $("messageInput");
 
+  const text =
+    input?.value.trim();
 
-    const text =
-        messageInput.value.trim();
+  if (!text) return;
 
-    const name =
-        getSavedName();
+  const button =
+    $("sendMessageBtn");
 
+  buttonBusy(button, true);
 
-    if (!text) {
-        return;
-    }
+  try {
 
-
-    if (!name) {
-
-        alert(
-            "पहले अपना नाम Save करें।"
-        );
-
-        showPage("home");
-
-        return;
-
-    }
-
-
-    try {
-
-        await addDoc(
-            collection(
-                db,
-                "messages"
-            ),
-            {
-                name,
-                message: text,
-                createdAt: Date.now(),
-                delivered: false,
-                seenBy: []
-            }
-        );
-
-
-        messageInput.value = "";
-
-    } catch (error) {
-
-        console.error(
-            "Send message error:",
-            error
-        );
-
-        alert(
-            "Message send नहीं हुआ।"
-        );
-
-    }
-
-}
-
-
-if (sendMessageBtn) {
-
-    sendMessageBtn.addEventListener(
-        "click",
-        sendMessage
+    await addDoc(
+      collection(db, "messages"),
+      {
+        name: currentUser.name,
+        phone: currentUser.phone,
+        text: text.slice(0, 1000),
+        createdAt: serverTimestamp(),
+        seenBy: []
+      }
     );
 
-}
+    input.value = "";
+    input.focus();
 
+  } catch (error) {
 
-if (messageInput) {
+    console.error(error);
 
-    messageInput.addEventListener(
-        "keydown",
-        event => {
-
-            if (event.key === "Enter") {
-
-                event.preventDefault();
-
-                sendMessage();
-
-            }
-
-        }
+    alert(
+      "Message भेजा नहीं जा सका। Internet check करें।"
     );
 
+  } finally {
+
+    buttonBusy(button, false);
+  }
 }
 
+function setupChat() {
 
-if (emojiBtn) {
+  $("sendMessageBtn")?.addEventListener(
+    "click",
+    sendMessage
+  );
 
-    emojiBtn.addEventListener(
-        "click",
-        () => {
+  $("messageInput")?.addEventListener(
+    "keydown",
+    event => {
 
-            if (messageInput) {
+      if (
+        event.key === "Enter" &&
+        !event.shiftKey
+      ) {
 
-                messageInput.value += " 😊";
+        event.preventDefault();
+        sendMessage();
+      }
+    }
+  );
 
-                messageInput.focus();
+  const emojis = [
+    "😊",
+    "👍",
+    "❤️",
+    "😂",
+    "🎉",
+    "🔥",
+    "📚"
+  ];
 
-            }
+  let emojiIndex = 0;
 
-        }
-    );
+  $("emojiBtn")?.addEventListener(
+    "click",
+    () => {
 
+      const input =
+        $("messageInput");
+
+      if (!input) return;
+
+      input.value +=
+        emojis[emojiIndex];
+
+      emojiIndex =
+        (emojiIndex + 1) %
+        emojis.length;
+
+      input.focus();
+    }
+  );
 }
 
-
-// ======================================================
-// ONLINE USERS
-// ======================================================
-
-function makeSafeId(name) {
-
-    return btoa(
-        unescape(
-            encodeURIComponent(name)
-        )
-    ).replace(
-        /[^a-zA-Z0-9]/g,
-        ""
-    );
-
-}
-
-
-async function updateOnlineUserName(
-    name = getSavedName()
+async function markMessagesSeen(
+  messages,
+  type
 ) {
 
-    if (!name) {
-        return;
+  const recent =
+    messages
+      .filter(message =>
+        normalizePhone(message.phone) !==
+        normalizePhone(currentUser.phone)
+      )
+      .slice(-10);
+
+  for (const message of recent) {
+
+    const seenBy =
+      Array.isArray(message.seenBy)
+        ? message.seenBy
+        : [];
+
+    if (
+      seenBy.includes(
+        currentUser.phone
+      )
+    ) {
+      continue;
     }
-
-
-    const id =
-        makeSafeId(name);
-
 
     try {
 
-        await setDoc(
-            doc(
-                db,
-                "onlineUsers",
-                id
-            ),
-            {
-                name,
-                online: true,
-                lastSeen: Date.now()
-            },
-            {
-                merge: true
-            }
-        );
+      const ref =
+        type === "messages"
+          ? doc(
+              db,
+              "messages",
+              message.id
+            )
+          : doc(
+              db,
+              "groups",
+              selectedGroupId,
+              "messages",
+              message.id
+            );
+
+      await updateDoc(
+        ref,
+        {
+          seenBy: arrayUnion(
+            currentUser.phone
+          )
+        }
+      );
 
     } catch (error) {
-
-        console.error(
-            "Online error:",
-            error
-        );
-
+      console.warn(
+        "Seen update failed",
+        error
+      );
     }
-
+  }
 }
 
 
-function startOnlineStatus() {
+/* =========================
+   ONLINE
+========================= */
 
-    if (onlineHeartbeat) {
+function stopOnlineListener() {
 
-        clearInterval(
-            onlineHeartbeat
-        );
+  if (unsubscribeOnline) {
+    unsubscribeOnline();
+    unsubscribeOnline = null;
+  }
 
-    }
+  if (onlineHeartbeat) {
+    clearInterval(
+      onlineHeartbeat
+    );
 
-
-    updateOnlineUserName();
-
-
-    onlineHeartbeat =
-        setInterval(
-            () => {
-
-                updateOnlineUserName();
-
-            },
-            30000
-        );
-
-
-    startOnlineListener();
-
+    onlineHeartbeat = null;
+  }
 }
-
 
 function startOnlineListener() {
 
-    const onlineUsers =
-        document.getElementById(
-            "onlineUsers"
-        );
-
-    const onlineCount =
-        document.getElementById(
-            "onlineCount"
-        );
-
-
-    if (!onlineUsers) {
-        return;
-    }
-
-
-    if (onlineUnsubscribe) {
-
-        onlineUnsubscribe();
-
-    }
-
-
-    const q =
-        query(
-            collection(
-                db,
-                "onlineUsers"
-            )
-        );
-
-
-    onlineUnsubscribe =
-        onSnapshot(
-            q,
-            snapshot => {
-
-                onlineUsers.innerHTML = "";
-
-                let count = 0;
-
-                const now =
-                    Date.now();
-
-
-                snapshot.forEach(item => {
-
-                    const data =
-                        item.data();
-
-
-                    const lastSeen =
-                        Number(
-                            data.lastSeen || 0
-                        );
-
-
-                    const isOnline =
-                        data.online === true &&
-                        now - lastSeen <
-                            90000;
-
-
-                    if (!isOnline) {
-                        return;
-                    }
-
-
-                    count++;
-
-
-                    const div =
-                        document.createElement(
-                            "div"
-                        );
-
-
-                    div.className =
-                        "online-user-item";
-
-
-                    div.textContent =
-                        "🟢 " +
-                        (
-                            data.name ||
-                            "Student"
-                        );
-
-
-                    onlineUsers.appendChild(
-                        div
-                    );
-
-                });
-
-
-                if (onlineCount) {
-
-                    onlineCount.textContent =
-                        count;
-
-                }
-
-            }
-        );
-
-}
-
-
-// ======================================================
-// ONLINE BUTTON
-// ======================================================
-
-const onlineToggleBtn =
-    document.getElementById(
-        "onlineToggleBtn"
-    );
-
-const onlineUsers =
-    document.getElementById(
-        "onlineUsers"
-    );
-
-const onlineArrow =
-    document.getElementById(
-        "onlineArrow"
-    );
-
-
-if (onlineToggleBtn) {
-
-    onlineToggleBtn.addEventListener(
-        "click",
-        () => {
-
-            if (!onlineUsers) {
-                return;
-            }
-
-
-            const hidden =
-                onlineUsers.style.display ===
-                "none";
-
-
-            onlineUsers.style.display =
-                hidden
-                    ? "block"
-                    : "none";
-
-
-            if (onlineArrow) {
-
-                onlineArrow.textContent =
-                    hidden
-                        ? "▲"
-                        : "▼";
-
-            }
-
-        }
-    );
-
-}
-
-
-// ======================================================
-// SCHOOL
-// ======================================================
-
-const schoolInput =
-    document.getElementById(
-        "schoolInput"
-    );
-
-const saveSchoolBtn =
-    document.getElementById(
-        "saveSchoolBtn"
-    );
-
-const schoolList =
-    document.getElementById(
-        "schoolList"
-    );
-
-
-async function loadSchool() {
-
-    if (!schoolList) {
-        return;
-    }
-
-
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "school"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
+  if (!currentUser.phone) return;
+
+  if (unsubscribeOnline) return;
+
+  unsubscribeOnline =
+    onSnapshot(
+      collection(db, "onlineUsers"),
+      snapshot => {
+
+        const now = Date.now();
+
+        const users =
+          snapshot.docs
+            .map(item => item.data())
+            .filter(user =>
+              user.online === true &&
+              typeof user.lastSeen === "number" &&
+              now - user.lastSeen < 90000
             );
 
-
-        const snapshot =
-            await getDocs(q);
-
-
-        schoolList.innerHTML = "";
-
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-
-            const box =
-                document.createElement(
-                    "div"
-                );
-
-
-            box.className =
-                "school-item";
-
-
-            box.innerHTML = `
-                <strong>
-                    🏫
-                    ${escapeHTML(
-                        data.name ||
-                        "Student"
-                    )}
-                </strong>
-
-                <p>
-                    ${escapeHTML(
-                        data.update ||
-                        ""
-                    )}
-                </p>
-
-                <small>
-                    ${escapeHTML(
-                        formatDateTime(
-                            data.createdAt
-                        )
-                    )}
-                </small>
-            `;
-
-
-            schoolList.appendChild(box);
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "School load error:",
-            error
+        renderOnlineUsers(users);
+      },
+      error => {
+        console.warn(
+          "Online listener error",
+          error
         );
+      }
+    );
 
+  updateOnlineUser();
+
+  onlineHeartbeat =
+    setInterval(
+      updateOnlineUser,
+      45000
+    );
+}
+
+async function updateOnlineUser() {
+
+  if (!currentUser.phone) return;
+
+  try {
+
+    await setDoc(
+      doc(
+        db,
+        "onlineUsers",
+        currentUser.phone
+      ),
+      {
+        name: currentUser.name,
+        phone: currentUser.phone,
+        online: true,
+        lastSeen: Date.now()
+      },
+      {
+        merge: true
+      }
+    );
+
+  } catch (error) {
+    console.warn(
+      "Online update failed",
+      error
+    );
+  }
+}
+
+function renderOnlineUsers(users) {
+
+  const list =
+    $("onlineUsers");
+
+  const count =
+    $("onlineCount");
+
+  if (!list || !count) return;
+
+  count.textContent =
+    users.length;
+
+  if (!users.length) {
+
+    list.innerHTML = `
+      <div class="empty-state">
+        <span>👥</span>
+        <p>कोई student online नहीं है।</p>
+      </div>
+    `;
+
+    return;
+  }
+
+  list.innerHTML =
+    users.map(user => `
+      <div class="online-user">
+        <span class="online-dot"></span>
+        <span>
+          ${escapeHTML(
+            user.name || "Student"
+          )}
+        </span>
+      </div>
+    `).join("");
+}
+
+function setupOnline() {
+
+  $("onlineToggleBtn")?.addEventListener(
+    "click",
+    () => {
+
+      $("onlineUsers")
+        ?.classList.toggle("hidden");
+
+      const hidden =
+        $("onlineUsers")
+          ?.classList.contains("hidden");
+
+      if ($("onlineArrow")) {
+        $("onlineArrow").textContent =
+          hidden ? "▼" : "▲";
+      }
     }
-
+  );
 }
 
 
-if (saveSchoolBtn) {
-
-    saveSchoolBtn.addEventListener(
-        "click",
-        async () => {
-
-            const update =
-                schoolInput?.value.trim() ||
-                "";
-
-            const name =
-                getSavedName();
-
-
-            if (!update) {
-
-                alert(
-                    "School update लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "school"
-                    ),
-                    {
-                        name,
-                        update,
-                        createdAt:
-                            Date.now()
-                    }
-                );
-
-
-                if (schoolInput) {
-
-                    schoolInput.value = "";
-
-                }
-
-
-                await loadSchool();
-
-            } catch (error) {
-
-                console.error(
-                    "School save error:",
-                    error
-                );
-
-                alert(
-                    "School update save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ======================================================
-// NOTES
-// ======================================================
-
-const noteInput =
-    document.getElementById(
-        "noteInput"
-    );
-
-const saveNoteBtn =
-    document.getElementById(
-        "saveNoteBtn"
-    );
-
-const notesList =
-    document.getElementById(
-        "notesList"
-    );
-
-
-async function loadNotes() {
-
-    if (!notesList) {
-        return;
-    }
-
-
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "notes"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(q);
-
-
-        notesList.innerHTML = "";
-
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-
-            const box =
-                document.createElement(
-                    "div"
-                );
-
-
-            box.className =
-                "note-item";
-
-
-            box.innerHTML = `
-                <strong>
-                    📝
-                    ${escapeHTML(
-                        data.name ||
-                        "Student"
-                    )}
-                </strong>
-
-                <p>
-                    ${escapeHTML(
-                        data.note ||
-                        ""
-                    )}
-                </p>
-
-                <small>
-                    ${escapeHTML(
-                        formatDateTime(
-                            data.createdAt
-                        )
-                    )}
-                </small>
-            `;
-
-
-            notesList.appendChild(box);
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Notes load error:",
-            error
-        );
-
-    }
-
-}
-
-
-if (saveNoteBtn) {
-
-    saveNoteBtn.addEventListener(
-        "click",
-        async () => {
-
-            const note =
-                noteInput?.value.trim() ||
-                "";
-
-            const name =
-                getSavedName();
-
-
-            if (!note) {
-
-                alert(
-                    "Note लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "notes"
-                    ),
-                    {
-                        name,
-                        note,
-                        createdAt:
-                            Date.now()
-                    }
-                );
-
-
-                if (noteInput) {
-
-                    noteInput.value = "";
-
-                }
-
-
-                await loadNotes();
-
-            } catch (error) {
-
-                console.error(
-                    "Note save error:",
-                    error
-                );
-
-                alert(
-                    "Note save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ======================================================
-// HOMEWORK
-// ======================================================
-
-const homeworkDate =
-    document.getElementById(
-        "homeworkDate"
-    );
-
-const hindiHomework =
-    document.getElementById(
-        "hindiHomework"
-    );
-
-const englishHomework =
-    document.getElementById(
-        "englishHomework"
-    );
-
-const mathHomework =
-    document.getElementById(
-        "mathHomework"
-    );
-
-const scienceHomework =
-    document.getElementById(
-        "scienceHomework"
-    );
-
-const sstHomework =
-    document.getElementById(
-        "sstHomework"
-    );
-
-const computerHomework =
-    document.getElementById(
-        "computerHomework"
-    );
-
-const artHomework =
-    document.getElementById(
-        "artHomework"
-    );
-
-const addHomeworkBtn =
-    document.getElementById(
-        "addHomeworkBtn"
-    );
-
-const homeworkList =
-    document.getElementById(
-        "homeworkList"
-    );
-
-
-async function loadHomework() {
-
-    if (!homeworkList) {
-        return;
-    }
-
-
-    try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "homework"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(q);
-
-
-        homeworkList.innerHTML = "";
-
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-
-            const box =
-                document.createElement(
-                    "div"
-                );
-
-
-            box.className =
-                "homework-item";
-
-
-            box.innerHTML = `
-                <h3>
-                    📅
-                    ${escapeHTML(
-                        data.date || ""
-                    )}
-                </h3>
-
-                <p>
-                    <strong>📖 Hindi:</strong>
-                    ${escapeHTML(
-                        data.hindi || ""
-                    )}
-                </p>
-
-                <p>
-                    <strong>🔤 English:</strong>
-                    ${escapeHTML(
-                        data.english || ""
-                    )}
-                </p>
-
-                <p>
-                    <strong>➗ Maths:</strong>
-                    ${escapeHTML(
-                        data.maths || ""
-                    )}
-                </p>
-
-                <p>
-                    <strong>🔬 Science:</strong>
-                    ${escapeHTML(
-                        data.science || ""
-                    )}
-                </p>
-
-                <p>
-                    <strong>🌍 SST:</strong>
-                    ${escapeHTML(
-                        data.sst || ""
-                    )}
-                </p>
-
-                <p>
-                    <strong>💻 Computer:</strong>
-                    ${escapeHTML(
-                        data.computer || ""
-                    )}
-                </p>
-
-                <p>
-                    <strong>🎨 Art:</strong>
-                    ${escapeHTML(
-                        data.art || ""
-                    )}
-                </p>
-
-                <small>
-                    👤
-                    ${escapeHTML(
-                        data.name ||
-                        "Student"
-                    )}
-                </small>
-            `;
-
-
-            homeworkList.appendChild(box);
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Homework load error:",
-            error
-        );
-
-    }
-
-}
-
-
-if (addHomeworkBtn) {
-
-    addHomeworkBtn.addEventListener(
-        "click",
-        async () => {
-
-            const date =
-                homeworkDate?.value || "";
-
-            const name =
-                getSavedName();
-
-
-            if (!date) {
-
-                alert(
-                    "पहले Date चुनें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "homework"
-                    ),
-                    {
-                        date,
-
-                        hindi:
-                            hindiHomework?.value.trim() ||
-                            "",
-
-                        english:
-                            englishHomework?.value.trim() ||
-                            "",
-
-                        maths:
-                            mathHomework?.value.trim() ||
-                            "",
-
-                        science:
-                            scienceHomework?.value.trim() ||
-                            "",
-
-                        sst:
-                            sstHomework?.value.trim() ||
-                            "",
-
-                        computer:
-                            computerHomework?.value.trim() ||
-                            "",
-
-                        art:
-                            artHomework?.value.trim() ||
-                            "",
-
-                        name,
-
-                        createdAt:
-                            Date.now()
-                    }
-                );
-
-
-                [
-                    homeworkDate,
-                    hindiHomework,
-                    englishHomework,
-                    mathHomework,
-                    scienceHomework,
-                    sstHomework,
-                    computerHomework,
-                    artHomework
-                ].forEach(input => {
-
-                    if (input) {
-                        input.value = "";
-                    }
-
-                });
-
-
-                await loadHomework();
-
-
-                alert(
-                    "✅ Homework Save हो गया!"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Homework save error:",
-                    error
-                );
-
-                alert(
-                    "Homework save नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-// ======================================================
-// GROUPS
-// ======================================================
-
-const groupInput =
-    document.getElementById(
-        "groupInput"
-    );
-
-const groupPasswordInput =
-    document.getElementById(
-        "groupPasswordInput"
-    );
-
-const createGroupBtn =
-    document.getElementById(
-        "createGroupBtn"
-    );
-
-const groupList =
-    document.getElementById(
-        "groupList"
-    );
-
+/* =========================
+   GROUPS
+========================= */
 
 async function loadGroups() {
 
-    if (!groupList) {
-        return;
+  const list =
+    $("groupList");
+
+  if (!list || !currentUser.phone) {
+    return;
+  }
+
+  list.innerHTML = `
+    <div class="empty-state">
+      <span>⏳</span>
+      <p>Groups loading...</p>
+    </div>
+  `;
+
+  try {
+
+    const groupsQuery =
+      query(
+        collection(db, "groups"),
+        where(
+          "memberPhones",
+          "array-contains",
+          currentUser.phone
+        ),
+        limit(50)
+      );
+
+    const snapshot =
+      await getDocs(groupsQuery);
+
+    if (snapshot.empty) {
+
+      list.innerHTML = `
+        <div class="empty-state">
+          <span>👥</span>
+          <p>अभी कोई group नहीं है।</p>
+        </div>
+      `;
+
+      return;
     }
 
+    const groups =
+      snapshot.docs.map(item => ({
+        id: item.id,
+        ...item.data()
+      }));
 
-    try {
+    list.innerHTML =
+      groups.map(group => `
+        <div
+          class="group-item"
+          data-group-id="${escapeHTML(group.id)}"
+        >
+          <h3>
+            🔒 ${escapeHTML(
+              group.name || "Group"
+            )}
+          </h3>
 
-        const q =
-            query(
-                collection(
-                    db,
-                    "groups"
-                ),
-                orderBy(
-                    "createdAt",
-                    "asc"
-                )
+          <p>
+            Owner:
+            ${escapeHTML(
+              group.ownerName || "Unknown"
+            )}
+          </p>
+
+          <p>
+            👥 ${(group.memberPhones || []).length}
+            members
+          </p>
+        </div>
+      `).join("");
+
+    list
+      .querySelectorAll(".group-item")
+      .forEach(item => {
+
+        item.addEventListener(
+          "click",
+          () => {
+
+            openGroup(
+              item.dataset.groupId,
+              groups
             );
-
-
-        const snapshot =
-            await getDocs(q);
-
-
-        groupList.innerHTML = "";
-
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-
-            const box =
-                document.createElement(
-                    "div"
-                );
-
-
-            box.className =
-                "group-item";
-
-
-            const members =
-                Array.isArray(
-                    data.members
-                )
-                    ? data.members
-                    : [];
-
-
-            box.innerHTML = `
-                <strong>
-                    👥
-                    ${escapeHTML(
-                        data.name ||
-                        "Group"
-                    )}
-                </strong>
-
-                <p>
-                    👤 Members:
-                    ${members.length}
-                </p>
-
-                <small>
-                    Created by:
-                    ${escapeHTML(
-                        data.owner ||
-                        ""
-                    )}
-                </small>
-            `;
-
-
-            box.addEventListener(
-                "click",
-                () => {
-
-                    openGroup(
-                        item.id,
-                        data
-                    );
-
-                }
-            );
-
-
-            groupList.appendChild(box);
-
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Groups load error:",
-            error
+          }
         );
+      });
 
-    }
+  } catch (error) {
 
+    console.error(error);
+
+    list.innerHTML = `
+      <div class="empty-state">
+        <span>⚠️</span>
+        <p>Groups load नहीं हो पाए।</p>
+      </div>
+    `;
+  }
 }
 
-
-if (createGroupBtn) {
-
-    createGroupBtn.addEventListener(
-        "click",
-        async () => {
-
-            const name =
-                groupInput?.value.trim() ||
-                "";
-
-            const password =
-                groupPasswordInput?.value.trim() ||
-                "";
-
-            const owner =
-                getSavedName();
-
-
-            if (!name) {
-
-                alert(
-                    "Group का नाम लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            if (!password) {
-
-                alert(
-                    "Group password बनाएं।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "groups"
-                    ),
-                    {
-                        name,
-                        owner,
-                        password,
-                        members: [
-                            owner
-                        ],
-                        createdAt:
-                            Date.now()
-                    }
-                );
-
-
-                groupInput.value = "";
-
-                groupPasswordInput.value = "";
-
-
-                await loadGroups();
-
-
-                alert(
-                    "✅ Group बन गया!"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Group create error:",
-                    error
-                );
-
-                alert(
-                    "Group create नहीं हुआ।"
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-function openGroup(
-    groupId,
-    groupData
+async function openGroup(
+  groupId,
+  groups
 ) {
 
-    const members =
-        Array.isArray(
-            groupData.members
-        )
-            ? groupData.members.join(
-                ", "
-            )
-            : "";
+  const group =
+    groups.find(
+      item => item.id === groupId
+    );
 
+  if (!group) return;
+
+  selectedGroupId =
+    groupId;
+
+  selectedGroupData =
+    group;
+
+  stopGroupChatListener();
+
+  $("groupChatSection")
+    ?.classList.remove("hidden");
+
+  $("selectedGroupName").textContent =
+    `🔒 ${group.name || "Group"}`;
+
+  $("selectedGroupOwner").textContent =
+    `Owner: ${group.ownerName || "Unknown"}`;
+
+  $("groupUnlockBox")
+    ?.classList.remove("hidden");
+
+  $("groupContent")
+    ?.classList.add("hidden");
+
+  $("groupPasswordMessage").textContent =
+    "";
+
+  if ($("enterGroupPasswordInput")) {
+    $("enterGroupPasswordInput").value = "";
+    $("enterGroupPasswordInput").focus();
+  }
+}
+
+async function createGroup() {
+
+  const name =
+    $("groupInput")?.value.trim();
+
+  const password =
+    $("groupPasswordInput")?.value;
+
+  if (!name) {
+    alert("Group name डालें।");
+    return;
+  }
+
+  if (!password || password.length < 3) {
+    alert(
+      "Group password कम से कम 3 characters का रखें।"
+    );
+    return;
+  }
+
+  const button =
+    $("createGroupBtn");
+
+  buttonBusy(button, true);
+
+  try {
+
+    const passwordHash =
+      await hashText(password);
+
+    await addDoc(
+      collection(db, "groups"),
+      {
+        name: name.slice(0, 60),
+        ownerName: currentUser.name,
+        ownerPhone: currentUser.phone,
+        passwordHash,
+        memberNames: [currentUser.name],
+        memberPhones: [currentUser.phone],
+        createdAt: serverTimestamp()
+      }
+    );
+
+    $("groupInput").value = "";
+    $("groupPasswordInput").value = "";
 
     alert(
-        `👥 ${groupData.name}\n\n` +
-        `Members:\n${members}\n\n` +
-        `Group ID: ${groupId}`
+      "✅ Group successfully created!"
     );
 
+    await loadGroups();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Group create नहीं हो पाया।"
+    );
+
+  } finally {
+
+    buttonBusy(button, false);
+  }
+}
+
+async function unlockGroup() {
+
+  if (!selectedGroupData) {
+    return;
+  }
+
+  const password =
+    $("enterGroupPasswordInput")
+      ?.value;
+
+  if (!password) {
+
+    setMessage(
+      $("groupPasswordMessage"),
+      "Group password डालें।"
+    );
+
+    return;
+  }
+
+  const enteredHash =
+    await hashText(password);
+
+  if (
+    enteredHash !==
+    selectedGroupData.passwordHash
+  ) {
+
+    setMessage(
+      $("groupPasswordMessage"),
+      "❌ गलत group password"
+    );
+
+    return;
+  }
+
+  setMessage(
+    $("groupPasswordMessage"),
+    "✅ Group unlocked",
+    "success"
+  );
+
+  $("groupUnlockBox")
+    ?.classList.add("hidden");
+
+  $("groupContent")
+    ?.classList.remove("hidden");
+
+  renderMembers(
+    selectedGroupData
+  );
+
+  startGroupChatListener();
+}
+
+function renderMembers(group) {
+
+  const list =
+    $("memberList");
+
+  if (!list) return;
+
+  const names =
+    group.memberNames || [];
+
+  const phones =
+    group.memberPhones || [];
+
+  if (!phones.length) {
+    list.innerHTML =
+      "<p>No members.</p>";
+    return;
+  }
+
+  list.innerHTML =
+    phones.map((phone, index) => {
+
+      const name =
+        names[index] || "Student";
+
+      const owner =
+        normalizePhone(phone) ===
+        normalizePhone(group.ownerPhone);
+
+      return `
+        <div class="member">
+          👤 ${escapeHTML(name)}
+          ${owner ? " 👑 Owner" : ""}
+        </div>
+      `;
+
+    }).join("");
+}
+
+async function addMember() {
+
+  if (
+    !selectedGroupId ||
+    !selectedGroupData
+  ) {
+    alert("पहले कोई group खोलें।");
+    return;
+  }
+
+  if (
+    normalizePhone(currentUser.phone) !==
+    normalizePhone(selectedGroupData.ownerPhone)
+  ) {
+    alert(
+      "सिर्फ Group Owner member add कर सकता है।"
+    );
+    return;
+  }
+
+  const name =
+    $("memberNameInput")?.value.trim();
+
+  const phone =
+    normalizePhone(
+      $("memberPhoneInput")?.value
+    );
+
+  if (!name) {
+    alert("Member name डालें।");
+    return;
+  }
+
+  if (phone.length !== 10) {
+    alert(
+      "सही 10 digit mobile number डालें।"
+    );
+    return;
+  }
+
+  if (
+    (selectedGroupData.memberPhones || [])
+      .includes(phone)
+  ) {
+    alert(
+      "यह student पहले से group में है।"
+    );
+    return;
+  }
+
+  const button =
+    $("addMemberBtn");
+
+  buttonBusy(button, true);
+
+  try {
+
+    const allowedSnap =
+      await getDoc(
+        doc(
+          db,
+          "allowedUsers",
+          phone
+        )
+      );
+
+    if (!allowedSnap.exists()) {
+      alert(
+        "यह student StudyConnect में allowed नहीं है।"
+      );
+      return;
+    }
+
+    const allowedData =
+      allowedSnap.data();
+
+    if (allowedData.allowed !== true) {
+      alert(
+        "यह student allowed नहीं है।"
+      );
+      return;
+    }
+
+    await updateDoc(
+      doc(
+        db,
+        "groups",
+        selectedGroupId
+      ),
+      {
+        memberNames:
+          arrayUnion(name),
+
+        memberPhones:
+          arrayUnion(phone)
+      }
+    );
+
+    selectedGroupData.memberNames =
+      [
+        ...(selectedGroupData.memberNames || []),
+        name
+      ];
+
+    selectedGroupData.memberPhones =
+      [
+        ...(selectedGroupData.memberPhones || []),
+        phone
+      ];
+
+    renderMembers(
+      selectedGroupData
+    );
+
+    $("memberNameInput").value = "";
+    $("memberPhoneInput").value = "";
+
+    alert(
+      "✅ Member added successfully!"
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Member add नहीं हो पाया।"
+    );
+
+  } finally {
+
+    buttonBusy(button, false);
+  }
 }
 
 
-// ======================================================
-// LANGUAGE
-// ======================================================
+/* =========================
+   GROUP CHAT
+========================= */
 
-const translations = {
+function stopGroupChatListener() {
 
-    hi: {
+  if (unsubscribeGroupChat) {
+    unsubscribeGroupChat();
+    unsubscribeGroupChat = null;
+  }
+}
 
-        home: "🏠 Home",
-        chat: "💬 Chat",
-        groups: "👥 Groups",
-        homework: "📚 Homework",
-        school: "🏫 School",
-        notes: "📝 Notes",
-        settings: "⚙️ Settings"
+function startGroupChatListener() {
 
-    },
+  if (
+    !selectedGroupId ||
+    unsubscribeGroupChat
+  ) {
+    return;
+  }
 
-
-    en: {
-
-        home: "🏠 Home",
-        chat: "💬 Chat",
-        groups: "👥 Groups",
-        homework: "📚 Homework",
-        school: "🏫 School",
-        notes: "📝 Notes",
-        settings: "⚙️ Settings"
-
-    }
-
-};
-
-
-function applyLanguage(language) {
-
-    localStorage.setItem(
-        "studyLanguage",
-        language
+  const messagesQuery =
+    query(
+      collection(
+        db,
+        "groups",
+        selectedGroupId,
+        "messages"
+      ),
+      orderBy("createdAt", "desc"),
+      limit(50)
     );
 
+  unsubscribeGroupChat =
+    onSnapshot(
+      messagesQuery,
+      snapshot => {
 
-    const t =
-        translations[language] ||
-        translations.hi;
+        const messages =
+          snapshot.docs
+            .map(item => ({
+              id: item.id,
+              ...item.data()
+            }))
+            .reverse();
 
-
-    document
-        .querySelectorAll("[data-page]")
-        .forEach(button => {
-
-            const page =
-                button.getAttribute(
-                    "data-page"
-                );
-
-
-            if (t[page]) {
-
-                button.textContent =
-                    t[page];
-
-            }
-
-        });
-
-
-    const send =
-        document.getElementById(
-            "sendMessageBtn"
+        renderMessages(
+          $("groupMessages"),
+          messages
         );
 
-    if (send) {
-        send.textContent = "Send";
-    }
+        markMessagesSeen(
+          messages,
+          "group"
+        );
+      },
+      error => {
 
+        console.error(error);
+
+        if ($("groupMessages")) {
+          $("groupMessages").innerHTML = `
+            <div class="empty-state">
+              <span>⚠️</span>
+              <p>Group chat load नहीं हो पाया।</p>
+            </div>
+          `;
+        }
+      }
+    );
 }
 
+async function sendGroupMessage() {
+
+  if (
+    !selectedGroupId ||
+    !selectedGroupData
+  ) {
+    return;
+  }
+
+  const input =
+    $("groupMessageInput");
+
+  const text =
+    input?.value.trim();
+
+  if (!text) return;
+
+  if (
+    !(selectedGroupData.memberPhones || [])
+      .includes(currentUser.phone)
+  ) {
+    alert(
+      "आप इस group के member नहीं हैं।"
+    );
+    return;
+  }
+
+  const button =
+    $("sendGroupMessageBtn");
+
+  buttonBusy(button, true);
+
+  try {
+
+    await addDoc(
+      collection(
+        db,
+        "groups",
+        selectedGroupId,
+        "messages"
+      ),
+      {
+        name: currentUser.name,
+        phone: currentUser.phone,
+        text: text.slice(0, 1000),
+        createdAt: serverTimestamp(),
+        seenBy: []
+      }
+    );
+
+    input.value = "";
+    input.focus();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Group message भेजा नहीं जा सका।"
+    );
+
+  } finally {
+
+    buttonBusy(button, false);
+  }
+}
+
+function setupGroups() {
+
+  $("createGroupBtn")?.addEventListener(
+    "click",
+    createGroup
+  );
+
+  $("unlockGroupBtn")?.addEventListener(
+    "click",
+    unlockGroup
+  );
+
+  $("addMemberBtn")?.addEventListener(
+    "click",
+    addMember
+  );
+
+  $("sendGroupMessageBtn")?.addEventListener(
+    "click",
+    sendGroupMessage
+  );
+
+  $("enterGroupPasswordInput")
+    ?.addEventListener(
+      "keydown",
+      event => {
+
+        if (event.key === "Enter") {
+          event.preventDefault();
+          unlockGroup();
+        }
+      }
+    );
+
+  $("groupMessageInput")
+    ?.addEventListener(
+      "keydown",
+      event => {
+
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey
+        ) {
+
+          event.preventDefault();
+          sendGroupMessage();
+        }
+      }
+    );
+}
+
+
+/* =========================
+   HOMEWORK
+========================= */
+
+async function loadHomework() {
+
+  const list =
+    $("homeworkList");
+
+  if (!list) return;
+
+  try {
+
+    const q =
+      query(
+        collection(db, "homework"),
+        orderBy("createdAt", "desc"),
+        limit(30)
+      );
+
+    const snapshot =
+      await getDocs(q);
+
+    if (snapshot.empty) {
+
+      list.innerHTML = `
+        <div class="empty-state">
+          <span>📚</span>
+          <p>अभी homework नहीं है।</p>
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      snapshot.docs.map(item => {
+
+        const data = item.data();
+
+        const entries =
+          data.entries || {};
+
+        const subjects =
+          Object.entries(entries)
+            .filter(
+              ([, value]) =>
+                String(value || "").trim()
+            );
+
+        return `
+          <div class="list-item">
+
+            <h3>
+              📅 ${escapeHTML(
+                data.date || "Date"
+              )}
+            </h3>
+
+            ${subjects.map(
+              ([subject, homework]) => `
+                <p>
+                  <strong>
+                    ${escapeHTML(subject)}
+                  :</strong>
+                  ${escapeHTML(homework)}
+                </p>
+              `
+            ).join("")}
+
+          </div>
+        `;
+
+      }).join("");
+
+  } catch (error) {
+
+    console.error(error);
+
+    list.innerHTML = `
+      <div class="empty-state">
+        <span>⚠️</span>
+        <p>Homework load नहीं हो पाया।</p>
+      </div>
+    `;
+  }
+}
+
+async function saveHomework() {
+
+  const fields = {
+    Hindi: $("hindiHomework")?.value.trim(),
+    English: $("englishHomework")?.value.trim(),
+    Math: $("mathHomework")?.value.trim(),
+    Science: $("scienceHomework")?.value.trim(),
+    SST: $("sstHomework")?.value.trim(),
+    Computer: $("computerHomework")?.value.trim(),
+    Art: $("artHomework")?.value.trim()
+  };
+
+  const entries =
+    Object.fromEntries(
+      Object.entries(fields)
+        .filter(([, value]) => value)
+    );
+
+  if (!Object.keys(entries).length) {
+    alert(
+      "कम से कम एक homework लिखें।"
+    );
+    return;
+  }
+
+  const date =
+    $("homeworkDate")?.value ||
+    new Date().toISOString().slice(0, 10);
+
+  const button =
+    $("addHomeworkBtn");
+
+  buttonBusy(button, true);
+
+  try {
+
+    await addDoc(
+      collection(db, "homework"),
+      {
+        date,
+        entries,
+        createdBy: currentUser.phone,
+        createdAt: serverTimestamp()
+      }
+    );
+
+    [
+      "hindiHomework",
+      "englishHomework",
+      "mathHomework",
+      "scienceHomework",
+      "sstHomework",
+      "computerHomework",
+      "artHomework"
+    ].forEach(id => {
+      if ($(id)) $(id).value = "";
+    });
+
+    alert(
+      "✅ Homework saved!"
+    );
+
+    loadHomework();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Homework save नहीं हो पाया।"
+    );
+
+  } finally {
+
+    buttonBusy(button, false);
+  }
+}
+
+function setupHomework() {
+
+  const dateInput =
+    $("homeworkDate");
+
+  if (dateInput && !dateInput.value) {
+    dateInput.value =
+      new Date()
+        .toISOString()
+        .slice(0, 10);
+  }
+
+  $("addHomeworkBtn")?.addEventListener(
+    "click",
+    saveHomework
+  );
+}
+
+
+/* =========================
+   SCHOOL
+========================= */
+
+async function loadSchool() {
+
+  const list =
+    $("schoolList");
+
+  if (!list) return;
+
+  try {
+
+    const q =
+      query(
+        collection(db, "school"),
+        orderBy("createdAt", "desc"),
+        limit(30)
+      );
+
+    const snapshot =
+      await getDocs(q);
+
+    if (snapshot.empty) {
+
+      list.innerHTML = `
+        <div class="empty-state">
+          <span>🏫</span>
+          <p>अभी कोई school update नहीं है।</p>
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      snapshot.docs.map(item => {
+
+        const data = item.data();
+
+        return `
+          <div class="list-item">
+            <h3>
+              📢 ${escapeHTML(
+                data.name || "School Update"
+              )}
+            </h3>
+
+            <p>
+              ${escapeHTML(data.text || "")}
+            </p>
+
+            <small>
+              ${formatTime(data.createdAt)}
+            </small>
+          </div>
+        `;
+
+      }).join("");
+
+  } catch (error) {
+
+    console.error(error);
+
+    list.innerHTML = `
+      <div class="empty-state">
+        <span>⚠️</span>
+        <p>School updates load नहीं हुए।</p>
+      </div>
+    `;
+  }
+}
+
+async function saveSchool() {
+
+  const input =
+    $("schoolInput");
+
+  const text =
+    input?.value.trim();
+
+  if (!text) {
+    alert(
+      "School update लिखें।"
+    );
+    return;
+  }
+
+  const button =
+    $("saveSchoolBtn");
+
+  buttonBusy(button, true);
+
+  try {
+
+    await addDoc(
+      collection(db, "school"),
+      {
+        text: text.slice(0, 2000),
+        name: currentUser.name,
+        phone: currentUser.phone,
+        createdAt: serverTimestamp()
+      }
+    );
+
+    input.value = "";
+
+    alert(
+      "✅ School update saved!"
+    );
+
+    loadSchool();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "School update save नहीं हुआ।"
+    );
+
+  } finally {
+
+    buttonBusy(button, false);
+  }
+}
+
+function setupSchool() {
+
+  $("saveSchoolBtn")?.addEventListener(
+    "click",
+    saveSchool
+  );
+}
+
+
+/* =========================
+   NOTES
+========================= */
+
+async function loadNotes() {
+
+  const list =
+    $("notesList");
+
+  if (!list) return;
+
+  try {
+
+    const q =
+      query(
+        collection(db, "notes"),
+        where(
+          "phone",
+          "==",
+          currentUser.phone
+        ),
+        limit(50)
+      );
+
+    const snapshot =
+      await getDocs(q);
+
+    const notes =
+      snapshot.docs
+        .map(item => ({
+          id: item.id,
+          ...item.data()
+        }))
+        .sort((a, b) => {
+
+          const aTime =
+            a.createdAt?.toMillis?.() || 0;
+
+          const bTime =
+            b.createdAt?.toMillis?.() || 0;
+
+          return bTime - aTime;
+        });
+
+    if (!notes.length) {
+
+      list.innerHTML = `
+        <div class="empty-state">
+          <span>📝</span>
+          <p>अभी कोई note नहीं है।</p>
+        </div>
+      `;
+
+      return;
+    }
+
+    list.innerHTML =
+      notes.map(note => `
+        <div class="list-item">
+
+          <p>
+            ${escapeHTML(note.text || "")}
+          </p>
+
+          <small>
+            ${formatTime(note.createdAt)}
+          </small>
+
+        </div>
+      `).join("");
+
+  } catch (error) {
+
+    console.error(error);
+
+    list.innerHTML = `
+      <div class="empty-state">
+        <span>⚠️</span>
+        <p>Notes load नहीं हुए।</p>
+      </div>
+    `;
+  }
+}
+
+async function saveNote() {
+
+  const input =
+    $("noteInput");
+
+  const text =
+    input?.value.trim();
+
+  if (!text) {
+    alert(
+      "Note लिखें।"
+    );
+    return;
+  }
+
+  const button =
+    $("saveNoteBtn");
+
+  buttonBusy(button, true);
+
+  try {
+
+    await addDoc(
+      collection(db, "notes"),
+      {
+        text: text.slice(0, 5000),
+        name: currentUser.name,
+        phone: currentUser.phone,
+        createdAt: serverTimestamp()
+      }
+    );
+
+    input.value = "";
+
+    alert(
+      "✅ Note saved!"
+    );
+
+    loadNotes();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Note save नहीं हुआ।"
+    );
+
+  } finally {
+
+    buttonBusy(button, false);
+  }
+}
+
+function setupNotes() {
+
+  $("saveNoteBtn")?.addEventListener(
+    "click",
+    saveNote
+  );
+}
+
+
+/* =========================
+   LANGUAGE
+========================= */
 
 function setupLanguage() {
 
-    const settingsBox =
-        document.querySelector(
-            ".settings-box"
-        );
-
-
-    if (!settingsBox) {
-        return;
-    }
-
-
-    if (
-        document.getElementById(
-            "languageSelect"
-        )
-    ) {
-        return;
-    }
-
-
-    const label =
-        document.createElement(
-            "label"
-        );
-
-    label.textContent =
-        "🌐 Language";
-
-
-    const select =
-        document.createElement(
-            "select"
-        );
-
-
-    select.id =
-        "languageSelect";
-
-
-    select.innerHTML = `
-        <option value="hi">
-            🇮🇳 हिंदी
-        </option>
-
-        <option value="en">
-            🇬🇧 English
-        </option>
-    `;
-
-
-    select.value =
-        localStorage.getItem(
-            "studyLanguage"
-        ) || "hi";
-
-
-    select.addEventListener(
-        "change",
-        () => {
-
-            applyLanguage(
-                select.value
-            );
-
-        }
-    );
-
-
-    settingsBox.appendChild(label);
-    settingsBox.appendChild(select);
-
-
-    applyLanguage(
-        select.value
-    );
-
-}
-
-
-// ======================================================
-// DARK MODE
-// ======================================================
-
-const themeBtn =
-    document.getElementById(
-        "themeBtn"
-    );
-
-
-if (themeBtn) {
-
-    themeBtn.addEventListener(
-        "click",
-        () => {
-
-            document.body.classList.toggle(
-                "dark"
-            );
-
-
-            localStorage.setItem(
-                "darkMode",
-                document.body.classList.contains(
-                    "dark"
-                )
-            );
-
-        }
-    );
-
-}
-
-
-if (
+  const savedLanguage =
     localStorage.getItem(
-        "darkMode"
-    ) === "true"
-) {
+      "studyLanguage"
+    ) || "hi";
 
-    document.body.classList.add(
-        "dark"
+  document.documentElement.lang =
+    savedLanguage === "en"
+      ? "en"
+      : "hi";
+
+  $("hindiLanguageBtn")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        localStorage.setItem(
+          "studyLanguage",
+          "hi"
+        );
+
+        document.documentElement.lang =
+          "hi";
+
+        setMessage(
+          $("languageMessage"),
+          "🇮🇳 हिंदी चुनी गई।",
+          "success"
+        );
+      }
     );
 
+  $("englishLanguageBtn")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        localStorage.setItem(
+          "studyLanguage",
+          "en"
+        );
+
+        document.documentElement.lang =
+          "en";
+
+        setMessage(
+          $("languageMessage"),
+          "🇬🇧 English selected.",
+          "success"
+        );
+      }
+    );
 }
 
 
-// ======================================================
-// NOTIFICATIONS
-// ======================================================
+/* =========================
+   THEME
+========================= */
 
-const notificationBtn =
-    document.getElementById(
-        "notificationBtn"
+function updateThemeButton() {
+
+  const button =
+    $("themeBtn");
+
+  if (!button) return;
+
+  button.textContent =
+    document.body.classList.contains("dark")
+      ? "☀️ Light Mode"
+      : "🌙 Dark Mode";
+}
+
+function setupTheme() {
+
+  const savedTheme =
+    localStorage.getItem(
+      "studyTheme"
     );
 
-const notificationMessage =
-    document.getElementById(
-        "notificationMessage"
-    );
+  if (savedTheme === "dark") {
+    document.body.classList.add("dark");
+  }
+
+  updateThemeButton();
+
+  $("themeBtn")?.addEventListener(
+    "click",
+    () => {
+
+      document.body.classList.toggle("dark");
+
+      const dark =
+        document.body.classList.contains("dark");
+
+      localStorage.setItem(
+        "studyTheme",
+        dark ? "dark" : "light"
+      );
+
+      updateThemeButton();
+    }
+  );
+}
 
 
-if (notificationBtn) {
+/* =========================
+   NOTIFICATIONS
+========================= */
 
-    notificationBtn.addEventListener(
-        "click",
-        async () => {
+function setupNotifications() {
 
-            if (!("Notification" in window)) {
+  $("notificationBtn")
+    ?.addEventListener(
+      "click",
+      async () => {
 
-                if (notificationMessage) {
+        if (!("Notification" in window)) {
 
-                    notificationMessage.textContent =
-                        "इस browser में notifications उपलब्ध नहीं हैं।";
+          setMessage(
+            $("notificationMessage"),
+            "इस browser में notifications available नहीं हैं।"
+          );
 
-                }
-
-                return;
-
-            }
-
-
-            try {
-
-                const permission =
-                    await Notification.requestPermission();
-
-
-                if (notificationMessage) {
-
-                    notificationMessage.textContent =
-                        permission === "granted"
-                            ? "✅ Notifications allowed."
-                            : "Notifications अनुमति नहीं मिली।";
-
-                }
-
-
-                if (
-                    permission === "granted"
-                ) {
-
-                    new Notification(
-                        "StudyConnect",
-                        {
-                            body:
-                                "Notifications चालू हो गए हैं।"
-                        }
-                    );
-
-                }
-
-            } catch (error) {
-
-                console.error(
-                    "Notification error:",
-                    error
-                );
-
-            }
-
+          return;
         }
-    );
 
-}
+        try {
 
+          const permission =
+            await Notification.requestPermission();
 
-// ======================================================
-// OWNER PANEL
-// ======================================================
+          if (permission === "granted") {
 
-const ownerPasswordInput =
-    document.getElementById(
-        "ownerPasswordInput"
-    );
+            setMessage(
+              $("notificationMessage"),
+              "✅ Notifications enabled",
+              "success"
+            );
 
-const ownerLoginBtn =
-    document.getElementById(
-        "ownerLoginBtn"
-    );
+            new Notification(
+              "StudyConnect",
+              {
+                body: "Notifications successfully enabled."
+              }
+            );
 
-const ownerPasswordMessage =
-    document.getElementById(
-        "ownerPasswordMessage"
-    );
+          } else {
 
-const ownerPanel =
-    document.getElementById(
-        "ownerPanel"
-    );
+            setMessage(
+              $("notificationMessage"),
+              "Notifications permission नहीं मिली।"
+            );
+          }
 
-const allowedUserNameInput =
-    document.getElementById(
-        "allowedUserNameInput"
-    );
+        } catch (error) {
 
-const allowedUserPhoneInput =
-    document.getElementById(
-        "allowedUserPhoneInput"
-    );
+          console.error(error);
 
-const allowUserBtn =
-    document.getElementById(
-        "allowUserBtn"
-    );
-
-const allowedUsersList =
-    document.getElementById(
-        "allowedUsersList"
-    );
-
-
-if (ownerLoginBtn) {
-
-    ownerLoginBtn.addEventListener(
-        "click",
-        () => {
-
-            const password =
-                ownerPasswordInput?.value ||
-                "";
-
-
-            if (
-                password !==
-                OWNER_PASSWORD
-            ) {
-
-                if (ownerPasswordMessage) {
-
-                    ownerPasswordMessage.textContent =
-                        "गलत Owner Password ❌";
-
-                }
-
-                return;
-
-            }
-
-
-            if (ownerPanel) {
-
-                ownerPanel.style.display =
-                    "block";
-
-            }
-
-
-            if (ownerPasswordMessage) {
-
-                ownerPasswordMessage.textContent =
-                    "✅ Owner Panel खुल गया।";
-
-            }
-
-
-            loadAllowedUsers();
-
+          setMessage(
+            $("notificationMessage"),
+            "Notifications enable नहीं हो पाईं।"
+          );
         }
+      }
     );
-
 }
 
 
-// ======================================================
-// ADD ALLOWED USER
-// ======================================================
+/* =========================
+   OWNER PANEL
+========================= */
 
-if (allowUserBtn) {
+function setupOwnerPanel() {
 
-    allowUserBtn.addEventListener(
-        "click",
-        async () => {
+  $("ownerLoginBtn")
+    ?.addEventListener(
+      "click",
+      async () => {
 
-            const name =
-                allowedUserNameInput?.value.trim() ||
-                "";
+        const password =
+          $("ownerPasswordInput")
+            ?.value;
 
-            const phone =
-                normalizePhone(
-                    allowedUserPhoneInput?.value ||
-                    ""
-                );
+        if (password !== OWNER_PASSWORD) {
 
+          setMessage(
+            $("ownerPasswordMessage"),
+            "❌ गलत Owner Password"
+          );
 
-            if (!name) {
-
-                alert(
-                    "User का नाम लिखें।"
-                );
-
-                return;
-
-            }
-
-
-            if (phone.length !== 10) {
-
-                alert(
-                    "सही 10 अंकों का मोबाइल नंबर डालें।"
-                );
-
-                return;
-
-            }
-
-
-            try {
-
-                await addDoc(
-                    collection(
-                        db,
-                        "allowedUsers"
-                    ),
-                    {
-                        name,
-                        phone,
-                        createdAt:
-                            Date.now(),
-                        addedBy:
-                            OWNER_NAME
-                    }
-                );
-
-
-                allowedUserNameInput.value = "";
-                allowedUserPhoneInput.value = "";
-
-
-                await loadAllowedUsers();
-
-
-                alert(
-                    "✅ User allow हो गया!"
-                );
-
-            } catch (error) {
-
-                console.error(
-                    "Allow user error:",
-                    error
-                );
-
-                alert(
-                    "User allow नहीं हुआ।"
-                );
-
-            }
-
+          return;
         }
+
+        $("ownerPanel")
+          ?.classList.remove("hidden");
+
+        setMessage(
+          $("ownerPasswordMessage"),
+          `✅ Welcome ${OWNER_NAME}`,
+          "success"
+        );
+
+        await loadAllowedUsers();
+      }
     );
 
+
+  $("allowUserBtn")
+    ?.addEventListener(
+      "click",
+      allowUser
+    );
 }
 
+async function allowUser() {
 
-// ======================================================
-// LOAD ALLOWED USERS
-// ======================================================
+  const name =
+    $("allowedUserNameInput")
+      ?.value.trim();
+
+  const phone =
+    normalizePhone(
+      $("allowedUserPhoneInput")
+        ?.value
+    );
+
+  if (!name) {
+    alert("Student name डालें।");
+    return;
+  }
+
+  if (phone.length !== 10) {
+    alert(
+      "सही 10 digit mobile number डालें।"
+    );
+    return;
+  }
+
+  const button =
+    $("allowUserBtn");
+
+  buttonBusy(button, true);
+
+  try {
+
+    await setDoc(
+      doc(
+        db,
+        "allowedUsers",
+        phone
+      ),
+      {
+        name,
+        phone,
+        allowed: true,
+        createdAt: serverTimestamp()
+      },
+      {
+        merge: true
+      }
+    );
+
+    $("allowedUserNameInput").value = "";
+    $("allowedUserPhoneInput").value = "";
+
+    alert(
+      "✅ User allowed successfully!"
+    );
+
+    loadAllowedUsers();
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "User allow नहीं हो पाया।"
+    );
+
+  } finally {
+
+    buttonBusy(button, false);
+  }
+}
 
 async function loadAllowedUsers() {
 
-    if (!allowedUsersList) {
-        return;
+  const list =
+    $("allowedUsersList");
+
+  if (!list) return;
+
+  list.innerHTML = `
+    <div class="empty-state">
+      <span>⏳</span>
+      <p>Loading users...</p>
+    </div>
+  `;
+
+  try {
+
+    const snapshot =
+      await getDocs(
+        collection(
+          db,
+          "allowedUsers"
+        )
+      );
+
+    if (snapshot.empty) {
+
+      list.innerHTML = `
+        <div class="empty-state">
+          <span>👥</span>
+          <p>अभी कोई allowed user नहीं है।</p>
+        </div>
+      `;
+
+      return;
     }
 
+    const users =
+      snapshot.docs.map(item => ({
+        id: item.id,
+        ...item.data()
+      }));
 
-    try {
+    list.innerHTML =
+      users.map(user => `
+        <div class="allowed-user">
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "allowedUsers"
-                )
-            );
+          <div class="allowed-user-info">
 
+            <strong>
+              ${escapeHTML(
+                user.name || "Student"
+              )}
+            </strong>
 
-        allowedUsersList.innerHTML = "";
+            <span>
+              ${escapeHTML(
+                user.phone || ""
+              )}
+            </span>
 
+          </div>
 
-        snapshot.forEach(item => {
+          <div class="allowed-status">
+            ✅ Allowed
+          </div>
 
-            const data =
-                item.data();
+        </div>
+      `).join("");
 
+  } catch (error) {
 
-            const div =
-                document.createElement(
-                    "div"
-                );
+    console.error(error);
 
-
-            div.className =
-                "allowed-user-item";
-
-
-            div.innerHTML = `
-                <strong>
-                    ${escapeHTML(
-                        data.name ||
-                        ""
-                    )}
-                </strong>
-
-                <span>
-                    ${escapeHTML(
-                        data.phone ||
-                        ""
-                    )}
-                </span>
-            `;
+    list.innerHTML = `
+      <div class="empty-state">
+        <span>⚠️</span>
+        <p>Allowed users load नहीं हुए।</p>
+      </div>
+    `;
+  }
+}
 
 
-            allowedUsersList.appendChild(
-                div
-            );
+/* =========================
+   RESET
+========================= */
 
-        });
+function setupReset() {
 
-    } catch (error) {
+  $("clearDataBtn")
+    ?.addEventListener(
+      "click",
+      () => {
 
-        console.error(
-            "Allowed users error:",
-            error
+        const confirmReset =
+          confirm(
+            "क्या आप इस device पर StudyConnect की saved login/settings हटाना चाहते हैं?"
+          );
+
+        if (!confirmReset) {
+          return;
+        }
+
+        stopChatListener();
+        stopGroupChatListener();
+        stopOnlineListener();
+
+        localStorage.clear();
+
+        currentUser = {
+          name: "",
+          phone: ""
+        };
+
+        selectedGroupId = null;
+        selectedGroupData = null;
+
+        setMessage(
+          $("settingsMessage"),
+          "✅ App data reset हो गया।",
+          "success"
         );
 
-    }
-
+        setTimeout(() => {
+          location.reload();
+        }, 700);
+      }
+    );
 }
 
 
-// ======================================================
-// RESET APP DATA
-// ======================================================
+/* =========================
+   START APP
+========================= */
 
-const clearDataBtn =
-    document.getElementById(
-        "clearDataBtn"
-    );
+function startApp() {
 
+  setupNavigation();
+  setupLogin();
+  setupNameSettings();
+  setupChat();
+  setupOnline();
+  setupGroups();
+  setupHomework();
+  setupSchool();
+  setupNotes();
+  setupLanguage();
+  setupTheme();
+  setupNotifications();
+  setupOwnerPanel();
+  setupReset();
 
-if (clearDataBtn) {
+  const savedUser =
+    getSavedUser();
 
-    clearDataBtn.addEventListener(
-        "click",
-        () => {
-
-            const yes =
-                confirm(
-                    "क्या इस device का StudyConnect data reset करना है?"
-                );
-
-
-            if (!yes) {
-                return;
-            }
-
-
-            clearUser();
-
-
-            localStorage.removeItem(
-                "studyLanguage"
-            );
-
-            localStorage.removeItem(
-                "darkMode"
-            );
-
-
-            sessionStorage.clear();
-
-
-            location.reload();
-
-        }
-    );
-
+  if (savedUser) {
+    currentUser = savedUser;
+  }
 }
 
-
-// ======================================================
-// SERVICE WORKER / PWA
-// ======================================================
-
-if (
-    "serviceWorker" in navigator
-) {
-
-    window.addEventListener(
-        "load",
-        () => {
-
-            navigator.serviceWorker
-                .register(
-                    "service-worker.js"
-                )
-                .then(
-                    registration => {
-
-                        console.log(
-                            "Service Worker registered:",
-                            registration.scope
-                        );
-
-                    }
-                )
-                .catch(error => {
-
-                    console.error(
-                        "Service Worker error:",
-                        error
-                    );
-
-                });
-
-        }
-    );
-
-}
-
-
-// ======================================================
-// START APP
-// ======================================================
-
-setupNameSettings();
-
-setupLanguage();
-
-startChatListener();
-
-loadHomework();
-
-loadSchool();
-
-loadNotes();
-
-loadGroups();
-
-checkExistingLogin();
-
-
-console.log(
-    "StudyConnect complete JavaScript loaded successfully."
-);
+startApp();
