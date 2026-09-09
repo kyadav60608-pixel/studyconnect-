@@ -19,6 +19,10 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 
+/* =========================================================
+   FIREBASE
+========================================================= */
+
 const firebaseConfig = {
   apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3aUCdPWypag",
   authDomain: "studyconnect-99006.firebaseapp.com",
@@ -32,14 +36,29 @@ const firebaseConfig = {
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 
+
+/* =========================================================
+   APP SETTINGS
+========================================================= */
+
 const APP_PASSWORD = "123";
+
 const OWNER_NAME = "Krishna Yadav";
 const OWNER_PHONE = "8738084554";
 const OWNER_PASSWORD = "12341";
 
+const ONLINE_TIMEOUT = 90000;
+const CHAT_LIMIT = 50;
+
+
+/* =========================================================
+   STATE
+========================================================= */
+
 let currentUser = {
   name: "",
-  phone: ""
+  phone: "",
+  isOwner: false
 };
 
 let selectedGroupId = null;
@@ -50,12 +69,23 @@ let unsubscribeGroupChat = null;
 let unsubscribeOnline = null;
 let onlineHeartbeat = null;
 
+let currentPage = "home";
 
-/* =========================
-   HELPERS
-========================= */
+let previousPage = "home";
+
+let typingTimeout = null;
+
+
+/* =========================================================
+   SHORTCUT
+========================================================= */
 
 const $ = id => document.getElementById(id);
+
+
+/* =========================================================
+   BASIC HELPERS
+========================================================= */
 
 function normalizePhone(phone) {
   return String(phone || "")
@@ -63,12 +93,14 @@ function normalizePhone(phone) {
     .slice(-10);
 }
 
+
 function normalizeName(name) {
   return String(name || "")
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase();
 }
+
 
 function escapeHTML(value) {
   return String(value ?? "")
@@ -79,11 +111,16 @@ function escapeHTML(value) {
     .replaceAll("'", "&#039;");
 }
 
+
 function formatTime(value) {
-  if (!value) return "अभी";
+
+  if (!value) {
+    return "अभी";
+  }
 
   try {
-    const date = value.toDate
+
+    const date = value?.toDate
       ? value.toDate()
       : new Date(value);
 
@@ -93,48 +130,73 @@ function formatTime(value) {
 
     return date.toLocaleString("en-IN", {
       day: "2-digit",
-      month: "2-digit",
+      month: "short",
       hour: "2-digit",
       minute: "2-digit"
     });
+
   } catch {
     return "अभी";
   }
 }
 
+
 function setMessage(element, text, type = "error") {
-  if (!element) return;
+
+  if (!element) {
+    return;
+  }
 
   element.textContent = text;
+
   element.style.color =
     type === "success"
-      ? "var(--success)"
+      ? "var(--online)"
       : "var(--danger)";
 }
 
+
 function buttonBusy(button, busy) {
-  if (!button) return;
+
+  if (!button) {
+    return;
+  }
 
   if (busy) {
+
+    if (!button.dataset.oldText) {
+      button.dataset.oldText =
+        button.textContent;
+    }
+
     button.disabled = true;
-    button.dataset.oldText = button.textContent;
-    button.textContent = "⏳ Please wait...";
+    button.textContent =
+      "⏳ Please wait...";
+
   } else {
+
     button.disabled = false;
 
     if (button.dataset.oldText) {
-      button.textContent = button.dataset.oldText;
+      button.textContent =
+        button.dataset.oldText;
+
+      delete button.dataset.oldText;
     }
   }
 }
 
-async function hashText(text) {
-  const data = new TextEncoder().encode(text);
 
-  const hash = await crypto.subtle.digest(
-    "SHA-256",
-    data
-  );
+async function hashText(text) {
+
+  const data =
+    new TextEncoder().encode(text);
+
+  const hash =
+    await crypto.subtle.digest(
+      "SHA-256",
+      data
+    );
 
   return [...new Uint8Array(hash)]
     .map(byte =>
@@ -143,10 +205,28 @@ async function hashText(text) {
     .join("");
 }
 
+
+/* =========================================================
+   LOCAL PROFILE
+========================================================= */
+
 function setUser(name, phone) {
+
+  const cleanPhone =
+    normalizePhone(phone);
+
+  const cleanName =
+    String(name || "").trim();
+
+  const isOwner =
+    cleanPhone === OWNER_PHONE &&
+    normalizeName(cleanName) ===
+      normalizeName(OWNER_NAME);
+
   currentUser = {
-    name: String(name).trim(),
-    phone: normalizePhone(phone)
+    name: cleanName,
+    phone: cleanPhone,
+    isOwner
   };
 
   localStorage.setItem(
@@ -155,34 +235,232 @@ function setUser(name, phone) {
   );
 }
 
+
 function getSavedUser() {
+
   try {
+
     const saved =
       localStorage.getItem("studyUser");
 
-    if (!saved) return null;
+    if (!saved) {
+      return null;
+    }
 
-    const user = JSON.parse(saved);
+    const user =
+      JSON.parse(saved);
 
     if (!user?.name || !user?.phone) {
       return null;
     }
 
+    const phone =
+      normalizePhone(user.phone);
+
+    const name =
+      String(user.name).trim();
+
     return {
-      name: user.name,
-      phone: normalizePhone(user.phone)
+      name,
+      phone,
+      isOwner:
+        phone === OWNER_PHONE &&
+        normalizeName(name) ===
+          normalizeName(OWNER_NAME)
     };
+
   } catch {
     return null;
   }
 }
 
 
-/* =========================
-   NAVIGATION
-========================= */
+/* =========================================================
+   PROFILE DP
+========================================================= */
 
-function showPage(pageName) {
+function createInitials(name) {
+
+  const words =
+    String(name || "Student")
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  if (!words.length) {
+    return "SC";
+  }
+
+  if (words.length === 1) {
+    return words[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return (
+    words[0][0] +
+    words[1][0]
+  ).toUpperCase();
+}
+
+
+function createAvatar(name, small = false) {
+
+  const initials =
+    escapeHTML(createInitials(name));
+
+  const size =
+    small ? "36px" : "46px";
+
+  return `
+    <div
+      class="sc-avatar"
+      style="
+        width:${size};
+        height:${size};
+        min-width:${size};
+        border-radius:50%;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        background:#e7e7e3;
+        color:#202020;
+        font-weight:800;
+        font-size:${small ? "12px" : "15px"};
+        border:1px solid var(--border);
+      "
+    >
+      ${initials}
+    </div>
+  `;
+}
+
+
+function applyProfileAvatar() {
+
+  const brand =
+    document.querySelector(".brand");
+
+  if (!brand) {
+    return;
+  }
+
+  const old =
+    brand.querySelector(".profile-mini");
+
+  if (old) {
+    old.remove();
+  }
+
+  const avatar =
+    document.createElement("div");
+
+  avatar.className =
+    "profile-mini";
+
+  avatar.innerHTML =
+    createAvatar(
+      currentUser.name,
+      true
+    );
+
+  brand.appendChild(avatar);
+}
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+function addBackButton() {
+
+  if ($("studyBackBtn")) {
+    return;
+  }
+
+  const main =
+    document.querySelector(".main-content");
+
+  if (!main) {
+    return;
+  }
+
+  const back =
+    document.createElement("button");
+
+  back.id =
+    "studyBackBtn";
+
+  back.type =
+    "button";
+
+  back.textContent =
+    "← Back";
+
+  back.style.cssText = `
+    display:none;
+    align-items:center;
+    gap:5px;
+    margin-bottom:14px;
+    padding:7px 10px;
+    border:1px solid var(--border);
+    border-radius:9px;
+    background:var(--surface);
+    color:var(--muted);
+    font-size:13px;
+    font-weight:600;
+  `;
+
+  back.addEventListener(
+    "click",
+    () => {
+
+      if (previousPage) {
+        showPage(previousPage, false);
+      }
+    }
+  );
+
+  main.prepend(back);
+}
+
+
+function updateBackButton() {
+
+  const back =
+    $("studyBackBtn");
+
+  if (!back) {
+    return;
+  }
+
+  const show =
+    currentPage !== "home";
+
+  back.style.display =
+    show ? "inline-flex" : "none";
+}
+
+
+function showPage(
+  pageName,
+  remember = true
+) {
+
+  if (!pageName) {
+    return;
+  }
+
+  if (
+    remember &&
+    currentPage !== pageName
+  ) {
+    previousPage =
+      currentPage;
+  }
+
+  currentPage =
+    pageName;
 
   document
     .querySelectorAll(".page")
@@ -197,7 +475,10 @@ function showPage(pageName) {
     page.classList.add("active");
   }
 
-  $("navMenu")?.classList.remove("open");
+  $("navMenu")
+    ?.classList.remove("open");
+
+  updateBackButton();
 
   if (pageName === "chat") {
     startChatListener();
@@ -214,13 +495,29 @@ function showPage(pageName) {
   } else {
     stopOnlineListener();
   }
+
+  if (pageName === "homework") {
+    loadHomework();
+  }
+
+  if (pageName === "school") {
+    loadSchool();
+  }
+
+  if (pageName === "notes") {
+    loadNotes();
+  }
 }
 
+
 function setupNavigation() {
+
+  addBackButton();
 
   $("menuBtn")?.addEventListener(
     "click",
     () => {
+
       $("navMenu")
         ?.classList.toggle("open");
     }
@@ -248,8 +545,11 @@ function setupNavigation() {
     "click",
     event => {
 
-      const menu = $("navMenu");
-      const menuButton = $("menuBtn");
+      const menu =
+        $("navMenu");
+
+      const menuButton =
+        $("menuBtn");
 
       if (
         menu &&
@@ -257,6 +557,7 @@ function setupNavigation() {
         !menu.contains(event.target) &&
         !menuButton?.contains(event.target)
       ) {
+
         menu.classList.remove("open");
       }
     }
@@ -264,9 +565,9 @@ function setupNavigation() {
 }
 
 
-/* =========================
-   LOGIN
-========================= */
+/* =========================================================
+   ALLOWED USER
+========================================================= */
 
 async function checkAllowedUser(
   phone,
@@ -277,8 +578,20 @@ async function checkAllowedUser(
   const cleanPhone =
     normalizePhone(phone);
 
+  /* OWNER ALWAYS ALLOWED */
+
+  if (
+    cleanPhone === OWNER_PHONE
+  ) {
+    return true;
+  }
+
   const ref =
-    doc(db, "allowedUsers", cleanPhone);
+    doc(
+      db,
+      "allowedUsers",
+      cleanPhone
+    );
 
   const snap =
     await getDoc(ref);
@@ -287,13 +600,15 @@ async function checkAllowedUser(
     return false;
   }
 
-  const data = snap.data();
+  const data =
+    snap.data();
 
   if (data.allowed !== true) {
     return false;
   }
 
   if (exactName) {
+
     return (
       normalizeName(data.name) ===
       normalizeName(name)
@@ -303,6 +618,11 @@ async function checkAllowedUser(
   return true;
 }
 
+
+/* =========================================================
+   LOGIN
+========================================================= */
+
 function showContactScreen() {
 
   $("passwordScreen")
@@ -310,7 +630,11 @@ function showContactScreen() {
 
   $("contactScreen")
     ?.classList.remove("hidden");
+
+  $("app")
+    ?.classList.add("hidden");
 }
+
 
 function openApp() {
 
@@ -324,14 +648,16 @@ function openApp() {
     ?.classList.remove("hidden");
 
   updateProfileUI();
+  applyProfileAvatar();
+
+  showPage("home");
 
   loadHomework();
   loadSchool();
   loadNotes();
   loadGroups();
-
-  showPage("home");
 }
+
 
 function setupLogin() {
 
@@ -340,21 +666,29 @@ function setupLogin() {
     async () => {
 
       const password =
-        $("appPassword")?.value.trim();
+        $("appPassword")
+          ?.value.trim();
 
       if (!password) {
+
         setMessage(
           $("passwordError"),
           "App password डालें।"
         );
+
         return;
       }
 
-      if (password !== APP_PASSWORD) {
+      if (
+        password !==
+        APP_PASSWORD
+      ) {
+
         setMessage(
           $("passwordError"),
           "❌ गलत App Password"
         );
+
         return;
       }
 
@@ -376,7 +710,9 @@ function setupLogin() {
             );
 
           if (!allowed) {
+
             showContactScreen();
+
             return;
           }
 
@@ -406,7 +742,8 @@ function setupLogin() {
       $("userStep")
         ?.classList.remove("hidden");
 
-      $("openUserName")?.focus();
+      $("openUserName")
+        ?.focus();
     }
   );
 
@@ -416,26 +753,32 @@ function setupLogin() {
     async () => {
 
       const name =
-        $("openUserName")?.value.trim();
+        $("openUserName")
+          ?.value.trim();
 
       const phone =
         normalizePhone(
-          $("openUserPhone")?.value
+          $("openUserPhone")
+            ?.value
         );
 
       if (!name) {
+
         setMessage(
           $("loginMessage"),
           "अपना नाम लिखें।"
         );
+
         return;
       }
 
       if (phone.length !== 10) {
+
         setMessage(
           $("loginMessage"),
           "सही 10 digit mobile number डालें।"
         );
+
         return;
       }
 
@@ -446,6 +789,29 @@ function setupLogin() {
 
       try {
 
+        /*
+          OWNER:
+          Krishna Yadav + 8738084554
+          automatically allowed.
+        */
+
+        const isOwner =
+          phone === OWNER_PHONE &&
+          normalizeName(name) ===
+            normalizeName(OWNER_NAME);
+
+        if (isOwner) {
+
+          setUser(
+            OWNER_NAME,
+            OWNER_PHONE
+          );
+
+          openApp();
+
+          return;
+        }
+
         const allowed =
           await checkAllowedUser(
             phone,
@@ -454,11 +820,16 @@ function setupLogin() {
           );
 
         if (!allowed) {
+
           showContactScreen();
+
           return;
         }
 
-        setUser(name, phone);
+        setUser(
+          name,
+          phone
+        );
 
         openApp();
 
@@ -482,101 +853,137 @@ function setupLogin() {
   );
 
 
-  $("backToLoginBtn")?.addEventListener(
-    "click",
-    () => {
+  $("backToLoginBtn")
+    ?.addEventListener(
+      "click",
+      () => {
 
-      $("contactScreen")
-        ?.classList.add("hidden");
+        $("contactScreen")
+          ?.classList.add("hidden");
 
-      $("passwordScreen")
-        ?.classList.remove("hidden");
+        $("passwordScreen")
+          ?.classList.remove("hidden");
 
-      $("loginStep")
-        ?.classList.remove("hidden");
+        $("loginStep")
+          ?.classList.remove("hidden");
 
-      $("userStep")
-        ?.classList.add("hidden");
+        $("userStep")
+          ?.classList.add("hidden");
 
-      if ($("appPassword")) {
-        $("appPassword").value = "";
+        if ($("appPassword")) {
+          $("appPassword").value = "";
+        }
       }
-    }
-  );
+    );
 }
 
 
-/* =========================
+/* =========================================================
    PROFILE
-========================= */
+========================================================= */
 
 function updateProfileUI() {
 
   if ($("currentUserProfile")) {
-    $("currentUserProfile").textContent =
-      `${currentUser.name} • ${currentUser.phone}`;
+
+    $("currentUserProfile").innerHTML =
+      `
+        <span style="
+          display:inline-flex;
+          align-items:center;
+          gap:10px;
+        ">
+          ${createAvatar(currentUser.name, true)}
+
+          <span>
+            <strong>
+              ${escapeHTML(currentUser.name)}
+            </strong>
+
+            <br>
+
+            <small style="color:var(--muted)">
+              ${escapeHTML(currentUser.phone)}
+              ${currentUser.isOwner ? " • 👑 Owner" : ""}
+            </small>
+          </span>
+        </span>
+      `;
   }
 
-  if ($("studentName")) {
-    $("studentName").value =
-      currentUser.name;
+  /*
+    Home name input is removed from normal use.
+    If it exists in old HTML, hide it.
+  */
+
+  const oldNameInput =
+    $("studentName");
+
+  const oldSaveButton =
+    $("saveNameBtn");
+
+  if (oldNameInput) {
+    oldNameInput.parentElement?.classList.add(
+      "profile-old-edit"
+    );
+  }
+
+  if (oldSaveButton) {
+    oldSaveButton.style.display =
+      "none";
+  }
+
+  if (oldNameInput) {
+    oldNameInput.style.display =
+      "none";
   }
 
   if ($("changeNameInput")) {
     $("changeNameInput").value =
       currentUser.name;
   }
+
+  applyProfileAvatar();
 }
+
 
 function setupNameSettings() {
 
   $("saveNameBtn")?.addEventListener(
     "click",
-    () => {
+    event => {
+      event.preventDefault();
 
-      const name =
-        $("studentName")?.value.trim();
+      /*
+        Name changing is intentionally
+        handled from Settings.
+      */
 
-      if (!name) {
-        setMessage(
-          $("nameMessage"),
-          "नाम खाली नहीं हो सकता।"
-        );
-        return;
-      }
-
-      setUser(
-        name,
-        currentUser.phone
-      );
-
-      updateProfileUI();
-
-      setMessage(
-        $("nameMessage"),
-        "✅ Name saved",
-        "success"
-      );
-
-      updateOnlineUser();
+      showPage("settings");
     }
   );
 
 
   $("changeNameBtn")?.addEventListener(
     "click",
-    () => {
+    async () => {
 
       const name =
-        $("changeNameInput")?.value.trim();
+        $("changeNameInput")
+          ?.value.trim();
 
       if (!name) {
+
         setMessage(
           $("changeNameMessage"),
           "नया नाम डालें।"
         );
+
         return;
       }
+
+      const oldName =
+        currentUser.name;
 
       setUser(
         name,
@@ -591,33 +998,57 @@ function setupNameSettings() {
         "success"
       );
 
-      updateOnlineUser();
+      /*
+        Update online profile.
+      */
+
+      await updateOnlineUser();
+
+      /*
+        Update local profile
+        without forcing a second save.
+      */
+
+      if (oldName !== name) {
+        applyProfileAvatar();
+      }
     }
   );
 }
 
 
-/* =========================
+/* =========================================================
    MAIN CHAT
-========================= */
+========================================================= */
 
 function stopChatListener() {
 
   if (unsubscribeChat) {
+
     unsubscribeChat();
+
     unsubscribeChat = null;
   }
 }
 
+
 function startChatListener() {
 
-  if (unsubscribeChat) return;
+  if (unsubscribeChat) {
+    return;
+  }
 
   const messagesQuery =
     query(
-      collection(db, "messages"),
-      orderBy("createdAt", "desc"),
-      limit(50)
+      collection(
+        db,
+        "messages"
+      ),
+      orderBy(
+        "createdAt",
+        "desc"
+      ),
+      limit(CHAT_LIMIT)
     );
 
   unsubscribeChat =
@@ -645,35 +1076,51 @@ function startChatListener() {
       },
       error => {
 
-        console.error(error);
+        console.error(
+          "Chat error:",
+          error
+        );
 
         if ($("chatMessages")) {
-          $("chatMessages").innerHTML = `
-            <div class="empty-state">
-              <span>⚠️</span>
-              <p>Chat load नहीं हो पाया।</p>
-            </div>
-          `;
+
+          $("chatMessages").innerHTML =
+            `
+              <div class="empty-state">
+                <span>⚠️</span>
+                <p>
+                  Chat load नहीं हो पाया।
+                </p>
+                <small>
+                  Firebase connection/rules check करें।
+                </small>
+              </div>
+            `;
         }
       }
     );
 }
+
 
 function renderMessages(
   container,
   messages
 ) {
 
-  if (!container) return;
+  if (!container) {
+    return;
+  }
 
   if (!messages.length) {
 
-    container.innerHTML = `
-      <div class="empty-state">
-        <span>💬</span>
-        <p>अभी कोई message नहीं है।</p>
-      </div>
-    `;
+    container.innerHTML =
+      `
+        <div class="empty-state">
+          <span>💬</span>
+          <p>
+            अभी कोई message नहीं है।
+          </p>
+        </div>
+      `;
 
     return;
   }
@@ -693,17 +1140,36 @@ function renderMessages(
         mine
           ? (
               seen
-                ? `<span title="Seen">✓✓</span>`
-                : `<span title="Sent">✓</span>`
+                ? `<span style="font-weight:800">✓✓</span>`
+                : `<span>✓</span>`
             )
           : "";
 
       return `
-        <div class="message ${mine ? "mine" : ""}">
-          <div class="message-name">
-            ${escapeHTML(
-              message.name || "Student"
+        <div
+          class="message ${mine ? "mine" : ""}"
+        >
+
+          <div
+            style="
+              display:flex;
+              align-items:center;
+              gap:8px;
+              margin-bottom:5px;
+            "
+          >
+
+            ${createAvatar(
+              message.name || "Student",
+              true
             )}
+
+            <div class="message-name">
+              ${escapeHTML(
+                message.name || "Student"
+              )}
+            </div>
+
           </div>
 
           <div class="message-text">
@@ -713,17 +1179,34 @@ function renderMessages(
           </div>
 
           <div class="message-meta">
-            ${formatTime(message.createdAt)}
+            ${formatTime(
+              message.createdAt
+            )}
+
             ${tick}
           </div>
+
         </div>
       `;
 
     }).join("");
 
-  container.scrollTop =
-    container.scrollHeight;
+  /*
+    Only scroll when already close to bottom.
+    This prevents jumping while reading old messages.
+  */
+
+  const distance =
+    container.scrollHeight -
+    container.scrollTop -
+    container.clientHeight;
+
+  if (distance < 180) {
+    container.scrollTop =
+      container.scrollHeight;
+  }
 }
+
 
 async function sendMessage() {
 
@@ -733,27 +1216,49 @@ async function sendMessage() {
   const text =
     input?.value.trim();
 
-  if (!text) return;
+  if (!text) {
+    return;
+  }
+
+  if (!currentUser.phone) {
+    return;
+  }
 
   const button =
     $("sendMessageBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
     await addDoc(
-      collection(db, "messages"),
+      collection(
+        db,
+        "messages"
+      ),
       {
-        name: currentUser.name,
-        phone: currentUser.phone,
-        text: text.slice(0, 1000),
-        createdAt: serverTimestamp(),
-        seenBy: []
+        name:
+          currentUser.name,
+
+        phone:
+          currentUser.phone,
+
+        text:
+          text.slice(0, 1000),
+
+        createdAt:
+          serverTimestamp(),
+
+        seenBy:
+          []
       }
     );
 
     input.value = "";
+
     input.focus();
 
   } catch (error) {
@@ -761,36 +1266,46 @@ async function sendMessage() {
     console.error(error);
 
     alert(
-      "Message भेजा नहीं जा सका। Internet check करें।"
+      "Message भेजा नहीं जा सका। Internet/Firebase check करें।"
     );
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
 
+
 function setupChat() {
 
-  $("sendMessageBtn")?.addEventListener(
-    "click",
-    sendMessage
-  );
+  $("sendMessageBtn")
+    ?.addEventListener(
+      "click",
+      sendMessage
+    );
 
-  $("messageInput")?.addEventListener(
-    "keydown",
-    event => {
+  $("messageInput")
+    ?.addEventListener(
+      "keydown",
+      event => {
 
-      if (
-        event.key === "Enter" &&
-        !event.shiftKey
-      ) {
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey
+        ) {
 
-        event.preventDefault();
-        sendMessage();
+          event.preventDefault();
+
+          sendMessage();
+        }
+
+        showTyping();
       }
-    }
-  );
+    );
+
 
   const emojis = [
     "😊",
@@ -804,26 +1319,59 @@ function setupChat() {
 
   let emojiIndex = 0;
 
-  $("emojiBtn")?.addEventListener(
-    "click",
-    () => {
+  $("emojiBtn")
+    ?.addEventListener(
+      "click",
+      () => {
 
-      const input =
-        $("messageInput");
+        const input =
+          $("messageInput");
 
-      if (!input) return;
+        if (!input) {
+          return;
+        }
 
-      input.value +=
-        emojis[emojiIndex];
+        input.value +=
+          emojis[emojiIndex];
 
-      emojiIndex =
-        (emojiIndex + 1) %
-        emojis.length;
+        emojiIndex =
+          (
+            emojiIndex + 1
+          ) %
+          emojis.length;
 
-      input.focus();
-    }
-  );
+        input.focus();
+      }
+    );
 }
+
+
+function showTyping() {
+
+  const input =
+    $("messageInput");
+
+  if (!input) {
+    return;
+  }
+
+  clearTimeout(
+    typingTimeout
+  );
+
+  /*
+    Local visual indicator.
+    Real multi-user typing indicator
+    can be added through Firebase later.
+  */
+
+  typingTimeout =
+    setTimeout(
+      () => {},
+      1200
+    );
+}
+
 
 async function markMessagesSeen(
   messages,
@@ -832,16 +1380,23 @@ async function markMessagesSeen(
 
   const recent =
     messages
-      .filter(message =>
-        normalizePhone(message.phone) !==
-        normalizePhone(currentUser.phone)
+      .filter(
+        message =>
+          normalizePhone(
+            message.phone
+          ) !==
+          normalizePhone(
+            currentUser.phone
+          )
       )
       .slice(-10);
 
   for (const message of recent) {
 
     const seenBy =
-      Array.isArray(message.seenBy)
+      Array.isArray(
+        message.seenBy
+      )
         ? message.seenBy
         : [];
 
@@ -873,15 +1428,17 @@ async function markMessagesSeen(
       await updateDoc(
         ref,
         {
-          seenBy: arrayUnion(
-            currentUser.phone
-          )
+          seenBy:
+            arrayUnion(
+              currentUser.phone
+            )
         }
       );
 
     } catch (error) {
+
       console.warn(
-        "Seen update failed",
+        "Seen update failed:",
         error
       );
     }
@@ -889,18 +1446,21 @@ async function markMessagesSeen(
 }
 
 
-/* =========================
-   ONLINE
-========================= */
+/* =========================================================
+   ONLINE STUDENTS
+========================================================= */
 
 function stopOnlineListener() {
 
   if (unsubscribeOnline) {
+
     unsubscribeOnline();
+
     unsubscribeOnline = null;
   }
 
   if (onlineHeartbeat) {
+
     clearInterval(
       onlineHeartbeat
     );
@@ -909,39 +1469,70 @@ function stopOnlineListener() {
   }
 }
 
+
 function startOnlineListener() {
 
-  if (!currentUser.phone) return;
+  if (!currentUser.phone) {
+    return;
+  }
 
-  if (unsubscribeOnline) return;
+  if (unsubscribeOnline) {
+    return;
+  }
+
+  updateOnlineUser();
 
   unsubscribeOnline =
     onSnapshot(
-      collection(db, "onlineUsers"),
+      collection(
+        db,
+        "onlineUsers"
+      ),
       snapshot => {
 
-        const now = Date.now();
+        const now =
+          Date.now();
 
         const users =
           snapshot.docs
-            .map(item => item.data())
-            .filter(user =>
-              user.online === true &&
-              typeof user.lastSeen === "number" &&
-              now - user.lastSeen < 90000
+            .map(item => ({
+              id: item.id,
+              ...item.data()
+            }))
+            .filter(user => {
+
+              return (
+                user.online === true &&
+                typeof user.lastSeen ===
+                  "number" &&
+                now -
+                  user.lastSeen <
+                  ONLINE_TIMEOUT
+              );
+            })
+            .sort(
+              (a, b) =>
+                String(a.name || "")
+                  .localeCompare(
+                    String(b.name || "")
+                  )
             );
 
         renderOnlineUsers(users);
       },
       error => {
+
         console.warn(
-          "Online listener error",
+          "Online listener error:",
           error
         );
+
+        if ($("onlineCount")) {
+          $("onlineCount").textContent =
+            "—";
+        }
       }
     );
-
-  updateOnlineUser();
 
   onlineHeartbeat =
     setInterval(
@@ -950,9 +1541,12 @@ function startOnlineListener() {
     );
 }
 
+
 async function updateOnlineUser() {
 
-  if (!currentUser.phone) return;
+  if (!currentUser.phone) {
+    return;
+  }
 
   try {
 
@@ -963,10 +1557,17 @@ async function updateOnlineUser() {
         currentUser.phone
       ),
       {
-        name: currentUser.name,
-        phone: currentUser.phone,
-        online: true,
-        lastSeen: Date.now()
+        name:
+          currentUser.name,
+
+        phone:
+          currentUser.phone,
+
+        online:
+          true,
+
+        lastSeen:
+          Date.now()
       },
       {
         merge: true
@@ -974,12 +1575,44 @@ async function updateOnlineUser() {
     );
 
   } catch (error) {
+
     console.warn(
-      "Online update failed",
+      "Online update failed:",
       error
     );
   }
 }
+
+
+async function markOffline() {
+
+  if (!currentUser.phone) {
+    return;
+  }
+
+  try {
+
+    await updateDoc(
+      doc(
+        db,
+        "onlineUsers",
+        currentUser.phone
+      ),
+      {
+        online: false,
+        lastSeen: Date.now()
+      }
+    );
+
+  } catch (error) {
+
+    console.warn(
+      "Offline update failed:",
+      error
+    );
+  }
+}
+
 
 function renderOnlineUsers(users) {
 
@@ -989,61 +1622,166 @@ function renderOnlineUsers(users) {
   const count =
     $("onlineCount");
 
-  if (!list || !count) return;
+  if (!list || !count) {
+    return;
+  }
 
   count.textContent =
     users.length;
 
   if (!users.length) {
 
-    list.innerHTML = `
-      <div class="empty-state">
-        <span>👥</span>
-        <p>कोई student online नहीं है।</p>
-      </div>
-    `;
+    list.innerHTML =
+      `
+        <div class="empty-state">
+          <span>👥</span>
+          <p>
+            अभी कोई student online नहीं है।
+          </p>
+
+          <button
+            id="addOnlineSelfBtn"
+            type="button"
+            style="
+              margin-top:10px;
+              padding:9px 13px;
+              border-radius:10px;
+              background:var(--accent);
+              color:#fff;
+            "
+          >
+            + Add yourself
+          </button>
+        </div>
+      `;
+
+    $("addOnlineSelfBtn")
+      ?.addEventListener(
+        "click",
+        async () => {
+
+          await updateOnlineUser();
+
+          renderOnlineUsers([
+            {
+              name:
+                currentUser.name,
+
+              phone:
+                currentUser.phone,
+
+              online:
+                true,
+
+              lastSeen:
+                Date.now()
+            }
+          ]);
+        }
+      );
 
     return;
   }
 
   list.innerHTML =
-    users.map(user => `
-      <div class="online-user">
-        <span class="online-dot"></span>
-        <span>
-          ${escapeHTML(
-            user.name || "Student"
+    users.map(user => {
+
+      const owner =
+        normalizePhone(user.phone) ===
+        OWNER_PHONE;
+
+      return `
+        <div
+          class="online-user"
+          style="
+            display:flex;
+            align-items:center;
+            gap:11px;
+          "
+        >
+
+          ${createAvatar(
+            user.name || "Student",
+            false
           )}
-        </span>
-      </div>
-    `).join("");
+
+          <div
+            style="
+              flex:1;
+              min-width:0;
+            "
+          >
+
+            <strong>
+              ${escapeHTML(
+                user.name || "Student"
+              )}
+              ${owner ? " 👑" : ""}
+            </strong>
+
+            <div
+              style="
+                display:flex;
+                align-items:center;
+                gap:5px;
+                color:var(--online);
+                font-size:12px;
+              "
+            >
+
+              <span class="online-dot"></span>
+
+              Online
+
+            </div>
+
+          </div>
+
+        </div>
+      `;
+
+    }).join("");
 }
 
-function setupOnline() {
 
-  $("onlineToggleBtn")?.addEventListener(
-    "click",
-    () => {
+/* =========================================================
+   PAGE VISIBILITY / OFFLINE
+========================================================= */
 
-      $("onlineUsers")
-        ?.classList.toggle("hidden");
+document.addEventListener(
+  "visibilitychange",
+  () => {
 
-      const hidden =
-        $("onlineUsers")
-          ?.classList.contains("hidden");
+    if (
+      document.visibilityState ===
+      "visible"
+    ) {
 
-      if ($("onlineArrow")) {
-        $("onlineArrow").textContent =
-          hidden ? "▼" : "▲";
-      }
+      updateOnlineUser();
+
     }
-  );
-}
+  }
+);
 
 
-/* =========================
+window.addEventListener(
+  "beforeunload",
+  () => {
+
+    /*
+      Best-effort offline update.
+      Mobile browsers may not always execute
+      beforeunload reliably.
+    */
+
+    markOffline();
+  }
+);
+
+
+/* =========================================================
    GROUPS
-========================= */
+========================================================= */
 
 async function loadGroups() {
 
@@ -1054,18 +1792,22 @@ async function loadGroups() {
     return;
   }
 
-  list.innerHTML = `
-    <div class="empty-state">
-      <span>⏳</span>
-      <p>Groups loading...</p>
-    </div>
-  `;
+  list.innerHTML =
+    `
+      <div class="empty-state">
+        <span>⏳</span>
+        <p>Groups loading...</p>
+      </div>
+    `;
 
   try {
 
     const groupsQuery =
       query(
-        collection(db, "groups"),
+        collection(
+          db,
+          "groups"
+        ),
         where(
           "memberPhones",
           "array-contains",
@@ -1075,54 +1817,99 @@ async function loadGroups() {
       );
 
     const snapshot =
-      await getDocs(groupsQuery);
+      await getDocs(
+        groupsQuery
+      );
 
     if (snapshot.empty) {
 
-      list.innerHTML = `
-        <div class="empty-state">
-          <span>👥</span>
-          <p>अभी कोई group नहीं है।</p>
-        </div>
-      `;
+      list.innerHTML =
+        `
+          <div class="empty-state">
+            <span>👥</span>
+            <p>
+              अभी कोई group नहीं है।
+            </p>
+          </div>
+        `;
 
       return;
     }
 
     const groups =
       snapshot.docs.map(item => ({
-        id: item.id,
+        id:
+          item.id,
         ...item.data()
       }));
 
     list.innerHTML =
-      groups.map(group => `
-        <div
-          class="group-item"
-          data-group-id="${escapeHTML(group.id)}"
-        >
-          <h3>
-            🔒 ${escapeHTML(
-              group.name || "Group"
-            )}
-          </h3>
+      groups.map(group => {
 
-          <p>
-            Owner:
-            ${escapeHTML(
-              group.ownerName || "Unknown"
-            )}
-          </p>
+        const memberCount =
+          Array.isArray(
+            group.memberPhones
+          )
+            ? group.memberPhones.length
+            : 0;
 
-          <p>
-            👥 ${(group.memberPhones || []).length}
-            members
-          </p>
-        </div>
-      `).join("");
+        return `
+          <div
+            class="group-item"
+            data-group-id="${escapeHTML(group.id)}"
+          >
+
+            <div
+              style="
+                display:flex;
+                align-items:center;
+                gap:12px;
+              "
+            >
+
+              <div
+                style="
+                  width:48px;
+                  height:48px;
+                  min-width:48px;
+                  border-radius:15px;
+                  display:flex;
+                  align-items:center;
+                  justify-content:center;
+                  background:var(--accent);
+                  color:#fff;
+                  font-size:20px;
+                "
+              >
+                👥
+              </div>
+
+              <div>
+
+                <h3>
+                  ${escapeHTML(
+                    group.name || "Group"
+                  )}
+                </h3>
+
+                <p>
+                  ${memberCount} members
+                  • 🔒 Private
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+        `;
+
+      }).join("");
 
     list
-      .querySelectorAll(".group-item")
+      .querySelectorAll(
+        ".group-item"
+      )
       .forEach(item => {
 
         item.addEventListener(
@@ -1141,14 +1928,18 @@ async function loadGroups() {
 
     console.error(error);
 
-    list.innerHTML = `
-      <div class="empty-state">
-        <span>⚠️</span>
-        <p>Groups load नहीं हो पाए।</p>
-      </div>
-    `;
+    list.innerHTML =
+      `
+        <div class="empty-state">
+          <span>⚠️</span>
+          <p>
+            Groups load नहीं हो पाए।
+          </p>
+        </div>
+      `;
   }
 }
+
 
 async function openGroup(
   groupId,
@@ -1157,10 +1948,13 @@ async function openGroup(
 
   const group =
     groups.find(
-      item => item.id === groupId
+      item =>
+        item.id === groupId
     );
 
-  if (!group) return;
+  if (!group) {
+    return;
+  }
 
   selectedGroupId =
     groupId;
@@ -1185,55 +1979,106 @@ async function openGroup(
   $("groupContent")
     ?.classList.add("hidden");
 
-  $("groupPasswordMessage").textContent =
-    "";
+  if ($("groupPasswordMessage")) {
+    $("groupPasswordMessage")
+      .textContent = "";
+  }
 
   if ($("enterGroupPasswordInput")) {
-    $("enterGroupPasswordInput").value = "";
-    $("enterGroupPasswordInput").focus();
+
+    $("enterGroupPasswordInput")
+      .value = "";
+
+    $("enterGroupPasswordInput")
+      .focus();
   }
+
+  /*
+    Make group page feel like a real
+    separate screen.
+  */
+
+  previousPage =
+    currentPage;
+
+  currentPage =
+    "groups";
+
+  updateBackButton();
 }
+
 
 async function createGroup() {
 
   const name =
-    $("groupInput")?.value.trim();
+    $("groupInput")
+      ?.value.trim();
 
   const password =
-    $("groupPasswordInput")?.value;
+    $("groupPasswordInput")
+      ?.value;
 
   if (!name) {
-    alert("Group name डालें।");
+
+    alert(
+      "Group name डालें।"
+    );
+
     return;
   }
 
-  if (!password || password.length < 3) {
+  if (
+    !password ||
+    password.length < 3
+  ) {
+
     alert(
       "Group password कम से कम 3 characters का रखें।"
     );
+
     return;
   }
 
   const button =
     $("createGroupBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
     const passwordHash =
-      await hashText(password);
+      await hashText(
+        password
+      );
 
     await addDoc(
-      collection(db, "groups"),
+      collection(
+        db,
+        "groups"
+      ),
       {
-        name: name.slice(0, 60),
-        ownerName: currentUser.name,
-        ownerPhone: currentUser.phone,
+        name:
+          name.slice(0, 60),
+
+        ownerName:
+          currentUser.name,
+
+        ownerPhone:
+          currentUser.phone,
+
         passwordHash,
-        memberNames: [currentUser.name],
-        memberPhones: [currentUser.phone],
-        createdAt: serverTimestamp()
+
+        memberNames:
+          [currentUser.name],
+
+        memberPhones:
+          [currentUser.phone],
+
+        createdAt:
+          serverTimestamp()
       }
     );
 
@@ -1256,9 +2101,13 @@ async function createGroup() {
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
+
 
 async function unlockGroup() {
 
@@ -1280,47 +2129,64 @@ async function unlockGroup() {
     return;
   }
 
-  const enteredHash =
-    await hashText(password);
+  try {
 
-  if (
-    enteredHash !==
-    selectedGroupData.passwordHash
-  ) {
+    const enteredHash =
+      await hashText(
+        password
+      );
+
+    if (
+      enteredHash !==
+      selectedGroupData.passwordHash
+    ) {
+
+      setMessage(
+        $("groupPasswordMessage"),
+        "❌ गलत group password"
+      );
+
+      return;
+    }
 
     setMessage(
       $("groupPasswordMessage"),
-      "❌ गलत group password"
+      "✅ Group unlocked",
+      "success"
     );
 
-    return;
+    $("groupUnlockBox")
+      ?.classList.add("hidden");
+
+    $("groupContent")
+      ?.classList.remove("hidden");
+
+    renderMembers(
+      selectedGroupData
+    );
+
+    startGroupChatListener();
+
+  } catch (error) {
+
+    console.error(error);
+
+    setMessage(
+      $("groupPasswordMessage"),
+      "Group unlock नहीं हो पाया।"
+    );
   }
-
-  setMessage(
-    $("groupPasswordMessage"),
-    "✅ Group unlocked",
-    "success"
-  );
-
-  $("groupUnlockBox")
-    ?.classList.add("hidden");
-
-  $("groupContent")
-    ?.classList.remove("hidden");
-
-  renderMembers(
-    selectedGroupData
-  );
-
-  startGroupChatListener();
 }
+
 
 function renderMembers(group) {
 
   const list =
     $("memberList");
 
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   const names =
     group.memberNames || [];
@@ -1329,30 +2195,59 @@ function renderMembers(group) {
     group.memberPhones || [];
 
   if (!phones.length) {
+
     list.innerHTML =
       "<p>No members.</p>";
+
     return;
   }
 
   list.innerHTML =
-    phones.map((phone, index) => {
+    phones.map(
+      (phone, index) => {
 
-      const name =
-        names[index] || "Student";
+        const name =
+          names[index] ||
+          "Student";
 
-      const owner =
-        normalizePhone(phone) ===
-        normalizePhone(group.ownerPhone);
+        const owner =
+          normalizePhone(phone) ===
+          normalizePhone(
+            group.ownerPhone
+          );
 
-      return `
-        <div class="member">
-          👤 ${escapeHTML(name)}
-          ${owner ? " 👑 Owner" : ""}
-        </div>
-      `;
+        return `
+          <div
+            class="member"
+            style="
+              display:flex;
+              align-items:center;
+              gap:9px;
+            "
+          >
 
-    }).join("");
+            ${createAvatar(
+              name,
+              true
+            )}
+
+            <span>
+              ${escapeHTML(name)}
+
+              ${
+                owner
+                  ? " 👑 Owner"
+                  : ""
+              }
+            </span>
+
+          </div>
+        `;
+
+      }
+    ).join("");
 }
+
 
 async function addMember() {
 
@@ -1360,54 +2255,79 @@ async function addMember() {
     !selectedGroupId ||
     !selectedGroupData
   ) {
-    alert("पहले कोई group खोलें।");
+
+    alert(
+      "पहले कोई group खोलें।"
+    );
+
     return;
   }
 
   if (
-    normalizePhone(currentUser.phone) !==
-    normalizePhone(selectedGroupData.ownerPhone)
+    normalizePhone(
+      currentUser.phone
+    ) !==
+    normalizePhone(
+      selectedGroupData.ownerPhone
+    )
   ) {
+
     alert(
       "सिर्फ Group Owner member add कर सकता है।"
     );
+
     return;
   }
 
   const name =
-    $("memberNameInput")?.value.trim();
+    $("memberNameInput")
+      ?.value.trim();
 
   const phone =
     normalizePhone(
-      $("memberPhoneInput")?.value
+      $("memberPhoneInput")
+        ?.value
     );
 
   if (!name) {
-    alert("Member name डालें।");
+
+    alert(
+      "Member name डालें।"
+    );
+
     return;
   }
 
   if (phone.length !== 10) {
+
     alert(
       "सही 10 digit mobile number डालें।"
     );
+
     return;
   }
 
   if (
-    (selectedGroupData.memberPhones || [])
-      .includes(phone)
+    (
+      selectedGroupData.memberPhones ||
+      []
+    ).includes(phone)
   ) {
+
     alert(
       "यह student पहले से group में है।"
     );
+
     return;
   }
 
   const button =
     $("addMemberBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
@@ -1420,20 +2340,31 @@ async function addMember() {
         )
       );
 
-    if (!allowedSnap.exists()) {
+    const isOwner =
+      phone === OWNER_PHONE;
+
+    if (
+      !allowedSnap.exists() &&
+      !isOwner
+    ) {
+
       alert(
         "यह student StudyConnect में allowed नहीं है।"
       );
+
       return;
     }
 
-    const allowedData =
-      allowedSnap.data();
+    if (
+      allowedSnap.exists() &&
+      allowedSnap.data().allowed !== true &&
+      !isOwner
+    ) {
 
-    if (allowedData.allowed !== true) {
       alert(
         "यह student allowed नहीं है।"
       );
+
       return;
     }
 
@@ -1485,22 +2416,28 @@ async function addMember() {
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
 
 
-/* =========================
+/* =========================================================
    GROUP CHAT
-========================= */
+========================================================= */
 
 function stopGroupChatListener() {
 
   if (unsubscribeGroupChat) {
+
     unsubscribeGroupChat();
+
     unsubscribeGroupChat = null;
   }
 }
+
 
 function startGroupChatListener() {
 
@@ -1519,8 +2456,11 @@ function startGroupChatListener() {
         selectedGroupId,
         "messages"
       ),
-      orderBy("createdAt", "desc"),
-      limit(50)
+      orderBy(
+        "createdAt",
+        "desc"
+      ),
+      limit(CHAT_LIMIT)
     );
 
   unsubscribeGroupChat =
@@ -1531,7 +2471,8 @@ function startGroupChatListener() {
         const messages =
           snapshot.docs
             .map(item => ({
-              id: item.id,
+              id:
+                item.id,
               ...item.data()
             }))
             .reverse();
@@ -1551,16 +2492,21 @@ function startGroupChatListener() {
         console.error(error);
 
         if ($("groupMessages")) {
-          $("groupMessages").innerHTML = `
-            <div class="empty-state">
-              <span>⚠️</span>
-              <p>Group chat load नहीं हो पाया।</p>
-            </div>
-          `;
+
+          $("groupMessages").innerHTML =
+            `
+              <div class="empty-state">
+                <span>⚠️</span>
+                <p>
+                  Group chat load नहीं हो पाया।
+                </p>
+              </div>
+            `;
         }
       }
     );
 }
+
 
 async function sendGroupMessage() {
 
@@ -1577,22 +2523,34 @@ async function sendGroupMessage() {
   const text =
     input?.value.trim();
 
-  if (!text) return;
+  if (!text) {
+    return;
+  }
+
+  const members =
+    selectedGroupData.memberPhones ||
+    [];
 
   if (
-    !(selectedGroupData.memberPhones || [])
-      .includes(currentUser.phone)
+    !members.includes(
+      currentUser.phone
+    )
   ) {
+
     alert(
       "आप इस group के member नहीं हैं।"
     );
+
     return;
   }
 
   const button =
     $("sendGroupMessageBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
@@ -1604,11 +2562,20 @@ async function sendGroupMessage() {
         "messages"
       ),
       {
-        name: currentUser.name,
-        phone: currentUser.phone,
-        text: text.slice(0, 1000),
-        createdAt: serverTimestamp(),
-        seenBy: []
+        name:
+          currentUser.name,
+
+        phone:
+          currentUser.phone,
+
+        text:
+          text.slice(0, 1000),
+
+        createdAt:
+          serverTimestamp(),
+
+        seenBy:
+          []
       }
     );
 
@@ -1625,31 +2592,39 @@ async function sendGroupMessage() {
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
 
+
 function setupGroups() {
 
-  $("createGroupBtn")?.addEventListener(
-    "click",
-    createGroup
-  );
+  $("createGroupBtn")
+    ?.addEventListener(
+      "click",
+      createGroup
+    );
 
-  $("unlockGroupBtn")?.addEventListener(
-    "click",
-    unlockGroup
-  );
+  $("unlockGroupBtn")
+    ?.addEventListener(
+      "click",
+      unlockGroup
+    );
 
-  $("addMemberBtn")?.addEventListener(
-    "click",
-    addMember
-  );
+  $("addMemberBtn")
+    ?.addEventListener(
+      "click",
+      addMember
+    );
 
-  $("sendGroupMessageBtn")?.addEventListener(
-    "click",
-    sendGroupMessage
-  );
+  $("sendGroupMessageBtn")
+    ?.addEventListener(
+      "click",
+      sendGroupMessage
+    );
 
   $("enterGroupPasswordInput")
     ?.addEventListener(
@@ -1657,7 +2632,9 @@ function setupGroups() {
       event => {
 
         if (event.key === "Enter") {
+
           event.preventDefault();
+
           unlockGroup();
         }
       }
@@ -1674,6 +2651,7 @@ function setupGroups() {
         ) {
 
           event.preventDefault();
+
           sendGroupMessage();
         }
       }
@@ -1681,23 +2659,31 @@ function setupGroups() {
 }
 
 
-/* =========================
+/* =========================================================
    HOMEWORK
-========================= */
+========================================================= */
 
 async function loadHomework() {
 
   const list =
     $("homeworkList");
 
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   try {
 
     const q =
       query(
-        collection(db, "homework"),
-        orderBy("createdAt", "desc"),
+        collection(
+          db,
+          "homework"
+        ),
+        orderBy(
+          "createdAt",
+          "desc"
+        ),
         limit(30)
       );
 
@@ -1706,12 +2692,15 @@ async function loadHomework() {
 
     if (snapshot.empty) {
 
-      list.innerHTML = `
-        <div class="empty-state">
-          <span>📚</span>
-          <p>अभी homework नहीं है।</p>
-        </div>
-      `;
+      list.innerHTML =
+        `
+          <div class="empty-state">
+            <span>📚</span>
+            <p>
+              अभी homework नहीं है।
+            </p>
+          </div>
+        `;
 
       return;
     }
@@ -1719,17 +2708,21 @@ async function loadHomework() {
     list.innerHTML =
       snapshot.docs.map(item => {
 
-        const data = item.data();
+        const data =
+          item.data();
 
         const entries =
           data.entries || {};
 
         const subjects =
-          Object.entries(entries)
-            .filter(
-              ([, value]) =>
-                String(value || "").trim()
-            );
+          Object.entries(
+            entries
+          ).filter(
+            ([, value]) =>
+              String(
+                value || ""
+              ).trim()
+          );
 
         return `
           <div class="list-item">
@@ -1740,16 +2733,19 @@ async function loadHomework() {
               )}
             </h3>
 
-            ${subjects.map(
-              ([subject, homework]) => `
-                <p>
-                  <strong>
-                    ${escapeHTML(subject)}
-                  :</strong>
-                  ${escapeHTML(homework)}
-                </p>
-              `
-            ).join("")}
+            ${subjects
+              .map(
+                ([subject, homework]) =>
+                  `
+                    <p>
+                      <strong>
+                        ${escapeHTML(subject)}
+                      :</strong>
+                      ${escapeHTML(homework)}
+                    </p>
+                  `
+              )
+              .join("")}
 
           </div>
         `;
@@ -1760,58 +2756,104 @@ async function loadHomework() {
 
     console.error(error);
 
-    list.innerHTML = `
-      <div class="empty-state">
-        <span>⚠️</span>
-        <p>Homework load नहीं हो पाया।</p>
-      </div>
-    `;
+    list.innerHTML =
+      `
+        <div class="empty-state">
+          <span>⚠️</span>
+          <p>
+            Homework load नहीं हो पाया।
+          </p>
+        </div>
+      `;
   }
 }
+
 
 async function saveHomework() {
 
   const fields = {
-    Hindi: $("hindiHomework")?.value.trim(),
-    English: $("englishHomework")?.value.trim(),
-    Math: $("mathHomework")?.value.trim(),
-    Science: $("scienceHomework")?.value.trim(),
-    SST: $("sstHomework")?.value.trim(),
-    Computer: $("computerHomework")?.value.trim(),
-    Art: $("artHomework")?.value.trim()
+
+    Hindi:
+      $("hindiHomework")
+        ?.value.trim(),
+
+    English:
+      $("englishHomework")
+        ?.value.trim(),
+
+    Math:
+      $("mathHomework")
+        ?.value.trim(),
+
+    Science:
+      $("scienceHomework")
+        ?.value.trim(),
+
+    SST:
+      $("sstHomework")
+        ?.value.trim(),
+
+    Computer:
+      $("computerHomework")
+        ?.value.trim(),
+
+    Art:
+      $("artHomework")
+        ?.value.trim()
   };
 
   const entries =
     Object.fromEntries(
       Object.entries(fields)
-        .filter(([, value]) => value)
+        .filter(
+          ([, value]) =>
+            value
+        )
     );
 
-  if (!Object.keys(entries).length) {
+  if (
+    !Object.keys(entries).length
+  ) {
+
     alert(
       "कम से कम एक homework लिखें।"
     );
+
     return;
   }
 
   const date =
-    $("homeworkDate")?.value ||
-    new Date().toISOString().slice(0, 10);
+    $("homeworkDate")
+      ?.value ||
+    new Date()
+      .toISOString()
+      .slice(0, 10);
 
   const button =
     $("addHomeworkBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
     await addDoc(
-      collection(db, "homework"),
+      collection(
+        db,
+        "homework"
+      ),
       {
         date,
+
         entries,
-        createdBy: currentUser.phone,
-        createdAt: serverTimestamp()
+
+        createdBy:
+          currentUser.phone,
+
+        createdAt:
+          serverTimestamp()
       }
     );
 
@@ -1824,14 +2866,18 @@ async function saveHomework() {
       "computerHomework",
       "artHomework"
     ].forEach(id => {
-      if ($(id)) $(id).value = "";
+
+      if ($(id)) {
+        $(id).value = "";
+      }
+
     });
 
     alert(
       "✅ Homework saved!"
     );
 
-    loadHomework();
+    await loadHomework();
 
   } catch (error) {
 
@@ -1843,46 +2889,63 @@ async function saveHomework() {
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
+
 
 function setupHomework() {
 
   const dateInput =
     $("homeworkDate");
 
-  if (dateInput && !dateInput.value) {
+  if (
+    dateInput &&
+    !dateInput.value
+  ) {
+
     dateInput.value =
       new Date()
         .toISOString()
         .slice(0, 10);
   }
 
-  $("addHomeworkBtn")?.addEventListener(
-    "click",
-    saveHomework
-  );
+  $("addHomeworkBtn")
+    ?.addEventListener(
+      "click",
+      saveHomework
+    );
 }
 
 
-/* =========================
+/* =========================================================
    SCHOOL
-========================= */
+========================================================= */
 
 async function loadSchool() {
 
   const list =
     $("schoolList");
 
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   try {
 
     const q =
       query(
-        collection(db, "school"),
-        orderBy("createdAt", "desc"),
+        collection(
+          db,
+          "school"
+        ),
+        orderBy(
+          "createdAt",
+          "desc"
+        ),
         limit(30)
       );
 
@@ -1891,12 +2954,15 @@ async function loadSchool() {
 
     if (snapshot.empty) {
 
-      list.innerHTML = `
-        <div class="empty-state">
-          <span>🏫</span>
-          <p>अभी कोई school update नहीं है।</p>
-        </div>
-      `;
+      list.innerHTML =
+        `
+          <div class="empty-state">
+            <span>🏫</span>
+            <p>
+              अभी कोई school update नहीं है।
+            </p>
+          </div>
+        `;
 
       return;
     }
@@ -1904,23 +2970,31 @@ async function loadSchool() {
     list.innerHTML =
       snapshot.docs.map(item => {
 
-        const data = item.data();
+        const data =
+          item.data();
 
         return `
           <div class="list-item">
+
             <h3>
               📢 ${escapeHTML(
-                data.name || "School Update"
+                data.name ||
+                "School Update"
               )}
             </h3>
 
             <p>
-              ${escapeHTML(data.text || "")}
+              ${escapeHTML(
+                data.text || ""
+              )}
             </p>
 
             <small>
-              ${formatTime(data.createdAt)}
+              ${formatTime(
+                data.createdAt
+              )}
             </small>
+
           </div>
         `;
 
@@ -1930,14 +3004,18 @@ async function loadSchool() {
 
     console.error(error);
 
-    list.innerHTML = `
-      <div class="empty-state">
-        <span>⚠️</span>
-        <p>School updates load नहीं हुए।</p>
-      </div>
-    `;
+    list.innerHTML =
+      `
+        <div class="empty-state">
+          <span>⚠️</span>
+          <p>
+            School updates load नहीं हुए।
+          </p>
+        </div>
+      `;
   }
 }
+
 
 async function saveSchool() {
 
@@ -1948,26 +3026,41 @@ async function saveSchool() {
     input?.value.trim();
 
   if (!text) {
+
     alert(
       "School update लिखें।"
     );
+
     return;
   }
 
   const button =
     $("saveSchoolBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
     await addDoc(
-      collection(db, "school"),
+      collection(
+        db,
+        "school"
+      ),
       {
-        text: text.slice(0, 2000),
-        name: currentUser.name,
-        phone: currentUser.phone,
-        createdAt: serverTimestamp()
+        text:
+          text.slice(0, 2000),
+
+        name:
+          currentUser.name,
+
+        phone:
+          currentUser.phone,
+
+        createdAt:
+          serverTimestamp()
       }
     );
 
@@ -1977,7 +3070,7 @@ async function saveSchool() {
       "✅ School update saved!"
     );
 
-    loadSchool();
+    await loadSchool();
 
   } catch (error) {
 
@@ -1989,35 +3082,45 @@ async function saveSchool() {
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
 
+
 function setupSchool() {
 
-  $("saveSchoolBtn")?.addEventListener(
-    "click",
-    saveSchool
-  );
+  $("saveSchoolBtn")
+    ?.addEventListener(
+      "click",
+      saveSchool
+    );
 }
 
 
-/* =========================
+/* =========================================================
    NOTES
-========================= */
+========================================================= */
 
 async function loadNotes() {
 
   const list =
     $("notesList");
 
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
   try {
 
     const q =
       query(
-        collection(db, "notes"),
+        collection(
+          db,
+          "notes"
+        ),
         where(
           "phone",
           "==",
@@ -2032,59 +3135,82 @@ async function loadNotes() {
     const notes =
       snapshot.docs
         .map(item => ({
-          id: item.id,
+          id:
+            item.id,
           ...item.data()
         }))
-        .sort((a, b) => {
+        .sort(
+          (a, b) => {
 
-          const aTime =
-            a.createdAt?.toMillis?.() || 0;
+            const aTime =
+              a.createdAt
+                ?.toMillis?.() || 0;
 
-          const bTime =
-            b.createdAt?.toMillis?.() || 0;
+            const bTime =
+              b.createdAt
+                ?.toMillis?.() || 0;
 
-          return bTime - aTime;
-        });
+            return (
+              bTime -
+              aTime
+            );
+          }
+        );
 
     if (!notes.length) {
 
-      list.innerHTML = `
-        <div class="empty-state">
-          <span>📝</span>
-          <p>अभी कोई note नहीं है।</p>
-        </div>
-      `;
+      list.innerHTML =
+        `
+          <div class="empty-state">
+            <span>📝</span>
+            <p>
+              अभी कोई note नहीं है।
+            </p>
+          </div>
+        `;
 
       return;
     }
 
     list.innerHTML =
-      notes.map(note => `
-        <div class="list-item">
+      notes.map(note => {
 
-          <p>
-            ${escapeHTML(note.text || "")}
-          </p>
+        return `
+          <div class="list-item">
 
-          <small>
-            ${formatTime(note.createdAt)}
-          </small>
+            <p>
+              ${escapeHTML(
+                note.text || ""
+              )}
+            </p>
 
-        </div>
-      `).join("");
+            <small>
+              ${formatTime(
+                note.createdAt
+              )}
+            </small>
+
+          </div>
+        `;
+
+      }).join("");
 
   } catch (error) {
 
     console.error(error);
 
-    list.innerHTML = `
-      <div class="empty-state">
-        <span>⚠️</span>
-        <p>Notes load नहीं हुए।</p>
-      </div>
-    `;
+    list.innerHTML =
+      `
+        <div class="empty-state">
+          <span>⚠️</span>
+          <p>
+            Notes load नहीं हुए।
+          </p>
+        </div>
+      `;
   }
 }
+
 
 async function saveNote() {
 
@@ -2095,26 +3221,41 @@ async function saveNote() {
     input?.value.trim();
 
   if (!text) {
+
     alert(
       "Note लिखें।"
     );
+
     return;
   }
 
   const button =
     $("saveNoteBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
     await addDoc(
-      collection(db, "notes"),
+      collection(
+        db,
+        "notes"
+      ),
       {
-        text: text.slice(0, 5000),
-        name: currentUser.name,
-        phone: currentUser.phone,
-        createdAt: serverTimestamp()
+        text:
+          text.slice(0, 5000),
+
+        name:
+          currentUser.name,
+
+        phone:
+          currentUser.phone,
+
+        createdAt:
+          serverTimestamp()
       }
     );
 
@@ -2124,7 +3265,7 @@ async function saveNote() {
       "✅ Note saved!"
     );
 
-    loadNotes();
+    await loadNotes();
 
   } catch (error) {
 
@@ -2136,22 +3277,27 @@ async function saveNote() {
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
 
+
 function setupNotes() {
 
-  $("saveNoteBtn")?.addEventListener(
-    "click",
-    saveNote
-  );
+  $("saveNoteBtn")
+    ?.addEventListener(
+      "click",
+      saveNote
+    );
 }
 
 
-/* =========================
+/* =========================================================
    LANGUAGE
-========================= */
+========================================================= */
 
 function setupLanguage() {
 
@@ -2209,22 +3355,25 @@ function setupLanguage() {
 }
 
 
-/* =========================
+/* =========================================================
    THEME
-========================= */
+========================================================= */
 
 function updateThemeButton() {
 
   const button =
     $("themeBtn");
 
-  if (!button) return;
+  if (!button) {
+    return;
+  }
 
   button.textContent =
     document.body.classList.contains("dark")
       ? "☀️ Light Mode"
       : "🌙 Dark Mode";
 }
+
 
 function setupTheme() {
 
@@ -2233,35 +3382,47 @@ function setupTheme() {
       "studyTheme"
     );
 
-  if (savedTheme === "dark") {
-    document.body.classList.add("dark");
+  if (
+    savedTheme === "dark"
+  ) {
+
+    document.body.classList.add(
+      "dark"
+    );
   }
 
   updateThemeButton();
 
-  $("themeBtn")?.addEventListener(
-    "click",
-    () => {
+  $("themeBtn")
+    ?.addEventListener(
+      "click",
+      () => {
 
-      document.body.classList.toggle("dark");
+        document.body.classList.toggle(
+          "dark"
+        );
 
-      const dark =
-        document.body.classList.contains("dark");
+        const dark =
+          document.body.classList.contains(
+            "dark"
+          );
 
-      localStorage.setItem(
-        "studyTheme",
-        dark ? "dark" : "light"
-      );
+        localStorage.setItem(
+          "studyTheme",
+          dark
+            ? "dark"
+            : "light"
+        );
 
-      updateThemeButton();
-    }
-  );
+        updateThemeButton();
+      }
+    );
 }
 
 
-/* =========================
+/* =========================================================
    NOTIFICATIONS
-========================= */
+========================================================= */
 
 function setupNotifications() {
 
@@ -2270,7 +3431,9 @@ function setupNotifications() {
       "click",
       async () => {
 
-        if (!("Notification" in window)) {
+        if (
+          !("Notification" in window)
+        ) {
 
           setMessage(
             $("notificationMessage"),
@@ -2283,9 +3446,13 @@ function setupNotifications() {
         try {
 
           const permission =
-            await Notification.requestPermission();
+            await Notification
+              .requestPermission();
 
-          if (permission === "granted") {
+          if (
+            permission ===
+            "granted"
+          ) {
 
             setMessage(
               $("notificationMessage"),
@@ -2296,7 +3463,8 @@ function setupNotifications() {
             new Notification(
               "StudyConnect",
               {
-                body: "Notifications successfully enabled."
+                body:
+                  "Notifications successfully enabled."
               }
             );
 
@@ -2322,9 +3490,9 @@ function setupNotifications() {
 }
 
 
-/* =========================
+/* =========================================================
    OWNER PANEL
-========================= */
+========================================================= */
 
 function setupOwnerPanel() {
 
@@ -2337,7 +3505,15 @@ function setupOwnerPanel() {
           $("ownerPasswordInput")
             ?.value;
 
-        if (password !== OWNER_PASSWORD) {
+        /*
+          Owner identity is already known
+          from profile.
+        */
+
+        if (
+          password !==
+          OWNER_PASSWORD
+        ) {
 
           setMessage(
             $("ownerPasswordMessage"),
@@ -2347,8 +3523,22 @@ function setupOwnerPanel() {
           return;
         }
 
+        if (
+          !currentUser.isOwner
+        ) {
+
+          setMessage(
+            $("ownerPasswordMessage"),
+            "यह Owner account नहीं है।"
+          );
+
+          return;
+        }
+
         $("ownerPanel")
-          ?.classList.remove("hidden");
+          ?.classList.remove(
+            "hidden"
+          );
 
         setMessage(
           $("ownerPasswordMessage"),
@@ -2368,7 +3558,17 @@ function setupOwnerPanel() {
     );
 }
 
+
 async function allowUser() {
+
+  if (!currentUser.isOwner) {
+
+    alert(
+      "सिर्फ Owner यह काम कर सकता है।"
+    );
+
+    return;
+  }
 
   const name =
     $("allowedUserNameInput")
@@ -2381,21 +3581,30 @@ async function allowUser() {
     );
 
   if (!name) {
-    alert("Student name डालें।");
+
+    alert(
+      "Student name डालें।"
+    );
+
     return;
   }
 
   if (phone.length !== 10) {
+
     alert(
       "सही 10 digit mobile number डालें।"
     );
+
     return;
   }
 
   const button =
     $("allowUserBtn");
 
-  buttonBusy(button, true);
+  buttonBusy(
+    button,
+    true
+  );
 
   try {
 
@@ -2408,22 +3617,29 @@ async function allowUser() {
       {
         name,
         phone,
-        allowed: true,
-        createdAt: serverTimestamp()
+        allowed:
+          true,
+
+        createdAt:
+          serverTimestamp()
       },
       {
-        merge: true
+        merge:
+          true
       }
     );
 
-    $("allowedUserNameInput").value = "";
-    $("allowedUserPhoneInput").value = "";
+    $("allowedUserNameInput")
+      .value = "";
+
+    $("allowedUserPhoneInput")
+      .value = "";
 
     alert(
       "✅ User allowed successfully!"
     );
 
-    loadAllowedUsers();
+    await loadAllowedUsers();
 
   } catch (error) {
 
@@ -2435,23 +3651,32 @@ async function allowUser() {
 
   } finally {
 
-    buttonBusy(button, false);
+    buttonBusy(
+      button,
+      false
+    );
   }
 }
+
 
 async function loadAllowedUsers() {
 
   const list =
     $("allowedUsersList");
 
-  if (!list) return;
+  if (!list) {
+    return;
+  }
 
-  list.innerHTML = `
-    <div class="empty-state">
-      <span>⏳</span>
-      <p>Loading users...</p>
-    </div>
-  `;
+  list.innerHTML =
+    `
+      <div class="empty-state">
+        <span>⏳</span>
+        <p>
+          Loading users...
+        </p>
+      </div>
+    `;
 
   try {
 
@@ -2465,66 +3690,97 @@ async function loadAllowedUsers() {
 
     if (snapshot.empty) {
 
-      list.innerHTML = `
-        <div class="empty-state">
-          <span>👥</span>
-          <p>अभी कोई allowed user नहीं है।</p>
-        </div>
-      `;
+      list.innerHTML =
+        `
+          <div class="empty-state">
+            <span>👥</span>
+            <p>
+              अभी कोई allowed user नहीं है।
+            </p>
+          </div>
+        `;
 
       return;
     }
 
     const users =
-      snapshot.docs.map(item => ({
-        id: item.id,
-        ...item.data()
-      }));
+      snapshot.docs.map(
+        item => ({
+          id:
+            item.id,
+          ...item.data()
+        })
+      );
 
     list.innerHTML =
-      users.map(user => `
-        <div class="allowed-user">
+      users.map(
+        user => {
 
-          <div class="allowed-user-info">
+          return `
+            <div class="allowed-user">
 
-            <strong>
-              ${escapeHTML(
-                user.name || "Student"
+              ${createAvatar(
+                user.name ||
+                "Student",
+                true
               )}
-            </strong>
 
-            <span>
-              ${escapeHTML(
-                user.phone || ""
-              )}
-            </span>
+              <div
+                class="allowed-user-info"
+                style="flex:1"
+              >
 
-          </div>
+                <strong>
+                  ${escapeHTML(
+                    user.name ||
+                    "Student"
+                  )}
+                </strong>
 
-          <div class="allowed-status">
-            ✅ Allowed
-          </div>
+                <span>
+                  ${escapeHTML(
+                    user.phone ||
+                    ""
+                  )}
+                </span>
 
-        </div>
-      `).join("");
+              </div>
+
+              <div
+                class="allowed-status"
+              >
+                ${
+                  user.allowed === true
+                    ? "✅ Allowed"
+                    : "⛔ Blocked"
+                }
+              </div>
+
+            </div>
+          `;
+        }
+      ).join("");
 
   } catch (error) {
 
     console.error(error);
 
-    list.innerHTML = `
-      <div class="empty-state">
-        <span>⚠️</span>
-        <p>Allowed users load नहीं हुए।</p>
-      </div>
-    `;
+    list.innerHTML =
+      `
+        <div class="empty-state">
+          <span>⚠️</span>
+          <p>
+            Allowed users load नहीं हुए।
+          </p>
+        </div>
+      `;
   }
 }
 
 
-/* =========================
+/* =========================================================
    RESET
-========================= */
+========================================================= */
 
 function setupReset() {
 
@@ -2535,7 +3791,7 @@ function setupReset() {
 
         const confirmReset =
           confirm(
-            "क्या आप इस device पर StudyConnect की saved login/settings हटाना चाहते हैं?"
+            "क्या आप इस device की saved StudyConnect profile और settings हटाना चाहते हैं?"
           );
 
         if (!confirmReset) {
@@ -2546,11 +3802,17 @@ function setupReset() {
         stopGroupChatListener();
         stopOnlineListener();
 
+        /*
+          Do not delete Firebase data.
+          Only local profile/settings are removed.
+        */
+
         localStorage.clear();
 
         currentUser = {
           name: "",
-          phone: ""
+          phone: "",
+          isOwner: false
         };
 
         selectedGroupId = null;
@@ -2562,41 +3824,113 @@ function setupReset() {
           "success"
         );
 
-        setTimeout(() => {
-          location.reload();
-        }, 700);
+        setTimeout(
+          () => {
+            location.reload();
+          },
+          700
+        );
       }
     );
 }
 
 
-/* =========================
-   START APP
-========================= */
+/* =========================================================
+   AUTO LOGIN / PROFILE RESTORE
+========================================================= */
+
+async function restoreSavedProfile() {
+
+  const savedUser =
+    getSavedUser();
+
+  if (!savedUser) {
+    return;
+  }
+
+  /*
+    Owner does not need permission check.
+  */
+
+  if (
+    savedUser.phone ===
+      OWNER_PHONE &&
+    normalizeName(
+      savedUser.name
+    ) ===
+      normalizeName(
+        OWNER_NAME
+      )
+  ) {
+
+    setUser(
+      OWNER_NAME,
+      OWNER_PHONE
+    );
+
+    /*
+      Keep login screen as password gate.
+      After password it opens immediately.
+    */
+
+    return;
+  }
+
+  currentUser =
+    savedUser;
+}
+
+
+/* =========================================================
+   START
+========================================================= */
 
 function startApp() {
 
   setupNavigation();
+
   setupLogin();
+
   setupNameSettings();
+
   setupChat();
+
   setupOnline();
+
   setupGroups();
+
   setupHomework();
+
   setupSchool();
+
   setupNotes();
+
   setupLanguage();
+
   setupTheme();
+
   setupNotifications();
+
   setupOwnerPanel();
+
   setupReset();
+
+  restoreSavedProfile();
+
+  /*
+    If old localStorage has a user,
+    prepare profile without opening app
+    before password.
+  */
 
   const savedUser =
     getSavedUser();
 
   if (savedUser) {
-    currentUser = savedUser;
+    currentUser =
+      savedUser;
   }
 }
+
 
 startApp();
