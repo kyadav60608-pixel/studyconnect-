@@ -1,3306 +1,1702 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta charset="UTF-8">
 
-  <meta name="theme-color" content="#111827">
-  <meta name="description" content="StudyConnect - Student Learning & Community App">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    >
 
-  <title>StudyConnect</title>
+    <meta name="theme-color" content="#0f172a">
 
-  <link rel="manifest" href="manifest.json">
-  <link rel="icon" type="image/png" href="icon-192.png">
-  <link rel="apple-touch-icon" href="icon-192.png">
+    <meta
+        name="description"
+        content="StudyConnect Student Community"
+    >
 
-  <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="style.css">
+
+    <title>StudyConnect</title>
 </head>
 
 <body>
 
-  <!-- =====================================================
-       OWNER WELCOME SCREEN
-  ====================================================== -->
-  <div id="ownerWelcomeScreen"
-       class="owner-welcome-screen hidden"
-       aria-hidden="true">
+<!-- =====================================================
+     APP LOADER
+===================================================== -->
 
-    <div class="owner-welcome-decoration decoration-one"></div>
-    <div class="owner-welcome-decoration decoration-two"></div>
-    <div class="owner-welcome-decoration decoration-three"></div>
+<div id="appLoader" class="app-loader">
+    <div class="loader-logo">SC</div>
+    <div class="loader-line"></div>
+</div>
+
+
+<!-- =====================================================
+     OWNER WELCOME
+===================================================== -->
+
+<section
+    id="ownerWelcomeScreen"
+    class="screen owner-welcome-screen"
+    style="display:none;"
+>
 
     <div class="owner-welcome-card">
 
-      <div class="welcome-top-line"></div>
-
-      <div class="owner-welcome-brand">
-        <span>STUDYCONNECT</span>
-      </div>
-
-      <div class="owner-welcome-dp-wrap">
+        <div class="owner-welcome-logo">
+            SC
+        </div>
 
         <img
-          id="ownerWelcomeDP"
-          src="icon-192.png"
-          alt="Krishna Ji"
-          class="owner-welcome-dp"
-        >
-
-        <span class="owner-crown">♛</span>
-
-      </div>
-
-      <div class="owner-welcome-content">
-
-        <span class="welcome-label">WELCOME</span>
-
-        <h1>Owner Krishna Ji</h1>
-
-        <div class="welcome-divider">
-          <span></span>
-          <i>✦</i>
-          <span></span>
-        </div>
-
-        <p>Welcome to StudyConnect</p>
-
-        <small>Your learning community is ready.</small>
-
-      </div>
-
-      <div class="welcome-loader">
-        <span></span>
-        <span></span>
-        <span></span>
-      </div>
-
-    </div>
-  </div>
-
-
-  <!-- =====================================================
-       APP PASSWORD SCREEN
-  ====================================================== -->
-  <section id="passwordScreen" class="passwordScreen">
-
-    <div class="login-decoration login-decoration-one"></div>
-    <div class="login-decoration login-decoration-two"></div>
-
-    <div class="login-box">
-
-      <div class="login-logo">
-        <img src="icon-192.png" alt="StudyConnect">
-      </div>
-
-      <div class="login-brand">
-        <h1>StudyConnect</h1>
-        <p>Learn • Connect • Grow</p>
-      </div>
-
-      <div id="loginStep" class="login-step">
-
-        <label for="appPassword">App Password</label>
-
-        <div class="password-input-wrap">
-
-          <input
-            type="password"
-            id="appPassword"
-            placeholder="Enter app password"
-            autocomplete="off"
-          >
-
-          <button
-            type="button"
-            id="togglePasswordBtn"
-            class="icon-input-btn"
-            aria-label="Show password"
-          >
-            👁
-          </button>
-
-        </div>
-
-        <button
-          type="button"
-          id="unlockBtn"
-          class="primary-btn"
-        >
-          Open StudyConnect
-        </button>
-
-        <p id="passwordError" class="error-message"></p>
-
-        <button
-          type="button"
-          id="ownerContactBtn"
-          class="owner-contact-btn"
-        >
-          Need Help?
-        </button>
-
-      </div>
-
-    </div>
-  </section>
-
-
-  <!-- =====================================================
-       USER PROFILE / CONTACT SCREEN
-  ====================================================== -->
-  <section id="contactScreen" class="contactScreen hidden">
-
-    <div class="contact-box">
-
-      <button
-        type="button"
-        id="backToLoginBtn"
-        class="back-btn"
-      >
-        ← Back
-      </button>
-
-      <div class="contact-header">
-
-        <div class="contact-icon">
-          <img src="icon-192.png" alt="StudyConnect">
-        </div>
-
-        <h2>Welcome to StudyConnect</h2>
-
-        <p>Create your profile to continue</p>
-
-      </div>
-
-
-      <div class="profile-form">
-
-        <div class="form-group">
-
-          <label for="openUserName">
-            Your Name
-          </label>
-
-          <input
-            type="text"
-            id="openUserName"
-            placeholder="Enter your name"
-            autocomplete="name"
-            maxlength="60"
-          >
-
-        </div>
-
-
-        <div class="form-group">
-
-          <label for="openUserPhone">
-            Mobile Number
-          </label>
-
-          <input
-            type="tel"
-            id="openUserPhone"
-            placeholder="Enter mobile number"
-            inputmode="numeric"
-            autocomplete="tel"
-            maxlength="15"
-          >
-
-        </div>
-
-
-        <p class="form-hint">
-          Owner can continue using the registered name or mobile number.
-        </p>
-
-
-        <button
-          type="button"
-          id="enterAppBtn"
-          class="primary-btn"
-        >
-          Enter StudyConnect
-        </button>
-
-
-        <p
-          id="loginMessage"
-          class="form-message"
-        ></p>
-
-      </div>
-
-
-      <div class="contact-actions">
-
-        <a
-          href="tel:+918738084554"
-          id="callOwnerBtn"
-          class="contact-action"
-        >
-          <span>📞</span>
-          <strong>Call Owner</strong>
-        </a>
-
-        <a
-          href="https://wa.me/918738084554"
-          target="_blank"
-          rel="noopener noreferrer"
-          id="whatsappOwnerBtn"
-          class="contact-action"
-        >
-          <span>💬</span>
-          <strong>WhatsApp</strong>
-        </a>
-
-      </div>
-
-    </div>
-
-  </section>
-
-
-  <!-- =====================================================
-       MAIN APP
-  ====================================================== -->
-  <div id="app" class="app hidden">
-
-
-    <!-- ===================================================
-         TOP BAR
-    ==================================================== -->
-    <header class="topbar">
-
-      <div class="brand-area">
-
-        <button
-          type="button"
-          id="brandHomeBtn"
-          class="brand"
-          data-page="home"
-        >
-
-          <span class="brand-icon">
-            <img src="icon-192.png" alt="StudyConnect">
-          </span>
-
-          <span class="brand-text">
-            <strong>StudyConnect</strong>
-            <small>Student Community</small>
-          </span>
-
-        </button>
-
-      </div>
-
-
-      <div class="topbar-actions">
-
-        <button
-          type="button"
-          id="onlineToggleBtn"
-          class="top-action-btn"
-          title="Online Students"
-        >
-          <span class="online-dot"></span>
-          <span id="onlineCount">0</span>
-        </button>
-
-
-        <button
-          type="button"
-          id="notificationTopBtn"
-          class="top-action-btn"
-          title="Notifications"
-        >
-          🔔
-          <span
-            id="notificationBadge"
-            class="notification-badge hidden"
-          >
-            0
-          </span>
-        </button>
-
-
-        <button
-          type="button"
-          id="menuBtn"
-          class="menu-btn"
-          aria-label="Open menu"
-          aria-expanded="false"
-        >
-          ☰
-        </button>
-
-      </div>
-
-    </header>
-
-
-    <!-- ===================================================
-         NAVIGATION
-    ==================================================== -->
-    <nav id="navMenu" class="nav-menu">
-
-      <div class="nav-profile">
-
-        <div class="nav-profile-dp">
-
-          <img
-            id="navProfileDP"
+            id="ownerWelcomeDP"
             src="icon-192.png"
-            alt="Profile"
-          >
-
-          <span class="nav-online-dot"></span>
-
-        </div>
-
-        <div>
-
-          <strong id="navProfileName">
-            Student
-          </strong>
-
-          <small id="navProfilePhone"></small>
-
-        </div>
-
-      </div>
-
-
-      <button
-        type="button"
-        class="nav-item active"
-        data-page="home"
-      >
-        <span>⌂</span>
-        <span>Home</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="chat"
-      >
-        <span>💬</span>
-        <span>Chat</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="groups"
-      >
-        <span>👥</span>
-        <span>Groups</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="homework"
-      >
-        <span>📚</span>
-        <span>Homework</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="school"
-      >
-        <span>🏫</span>
-        <span>School Updates</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="notes"
-      >
-        <span>📝</span>
-        <span>Notes</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="notifications"
-      >
-        <span>🔔</span>
-        <span>Notifications</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="activity"
-      >
-        <span>🕘</span>
-        <span>Recent Activity</span>
-      </button>
-
-
-      <button
-        type="button"
-        class="nav-item"
-        data-page="settings"
-      >
-        <span>⚙</span>
-        <span>Settings</span>
-      </button>
-
-    </nav>
-
-
-    <!-- ===================================================
-         ONLINE STUDENTS PANEL
-    ==================================================== -->
-    <aside
-      id="onlineUsersPanel"
-      class="online-panel hidden"
-    >
-
-      <div class="online-panel-header">
-
-        <div>
-
-          <h3>Online Students</h3>
-
-          <p>
-            <span class="online-dot"></span>
-            <span id="onlinePanelCount">0</span>
-            online
-          </p>
-
-        </div>
-
-
-        <button
-          type="button"
-          id="closeOnlinePanelBtn"
-          class="close-btn"
+            alt="Owner"
+            class="owner-welcome-dp"
         >
-          ×
-        </button>
 
-      </div>
+        <span class="owner-label">
+            OWNER
+        </span>
 
+        <h1>
+            Welcome
+        </h1>
 
-      <button
-        type="button"
-        id="addOnlineBtn"
-        class="secondary-btn"
-      >
-        + Add Online
-      </button>
+        <h2>
+            Krishna Ji
+        </h2>
 
+        <div class="owner-loader">
+            <span></span>
+        </div>
 
-      <div
-        id="onlineUsers"
-        class="online-users-list"
-      ></div>
+    </div>
 
-
-      <p
-        id="onlineEmptyMessage"
-        class="empty-message"
-      >
-        No students are online.
-      </p>
-
-    </aside>
+</section>
 
 
-    <!-- ===================================================
-         MAIN CONTENT
-    ==================================================== -->
-    <main class="main-content">
+<!-- =====================================================
+     PASSWORD SCREEN
+===================================================== -->
 
+<section
+    id="passwordScreen"
+    class="screen auth-screen"
+>
 
-      <!-- =================================================
-           HOME
-      ================================================== -->
-      <section
-        id="homePage"
-        class="page active"
-      >
+    <div class="auth-container">
 
-        <button
-          type="button"
-          class="mobile-back-btn hidden"
-          data-page="home"
-        >
-          ← Back
-        </button>
+        <div class="auth-brand">
 
+            <div class="main-logo">
+                SC
+            </div>
 
-        <div class="page-header">
-
-          <div>
-
-            <span class="page-eyebrow">
-              STUDYCONNECT
-            </span>
-
-            <h1 class="page-title">
-              Home
+            <h1>
+                StudyConnect
             </h1>
 
-            <p class="page-subtitle">
-              Your learning space, all in one place.
-            </p>
-
-          </div>
+            <span>
+                Student Community
+            </span>
 
         </div>
 
 
-        <!-- PROFILE HERO -->
-        <div class="hero-card">
+        <div class="auth-box">
 
-          <div class="hero-card-content">
+            <div class="auth-heading">
 
-            <div
-              id="currentUserProfile"
-              class="current-user-profile"
-            >
-
-              <div class="profile-avatar">
-
-                <img
-                  id="homeProfileDP"
-                  src="icon-192.png"
-                  alt="Profile"
-                >
-
-                <span class="profile-online-status"></span>
-
-              </div>
-
-
-              <div class="profile-info">
-
-                <span class="profile-label">
-                  WELCOME BACK
+                <span>
+                    PRIVATE SPACE
                 </span>
 
-                <h2 id="homeUserName">
-                  Student
+                <h2>
+                    Welcome back
                 </h2>
 
-                <p id="homeUserPhone"></p>
-
-              </div>
-
             </div>
 
 
-            <div class="hero-actions">
-
-              <button
-                type="button"
-                class="hero-action-btn"
-                data-page="chat"
-              >
-                <span>💬</span>
-                <strong>Open Chat</strong>
-                <small>Talk with students</small>
-              </button>
-
-
-              <button
-                type="button"
-                class="hero-action-btn"
-                data-page="homework"
-              >
-                <span>📚</span>
-                <strong>Homework</strong>
-                <small>Check today's work</small>
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <!-- QUICK ACCESS -->
-        <div class="section-heading">
-
-          <div>
-
-            <h2>Quick Access</h2>
-
-            <p>
-              Open a section quickly.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div class="quick-grid">
-
-          <button
-            type="button"
-            class="quick-card"
-            data-page="chat"
-          >
-            <span class="quick-icon">💬</span>
-            <strong>Chat</strong>
-            <small>Student conversation</small>
-          </button>
-
-
-          <button
-            type="button"
-            class="quick-card"
-            data-page="groups"
-          >
-            <span class="quick-icon">👥</span>
-            <strong>Groups</strong>
-            <small>Study together</small>
-          </button>
-
-
-          <button
-            type="button"
-            class="quick-card"
-            data-page="homework"
-          >
-            <span class="quick-icon">📚</span>
-            <strong>Homework</strong>
-            <small>School work</small>
-          </button>
-
-
-          <button
-            type="button"
-            class="quick-card"
-            data-page="school"
-          >
-            <span class="quick-icon">🏫</span>
-            <strong>School Updates</strong>
-            <small>Important notices</small>
-          </button>
-
-
-          <button
-            type="button"
-            class="quick-card"
-            data-page="notes"
-          >
-            <span class="quick-icon">📝</span>
-            <strong>Notes</strong>
-            <small>Saved learning notes</small>
-          </button>
-
-
-          <button
-            type="button"
-            class="quick-card"
-            data-page="notifications"
-          >
-            <span class="quick-icon">🔔</span>
-            <strong>Notifications</strong>
-            <small>Stay updated</small>
-          </button>
-
-        </div>
-
-
-        <!-- ONLINE SUMMARY -->
-        <div class="card online-summary-card">
-
-          <div class="card-header">
-
-            <div>
-
-              <span class="card-eyebrow">
-                LIVE
-              </span>
-
-              <h2>
-                Students Online
-              </h2>
-
-              <p>
-                See who is currently available.
-              </p>
-
-            </div>
-
-
-            <button
-              type="button"
-              id="homeOnlineBtn"
-              class="small-action-btn"
-            >
-              View
-            </button>
-
-          </div>
-
-
-          <div
-            id="homeOnlinePreview"
-            class="online-preview"
-          ></div>
-
-        </div>
-
-
-        <!-- RECENT ACTIVITY -->
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <span class="card-eyebrow">
-                LATEST
-              </span>
-
-              <h2>
-                Recent Activity
-              </h2>
-
-              <p>
-                Your latest StudyConnect updates.
-              </p>
-
-            </div>
-
-
-            <button
-              type="button"
-              class="small-action-btn"
-              data-page="activity"
-            >
-              View All
-            </button>
-
-          </div>
-
-
-          <div
-            id="homeActivityList"
-            class="activity-list"
-          >
-            <p class="empty-message">
-              No recent activity yet.
-            </p>
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <!-- =================================================
-           CHAT
-      ================================================== -->
-      <section id="chatPage" class="page">
-
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
-        >
-          ← Back
-        </button>
-
-
-        <div class="page-header">
-
-          <div>
-
-            <span class="page-eyebrow">
-              COMMUNITY
-            </span>
-
-            <h1 class="page-title">
-              Chat
-            </h1>
-
-            <p class="page-subtitle">
-              Connect with your StudyConnect community.
-            </p>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="chatSearchBtn"
-            class="header-action-btn"
-          >
-            🔍 Search
-          </button>
-
-        </div>
-
-
-        <div
-          id="chatSearchBox"
-          class="search-box hidden"
-        >
-
-          <input
-            type="search"
-            id="globalSearchInput"
-            placeholder="Search messages, students, groups..."
-            autocomplete="off"
-          >
-
-          <button
-            type="button"
-            id="clearSearchBtn"
-            class="clear-search-btn"
-          >
-            ×
-          </button>
-
-        </div>
-
-
-        <div class="card chat-card">
-
-          <div class="chat-header">
-
-            <div class="chat-title-area">
-
-              <div class="chat-app-avatar">
-                <img
-                  src="icon-192.png"
-                  alt="StudyConnect"
+            <label for="appPassword">
+                App Password
+            </label>
+
+            <div class="password-field">
+
+                <input
+                    id="appPassword"
+                    type="password"
+                    placeholder="Enter password"
+                    autocomplete="off"
                 >
-              </div>
 
-              <div>
-
-                <strong>
-                  StudyConnect Chat
-                </strong>
-
-                <small>
-                  <span class="online-dot"></span>
-                  <span id="chatOnlineText">
-                    Students online
-                  </span>
-                </small>
-
-              </div>
+                <button
+                    type="button"
+                    id="passwordVisibilityBtn"
+                    class="field-icon-btn"
+                    aria-label="Show password"
+                >
+                    ◉
+                </button>
 
             </div>
 
 
             <button
-              type="button"
-              id="chatInfoBtn"
-              class="chat-header-btn"
+                type="button"
+                id="unlockBtn"
+                class="main-action-btn"
             >
-              ⓘ
-            </button>
-
-          </div>
-
-
-          <div
-            id="chatMessages"
-            class="chat-messages"
-          >
-
-            <div class="chat-empty">
-
-              <div class="chat-empty-icon">
-                💬
-              </div>
-
-              <h3>
-                No messages yet
-              </h3>
-
-              <p>
-                Start the conversation.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div
-            id="typingIndicator"
-            class="typing-indicator hidden"
-          >
-
-            <span id="typingUserName">
-              Someone
-            </span>
-
-            is typing
-
-            <span class="typing-dots">
-              <i></i>
-              <i></i>
-              <i></i>
-            </span>
-
-          </div>
-
-
-          <div class="chat-input-area">
-
-            <button
-              type="button"
-              id="emojiBtn"
-              class="chat-tool-btn"
-              title="Emoji"
-            >
-              😊
-            </button>
-
-
-            <input
-              type="text"
-              id="messageInput"
-              placeholder="Write a message..."
-              autocomplete="off"
-              maxlength="1000"
-            >
-
-
-            <button
-              type="button"
-              id="sendMessageBtn"
-              class="send-btn"
-              title="Send"
-            >
-              ➤
-            </button>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <!-- =================================================
-           GROUPS
-      ================================================== -->
-      <section id="groupsPage" class="page">
-
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
-        >
-          ← Back
-        </button>
-
-
-        <div class="page-header">
-
-          <div>
-
-            <span class="page-eyebrow">
-              COLLABORATION
-            </span>
-
-            <h1 class="page-title">
-              Groups
-            </h1>
-
-            <p class="page-subtitle">
-              Create and join private study groups.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- CREATE GROUP -->
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Create a Group
-              </h2>
-
-              <p>
-                Make a private space for your study team.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div class="form-grid">
-
-            <div class="form-group">
-
-              <label for="groupInput">
-                Group Name
-              </label>
-
-              <input
-                type="text"
-                id="groupInput"
-                placeholder="e.g. Class 7 Science"
-                maxlength="50"
-              >
-
-            </div>
-
-
-            <div class="form-group">
-
-              <label for="groupPasswordInput">
-                Group Password
-              </label>
-
-              <input
-                type="password"
-                id="groupPasswordInput"
-                placeholder="Create a password"
-                maxlength="50"
-              >
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="createGroupBtn"
-            class="primary-btn"
-          >
-            + Create Group
-          </button>
-
-        </div>
-
-
-        <!-- GROUP LIST -->
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Your Groups
-              </h2>
-
-              <p>
-                Select a group to open it.
-              </p>
-
-            </div>
-
-
-            <button
-              type="button"
-              id="refreshGroupsBtn"
-              class="small-action-btn"
-            >
-              Refresh
-            </button>
-
-          </div>
-
-
-          <div
-            id="groupList"
-            class="group-list"
-          >
-            <p class="empty-message">
-              No groups available.
-            </p>
-          </div>
-
-        </div>
-
-
-        <!-- GROUP CHAT -->
-        <div
-          id="groupChatSection"
-          class="card group-chat-section hidden"
-        >
-
-          <div class="group-header">
-
-            <button
-              type="button"
-              id="closeGroupBtn"
-              class="back-btn"
-            >
-              ← Groups
-            </button>
-
-
-            <div>
-
-              <span class="card-eyebrow">
-                GROUP
-              </span>
-
-              <h2 id="selectedGroupName">
-                Group
-              </h2>
-
-              <p id="selectedGroupOwner"></p>
-
-            </div>
-
-          </div>
-
-
-          <!-- GROUP PASSWORD -->
-          <div
-            id="groupUnlockBox"
-            class="group-unlock-box"
-          >
-
-            <div class="unlock-icon">
-              🔐
-            </div>
-
-            <h3>
-              Private Group
-            </h3>
-
-            <p>
-              Enter the group password to continue.
-            </p>
-
-
-            <input
-              type="password"
-              id="enterGroupPasswordInput"
-              placeholder="Group password"
-            >
-
-
-            <button
-              type="button"
-              id="unlockGroupBtn"
-              class="primary-btn"
-            >
-              Unlock Group
+                Continue
+                <span>→</span>
             </button>
 
 
             <p
-              id="groupPasswordMessage"
-              class="error-message"
+                id="passwordError"
+                class="form-error"
             ></p>
 
-          </div>
+
+            <button
+                type="button"
+                id="ownerContactBtn"
+                class="quiet-btn"
+            >
+                Owner access
+            </button>
+
+        </div>
 
 
-          <!-- GROUP CONTENT -->
-          <div
-            id="groupContent"
-            class="hidden"
-          >
+        <div class="auth-bottom">
+            <span>StudyConnect</span>
+            <span>•</span>
+            <span>Private student network</span>
+        </div>
 
-            <div class="group-members-card">
+    </div>
 
-              <div class="card-header">
+</section>
+
+
+<!-- =====================================================
+     PROFILE SETUP
+===================================================== -->
+
+<section
+    id="contactScreen"
+    class="screen profile-setup-screen"
+    style="display:none;"
+>
+
+    <div class="setup-container">
+
+        <div class="setup-top">
+
+            <div class="small-logo">
+                SC
+            </div>
+
+            <div>
+                <span>
+                    PROFILE
+                </span>
+
+                <h1>
+                    Get started
+                </h1>
+            </div>
+
+        </div>
+
+
+        <div class="setup-box">
+
+            <label for="openUserName">
+                Name
+            </label>
+
+            <input
+                id="openUserName"
+                type="text"
+                placeholder="Your name"
+                autocomplete="name"
+            >
+
+
+            <label for="openUserPhone">
+                Mobile number
+            </label>
+
+            <input
+                id="openUserPhone"
+                type="tel"
+                placeholder="10 digit mobile number"
+                inputmode="numeric"
+                autocomplete="tel"
+            >
+
+
+            <button
+                type="button"
+                id="enterAppBtn"
+                class="main-action-btn"
+            >
+                Enter StudyConnect
+                <span>→</span>
+            </button>
+
+
+            <p
+                id="loginMessage"
+                class="form-message"
+            ></p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- =====================================================
+     MAIN APP
+===================================================== -->
+
+<div
+    id="mainApp"
+    class="app"
+    style="display:none;"
+>
+
+
+    <!-- =================================================
+         TOP BAR
+    ================================================== -->
+
+    <header class="app-header">
+
+        <div class="header-left">
+
+            <button
+                type="button"
+                id="menuBtn"
+                class="header-icon-btn"
+                aria-label="Menu"
+            >
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+
+
+            <button
+                type="button"
+                class="brand-button"
+                data-page="home"
+            >
+
+                <span class="header-logo">
+                    SC
+                </span>
+
+                <span class="header-title">
+                    StudyConnect
+                </span>
+
+            </button>
+
+        </div>
+
+
+        <div class="header-actions">
+
+            <button
+                type="button"
+                id="globalSearchBtn"
+                class="header-icon-btn"
+                aria-label="Search"
+            >
+                ⌕
+            </button>
+
+
+            <button
+                type="button"
+                id="notificationBtn"
+                class="header-icon-btn notification-icon"
+                aria-label="Notifications"
+            >
+                ♧
+            </button>
+
+
+            <button
+                type="button"
+                id="headerProfileBtn"
+                class="header-profile-btn"
+                data-page="settings"
+                aria-label="Profile"
+            >
+                <span id="headerProfileInitial">
+                    S
+                </span>
+            </button>
+
+        </div>
+
+    </header>
+
+
+    <!-- =================================================
+         SIDE / MOBILE MENU
+    ================================================== -->
+
+    <aside
+        id="sideMenu"
+        class="side-menu"
+    >
+
+        <div class="side-menu-top">
+
+            <div class="side-brand">
+                <div class="side-logo">
+                    SC
+                </div>
+
+                <div>
+                    <strong>
+                        StudyConnect
+                    </strong>
+
+                    <small>
+                        Student Community
+                    </small>
+                </div>
+            </div>
+
+
+            <button
+                type="button"
+                id="closeMenuBtn"
+                class="close-menu-btn"
+                aria-label="Close"
+            >
+                ×
+            </button>
+
+        </div>
+
+
+        <nav class="main-navigation">
+
+            <button
+                type="button"
+                class="nav-item active"
+                data-page="home"
+            >
+                <span>⌂</span>
+                <strong>Home</strong>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-item"
+                data-page="chat"
+            >
+                <span>◌</span>
+                <strong>Chat</strong>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-item"
+                data-page="groups"
+            >
+                <span>◎</span>
+                <strong>Groups</strong>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-item"
+                data-page="homework"
+            >
+                <span>□</span>
+                <strong>Homework</strong>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-item"
+                data-page="school"
+            >
+                <span>⌂</span>
+                <strong>School</strong>
+            </button>
+
+
+            <button
+                type="button"
+                class="nav-item"
+                data-page="notes"
+            >
+                <span>▤</span>
+                <strong>Notes</strong>
+            </button>
+
+        </nav>
+
+
+        <div class="side-menu-bottom">
+
+            <button
+                type="button"
+                class="nav-item"
+                data-page="settings"
+            >
+                <span>⚙</span>
+                <strong>Settings</strong>
+            </button>
+
+        </div>
+
+    </aside>
+
+
+    <div
+        id="menuOverlay"
+        class="menu-overlay"
+    ></div>
+
+
+    <!-- =================================================
+         PAGE CONTAINER
+    ================================================== -->
+
+    <main class="page-container">
+
+
+        <!-- =============================================
+             HOME
+        ============================================== -->
+
+        <section
+            id="home"
+            class="page active-page"
+        >
+
+            <div class="home-top">
 
                 <div>
 
-                  <h3>
-                    Members
-                  </h3>
+                    <span class="section-kicker">
+                        STUDENT COMMUNITY
+                    </span>
 
-                  <p>
-                    Manage study group members.
-                  </p>
+                    <h1>
+                        <span id="homeGreeting">
+                            Welcome
+                        </span>
+                    </h1>
 
                 </div>
 
-              </div>
 
-
-              <div
-                id="memberList"
-                class="member-list"
-              ></div>
-
-
-              <div class="member-add">
-
-                <input
-                  type="text"
-                  id="memberNameInput"
-                  placeholder="Member name"
+                <button
+                    type="button"
+                    class="profile-mini"
+                    data-page="settings"
                 >
 
+                    <span id="homeProfileInitial">
+                        S
+                    </span>
 
-                <input
-                  type="tel"
-                  id="memberPhoneInput"
-                  placeholder="Mobile number"
-                  inputmode="numeric"
+                </button>
+
+            </div>
+
+
+            <!-- QUICK ACTIONS -->
+
+            <div class="quick-actions">
+
+                <button
+                    type="button"
+                    class="quick-action"
+                    data-page="chat"
                 >
+                    <span class="quick-icon">
+                        ◌
+                    </span>
+
+                    <span>
+                        Chat
+                    </span>
+                </button>
 
 
                 <button
-                  type="button"
-                  id="addMemberBtn"
-                  class="secondary-btn"
+                    type="button"
+                    class="quick-action"
+                    data-page="homework"
                 >
-                  Add
+                    <span class="quick-icon">
+                        □
+                    </span>
+
+                    <span>
+                        Homework
+                    </span>
                 </button>
 
-              </div>
+
+                <button
+                    type="button"
+                    class="quick-action"
+                    data-page="notes"
+                >
+                    <span class="quick-icon">
+                        ▤
+                    </span>
+
+                    <span>
+                        Notes
+                    </span>
+                </button>
+
+
+                <button
+                    type="button"
+                    class="quick-action"
+                    data-page="school"
+                >
+                    <span class="quick-icon">
+                        ⌂
+                    </span>
+
+                    <span>
+                        School
+                    </span>
+                </button>
+
+            </div>
+
+
+            <!-- ONLINE CARD -->
+
+            <section class="online-section">
+
+                <div class="section-heading">
+
+                    <div>
+
+                        <span class="live-dot"></span>
+
+                        <strong>
+                            Online now
+                        </strong>
+
+                        <span
+                            id="onlineCount"
+                            class="online-number"
+                        >
+                            0
+                        </span>
+
+                    </div>
+
+
+                    <button
+                        type="button"
+                        id="onlineToggleBtn"
+                        class="link-btn"
+                    >
+                        View all
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="onlineUsers"
+                    class="online-preview"
+                >
+                </div>
+
+
+                <button
+                    type="button"
+                    id="addOnlineBtn"
+                    class="add-online-btn"
+                >
+                    + Add me online
+                </button>
+
+            </section>
+
+
+            <!-- ONLINE PANEL -->
+
+            <section
+                id="onlineUsersPanel"
+                class="inline-panel"
+                style="display:none;"
+            >
+
+                <div class="panel-heading">
+
+                    <div>
+                        <strong>
+                            Online students
+                        </strong>
+
+                        <span>
+                            Active now
+                        </span>
+                    </div>
+
+                    <button
+                        type="button"
+                        id="closeOnlinePanelBtn"
+                        class="panel-close-btn"
+                    >
+                        ×
+                    </button>
+
+                </div>
+
+
+                <div
+                    id="onlineUsersFullList"
+                    class="online-full-list"
+                >
+                </div>
+
+            </section>
+
+
+            <!-- RECENT ACTIVITY -->
+
+            <section class="home-section">
+
+                <div class="section-heading">
+
+                    <div>
+                        <span class="section-kicker">
+                            RECENT
+                        </span>
+
+                        <strong>
+                            Recent activity
+                        </strong>
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="recentActivityList"
+                    class="activity-list"
+                >
+                </div>
+
+            </section>
+
+        </section>
+
+
+        <!-- =============================================
+             CHAT
+        ============================================== -->
+
+        <section
+            id="chat"
+            class="page"
+        >
+
+            <div class="page-topbar">
+
+                <button
+                    type="button"
+                    class="back-button"
+                    data-page="home"
+                >
+                    ←
+                </button>
+
+                <div>
+                    <span class="section-kicker">
+                        COMMUNITY
+                    </span>
+
+                    <h1>
+                        Chat
+                    </h1>
+                </div>
+
+            </div>
+
+
+            <div class="chat-container">
+
+                <div class="chat-header">
+
+                    <div class="chat-title">
+
+                        <div class="chat-app-avatar">
+                            SC
+                        </div>
+
+                        <div>
+                            <strong>
+                                StudyConnect
+                            </strong>
+
+                            <span>
+                                Community chat
+                            </span>
+                        </div>
+
+                    </div>
+
+
+                    <input
+                        id="chatSearchBox"
+                        class="chat-search"
+                        type="search"
+                        placeholder="Search"
+                    >
+
+                </div>
+
+
+                <div
+                    id="chatMessages"
+                    class="chat-messages"
+                >
+                </div>
+
+
+                <div
+                    id="typingIndicator"
+                    class="typing-indicator"
+                >
+                    typing…
+                </div>
+
+
+                <div class="chat-composer">
+
+                    <button
+                        type="button"
+                        id="emojiBtn"
+                        class="composer-icon-btn"
+                    >
+                        ☺
+                    </button>
+
+
+                    <input
+                        id="messageInput"
+                        type="text"
+                        placeholder="Message"
+                        autocomplete="off"
+                    >
+
+
+                    <button
+                        type="button"
+                        id="sendMessageBtn"
+                        class="send-message-btn"
+                    >
+                        ↑
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =============================================
+             GROUPS
+        ============================================== -->
+
+        <section
+            id="groups"
+            class="page"
+        >
+
+            <div class="page-topbar">
+
+                <button
+                    type="button"
+                    class="back-button"
+                    data-page="home"
+                >
+                    ←
+                </button>
+
+                <div>
+                    <span class="section-kicker">
+                        COMMUNITY
+                    </span>
+
+                    <h1>
+                        Groups
+                    </h1>
+                </div>
+
+            </div>
+
+
+            <div class="page-actions">
+
+                <button
+                    type="button"
+                    id="createGroupBtn"
+                    class="primary-small-btn"
+                >
+                    + New group
+                </button>
 
             </div>
 
 
             <div
-              id="groupMessages"
-              class="group-messages"
+                id="groupList"
+                class="group-list"
+            >
+            </div>
+
+
+            <div
+                id="groupUnlockBox"
+                class="secure-panel"
+                style="display:none;"
             >
 
-              <p class="empty-message">
-                No group messages yet.
-              </p>
+                <span class="secure-icon">
+                    🔒
+                </span>
+
+                <h3>
+                    Group locked
+                </h3>
+
+                <input
+                    id="groupPassword"
+                    type="password"
+                    placeholder="Group password"
+                >
+
+                <button
+                    type="button"
+                    id="unlockGroupBtn"
+                    class="main-action-btn"
+                >
+                    Unlock
+                </button>
+
+                <p id="groupPasswordMessage"></p>
 
             </div>
 
 
-            <div class="chat-input-area">
+            <div
+                id="groupContent"
+                class="group-content"
+                style="display:none;"
+            >
 
-              <input
-                type="text"
-                id="groupMessageInput"
-                placeholder="Write in group..."
-                maxlength="1000"
-              >
+                <div class="group-content-header">
+                    <strong>
+                        Members
+                    </strong>
+                </div>
 
-
-              <button
-                type="button"
-                id="sendGroupMessageBtn"
-                class="send-btn"
-              >
-                ➤
-              </button>
+                <div id="memberList"></div>
 
             </div>
 
-          </div>
-
-        </div>
-
-      </section>
+        </section>
 
 
-      <!-- =================================================
-           HOMEWORK
-      ================================================== -->
-      <section id="homeworkPage" class="page">
+        <!-- =============================================
+             HOMEWORK
+        ============================================== -->
 
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
+        <section
+            id="homework"
+            class="page"
         >
-          ← Back
-        </button>
 
+            <div class="page-topbar">
 
-        <div class="page-header">
+                <button
+                    type="button"
+                    class="back-button"
+                    data-page="home"
+                >
+                    ←
+                </button>
 
-          <div>
+                <div>
+                    <span class="section-kicker">
+                        STUDY
+                    </span>
 
-            <span class="page-eyebrow">
-              LEARNING
-            </span>
-
-            <h1 class="page-title">
-              Homework
-            </h1>
-
-            <p class="page-subtitle">
-              Check and manage school homework.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div class="card homework-create-card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Add Homework
-              </h2>
-
-              <p>
-                Enter today's subject-wise homework.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="homeworkDate">
-              Date
-            </label>
-
-            <input
-              type="date"
-              id="homeworkDate"
-            >
-
-          </div>
-
-
-          <div class="homework-subject-grid">
-
-            <div class="form-group">
-              <label for="hindiHomework">Hindi</label>
-              <textarea
-                id="hindiHomework"
-                rows="3"
-                placeholder="Hindi homework..."
-              ></textarea>
-            </div>
-
-
-            <div class="form-group">
-              <label for="englishHomework">English</label>
-              <textarea
-                id="englishHomework"
-                rows="3"
-                placeholder="English homework..."
-              ></textarea>
-            </div>
-
-
-            <div class="form-group">
-              <label for="mathHomework">Math</label>
-              <textarea
-                id="mathHomework"
-                rows="3"
-                placeholder="Math homework..."
-              ></textarea>
-            </div>
-
-
-            <div class="form-group">
-              <label for="scienceHomework">Science</label>
-              <textarea
-                id="scienceHomework"
-                rows="3"
-                placeholder="Science homework..."
-              ></textarea>
-            </div>
-
-
-            <div class="form-group">
-              <label for="sstHomework">Social Science</label>
-              <textarea
-                id="sstHomework"
-                rows="3"
-                placeholder="SST homework..."
-              ></textarea>
-            </div>
-
-
-            <div class="form-group">
-              <label for="computerHomework">Computer</label>
-              <textarea
-                id="computerHomework"
-                rows="3"
-                placeholder="Computer homework..."
-              ></textarea>
-            </div>
-
-
-            <div class="form-group">
-              <label for="artHomework">Art</label>
-              <textarea
-                id="artHomework"
-                rows="3"
-                placeholder="Art homework..."
-              ></textarea>
-            </div>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="addHomeworkBtn"
-            class="primary-btn"
-          >
-            Save Homework
-          </button>
-
-        </div>
-
-
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Homework List
-              </h2>
-
-              <p>
-                Latest homework appears here.
-              </p>
+                    <h1>
+                        Homework
+                    </h1>
+                </div>
 
             </div>
 
 
-            <button
-              type="button"
-              id="refreshHomeworkBtn"
-              class="small-action-btn"
-            >
-              Refresh
-            </button>
+            <div class="homework-form">
 
-          </div>
+                <div class="form-header">
+                    <strong>
+                        Add homework
+                    </strong>
+                </div>
 
 
-          <div
-            id="homeworkList"
-            class="homework-list"
-          >
+                <label for="homeworkDate">
+                    Date
+                </label>
 
-            <p class="empty-message">
-              No homework available.
-            </p>
-
-          </div>
-
-        </div>
-
-      </section>
+                <input
+                    id="homeworkDate"
+                    type="date"
+                >
 
 
-      <!-- =================================================
-           SCHOOL UPDATES
-      ================================================== -->
-      <section id="schoolPage" class="page">
+                <div class="subject-list">
 
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
+                    <div class="subject-row">
+                        <span>Hindi</span>
+                        <textarea
+                            id="hindiHomework"
+                            placeholder="Homework"
+                        ></textarea>
+                    </div>
+
+
+                    <div class="subject-row">
+                        <span>English</span>
+                        <textarea
+                            id="englishHomework"
+                            placeholder="Homework"
+                        ></textarea>
+                    </div>
+
+
+                    <div class="subject-row">
+                        <span>Maths</span>
+                        <textarea
+                            id="mathHomework"
+                            placeholder="Homework"
+                        ></textarea>
+                    </div>
+
+
+                    <div class="subject-row">
+                        <span>Science</span>
+                        <textarea
+                            id="scienceHomework"
+                            placeholder="Homework"
+                        ></textarea>
+                    </div>
+
+
+                    <div class="subject-row">
+                        <span>SST</span>
+                        <textarea
+                            id="sstHomework"
+                            placeholder="Homework"
+                        ></textarea>
+                    </div>
+
+
+                    <div class="subject-row">
+                        <span>Computer</span>
+                        <textarea
+                            id="computerHomework"
+                            placeholder="Homework"
+                        ></textarea>
+                    </div>
+
+
+                    <div class="subject-row">
+                        <span>Art</span>
+                        <textarea
+                            id="artHomework"
+                            placeholder="Homework"
+                        ></textarea>
+                    </div>
+
+                </div>
+
+
+                <button
+                    type="button"
+                    id="addHomeworkBtn"
+                    class="main-action-btn"
+                >
+                    Save homework
+                </button>
+
+            </div>
+
+
+            <div class="content-section">
+
+                <div class="section-heading">
+                    <div>
+                        <span class="section-kicker">
+                            SAVED
+                        </span>
+
+                        <strong>
+                            Homework
+                        </strong>
+                    </div>
+                </div>
+
+
+                <div
+                    id="homeworkList"
+                    class="content-list"
+                >
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- =============================================
+             SCHOOL
+        ============================================== -->
+
+        <section
+            id="school"
+            class="page"
         >
-          ← Back
-        </button>
 
+            <div class="page-topbar">
 
-        <div class="page-header">
+                <button
+                    type="button"
+                    class="back-button"
+                    data-page="home"
+                >
+                    ←
+                </button>
 
-          <div>
+                <div>
+                    <span class="section-kicker">
+                        SCHOOL
+                    </span>
 
-            <span class="page-eyebrow">
-              SCHOOL
-            </span>
-
-            <h1 class="page-title">
-              School Updates
-            </h1>
-
-            <p class="page-subtitle">
-              Important school announcements and notices.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Post an Update
-              </h2>
-
-              <p>
-                Share an important notice with students.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="schoolInput">
-              School Update
-            </label>
-
-            <textarea
-              id="schoolInput"
-              rows="5"
-              maxlength="2000"
-              placeholder="Write school update..."
-            ></textarea>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="saveSchoolBtn"
-            class="primary-btn"
-          >
-            Publish Update
-          </button>
-
-        </div>
-
-
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Latest Updates
-              </h2>
-
-              <p>
-                Posted by name with date and time.
-              </p>
+                    <h1>
+                        Updates
+                    </h1>
+                </div>
 
             </div>
 
 
-            <button
-              type="button"
-              id="refreshSchoolBtn"
-              class="small-action-btn"
+            <div class="simple-form">
+
+                <textarea
+                    id="schoolInput"
+                    placeholder="Write an update..."
+                ></textarea>
+
+
+                <button
+                    type="button"
+                    id="saveSchoolBtn"
+                    class="main-action-btn"
+                >
+                    Post update
+                </button>
+
+            </div>
+
+
+            <div
+                id="schoolList"
+                class="content-list"
             >
-              Refresh
-            </button>
+            </div>
 
-          </div>
-
-
-          <div
-            id="schoolList"
-            class="school-list"
-          >
-
-            <p class="empty-message">
-              No school updates yet.
-            </p>
-
-          </div>
-
-        </div>
-
-      </section>
+        </section>
 
 
-      <!-- =================================================
-           NOTES
-      ================================================== -->
-      <section id="notesPage" class="page">
+        <!-- =============================================
+             NOTES
+        ============================================== -->
 
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
+        <section
+            id="notes"
+            class="page"
         >
-          ← Back
-        </button>
 
+            <div class="page-topbar">
 
-        <div class="page-header">
+                <button
+                    type="button"
+                    class="back-button"
+                    data-page="home"
+                >
+                    ←
+                </button>
 
-          <div>
+                <div>
+                    <span class="section-kicker">
+                        STUDY
+                    </span>
 
-            <span class="page-eyebrow">
-              MY NOTES
-            </span>
-
-            <h1 class="page-title">
-              Notes
-            </h1>
-
-            <p class="page-subtitle">
-              Save useful study notes for later.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Create Note
-              </h2>
-
-              <p>
-                Your name and date/time will be saved automatically.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="noteInput">
-              Note
-            </label>
-
-            <textarea
-              id="noteInput"
-              rows="7"
-              maxlength="5000"
-              placeholder="Write your note..."
-            ></textarea>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="saveNoteBtn"
-            class="primary-btn"
-          >
-            Save Note
-          </button>
-
-        </div>
-
-
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Saved Notes
-              </h2>
-
-              <p>
-                Your notes are stored in Firebase.
-              </p>
+                    <h1>
+                        Notes
+                    </h1>
+                </div>
 
             </div>
 
 
-            <button
-              type="button"
-              id="refreshNotesBtn"
-              class="small-action-btn"
+            <div class="simple-form">
+
+                <textarea
+                    id="noteInput"
+                    placeholder="Write a note..."
+                ></textarea>
+
+
+                <button
+                    type="button"
+                    id="saveNoteBtn"
+                    class="main-action-btn"
+                >
+                    Save note
+                </button>
+
+            </div>
+
+
+            <div
+                id="notesList"
+                class="content-list"
             >
-              Refresh
-            </button>
+            </div>
 
-          </div>
-
-
-          <div
-            id="notesList"
-            class="notes-list"
-          >
-
-            <p class="empty-message">
-              No notes saved yet.
-            </p>
-
-          </div>
-
-        </div>
-
-      </section>
+        </section>
 
 
-      <!-- =================================================
-           NOTIFICATIONS
-      ================================================== -->
-      <section
-        id="notificationsPage"
-        class="page"
-      >
+        <!-- =============================================
+             SETTINGS
+        ============================================== -->
 
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
+        <section
+            id="settings"
+            class="page"
         >
-          ← Back
-        </button>
+
+            <div class="page-topbar">
+
+                <button
+                    type="button"
+                    class="back-button"
+                    data-page="home"
+                >
+                    ←
+                </button>
+
+                <div>
+                    <span class="section-kicker">
+                        ACCOUNT
+                    </span>
+
+                    <h1>
+                        Settings
+                    </h1>
+                </div>
+
+            </div>
 
 
-        <div class="page-header">
+            <div class="profile-settings-card">
 
-          <div>
-
-            <span class="page-eyebrow">
-              UPDATES
-            </span>
-
-            <h1 class="page-title">
-              Notifications
-            </h1>
-
-            <p class="page-subtitle">
-              Important announcements and app updates.
-            </p>
-
-          </div>
+                <div class="settings-avatar">
+                    <span id="settingsProfileInitial">
+                        S
+                    </span>
+                </div>
 
 
-          <button
-            type="button"
-            id="markNotificationsReadBtn"
-            class="header-action-btn"
-          >
-            Mark Read
-          </button>
+                <div class="settings-user-info">
 
-        </div>
+                    <strong id="settingsUserName">
+                        Student
+                    </strong>
 
+                    <span id="settingsUserPhone">
+                        Mobile number
+                    </span>
 
-        <div class="card">
+                </div>
 
-          <div
-            id="notificationList"
-            class="notification-list"
-          >
-
-            <p class="empty-message">
-              No notifications yet.
-            </p>
-
-          </div>
-
-        </div>
-
-      </section>
+            </div>
 
 
-      <!-- =================================================
-           RECENT ACTIVITY
-      ================================================== -->
-      <section id="activityPage" class="page">
+            <div class="settings-section">
 
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
+                <div class="settings-section-title">
+                    Profile
+                </div>
+
+
+                <label for="studentName">
+                    Name
+                </label>
+
+                <input
+                    id="studentName"
+                    type="text"
+                    placeholder="Your name"
+                >
+
+
+                <p
+                    id="nameMessage"
+                    class="form-message"
+                ></p>
+
+
+                <button
+                    type="button"
+                    id="saveNameBtn"
+                    class="main-action-btn"
+                >
+                    Save changes
+                </button>
+
+
+                <label for="profilePhotoInput">
+                    Profile photo
+                </label>
+
+                <input
+                    id="profilePhotoInput"
+                    type="file"
+                    accept="image/*"
+                >
+
+            </div>
+
+
+            <div class="settings-section">
+
+                <div class="settings-section-title">
+                    App
+                </div>
+
+
+                <button
+                    type="button"
+                    id="themeBtn"
+                    class="settings-action"
+                >
+                    <span>
+                        Appearance
+                    </span>
+
+                    <small>
+                        Dark / Light
+                    </small>
+                </button>
+
+
+                <button
+                    type="button"
+                    id="notificationSettingsBtn"
+                    class="settings-action"
+                >
+                    <span>
+                        Notifications
+                    </span>
+
+                    <small>
+                        Manage
+                    </small>
+                </button>
+
+            </div>
+
+
+            <div class="settings-section">
+
+                <button
+                    type="button"
+                    id="ownerLoginBtn"
+                    class="settings-action owner-action"
+                >
+                    <span>
+                        Owner Panel
+                    </span>
+
+                    <small>
+                        Admin
+                    </small>
+                </button>
+
+
+                <button
+                    type="button"
+                    id="clearDataBtn"
+                    class="settings-action danger-action"
+                >
+                    <span>
+                        Reset local data
+                    </span>
+
+                    <small>
+                        Reset
+                    </small>
+                </button>
+
+            </div>
+
+        </section>
+
+
+        <!-- =============================================
+             OWNER PANEL
+        ============================================== -->
+
+        <section
+            id="ownerPanel"
+            class="page"
         >
-          ← Back
-        </button>
 
+            <div class="page-topbar">
 
-        <div class="page-header">
+                <button
+                    type="button"
+                    class="back-button"
+                    data-page="home"
+                >
+                    ←
+                </button>
 
-          <div>
+                <div>
+                    <span class="section-kicker">
+                        ADMIN
+                    </span>
 
-            <span class="page-eyebrow">
-              HISTORY
-            </span>
-
-            <h1 class="page-title">
-              Recent Activity
-            </h1>
-
-            <p class="page-subtitle">
-              Recent actions and updates in StudyConnect.
-            </p>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="refreshActivityBtn"
-            class="header-action-btn"
-          >
-            Refresh
-          </button>
-
-        </div>
-
-
-        <div class="card">
-
-          <div
-            id="activityList"
-            class="activity-list"
-          >
-
-            <p class="empty-message">
-              No recent activity.
-            </p>
-
-          </div>
-
-        </div>
-
-      </section>
-
-
-      <!-- =================================================
-           SETTINGS
-      ================================================== -->
-      <section id="settingsPage" class="page">
-
-        <button
-          type="button"
-          class="mobile-back-btn"
-          data-page="home"
-        >
-          ← Back
-        </button>
-
-
-        <div class="page-header">
-
-          <div>
-
-            <span class="page-eyebrow">
-              PERSONALIZE
-            </span>
-
-            <h1 class="page-title">
-              Settings
-            </h1>
-
-            <p class="page-subtitle">
-              Manage your profile and app preferences.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- PROFILE -->
-        <div class="card settings-profile-card">
-
-          <div class="settings-profile">
-
-            <div class="settings-dp-wrap">
-
-              <img
-                id="settingsProfileDP"
-                src="icon-192.png"
-                alt="Profile"
-                class="settings-profile-dp"
-              >
-
-              <span class="settings-online-dot"></span>
+                    <h1>
+                        Owner Panel
+                    </h1>
+                </div>
 
             </div>
 
 
-            <div>
+            <!-- STATS -->
 
-              <span class="card-eyebrow">
-                YOUR PROFILE
-              </span>
+            <div class="owner-stats">
 
-              <h2 id="settingsProfileName">
-                Student
-              </h2>
+                <div class="owner-stat">
+                    <span>Students</span>
+                    <strong id="totalStudents">0</strong>
+                </div>
 
-              <p id="settingsProfilePhone">
-                Mobile number
-              </p>
+                <div class="owner-stat">
+                    <span>Allowed</span>
+                    <strong id="allowedStudents">0</strong>
+                </div>
 
-            </div>
+                <div class="owner-stat">
+                    <span>Blocked</span>
+                    <strong id="blockedStudents">0</strong>
+                </div>
 
-          </div>
+                <div class="owner-stat">
+                    <span>Online</span>
+                    <strong id="ownerOnlineCount">0</strong>
+                </div>
 
+                <div class="owner-stat">
+                    <span>Messages</span>
+                    <strong id="totalMessages">0</strong>
+                </div>
 
-          <div class="settings-dp-actions">
-
-            <label
-              for="profilePhotoInput"
-              class="secondary-btn file-btn"
-            >
-              Change DP
-            </label>
-
-            <input
-              type="file"
-              id="profilePhotoInput"
-              accept="image/png,image/jpeg,image/webp"
-              hidden
-            >
-
-
-            <button
-              type="button"
-              id="removeProfilePhotoBtn"
-              class="text-danger-btn"
-            >
-              Remove DP
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <!-- CHANGE NAME -->
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Change Name
-              </h2>
-
-              <p>
-                Your profile name can be changed from here.
-              </p>
+                <div class="owner-stat">
+                    <span>Groups</span>
+                    <strong id="totalGroups">0</strong>
+                </div>
 
             </div>
 
-          </div>
+
+            <!-- USERS -->
+
+            <div class="owner-section">
+
+                <div class="owner-section-head">
+
+                    <div>
+                        <span class="section-kicker">
+                            USERS
+                        </span>
+
+                        <strong>
+                            Student access
+                        </strong>
+                    </div>
+
+                </div>
 
 
-          <div class="form-group">
-
-            <label for="changeNameInput">
-              New Name
-            </label>
-
-            <input
-              type="text"
-              id="changeNameInput"
-              placeholder="Enter new name"
-              maxlength="60"
-            >
-
-          </div>
-
-
-          <button
-            type="button"
-            id="changeNameBtn"
-            class="primary-btn"
-          >
-            Save New Name
-          </button>
-
-
-          <p
-            id="changeNameMessage"
-            class="form-message"
-          ></p>
-
-        </div>
-
-
-        <!-- LANGUAGE -->
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Language
-              </h2>
-
-              <p>
-                Choose your preferred language.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <div class="settings-button-row">
-
-            <button
-              type="button"
-              id="hindiLanguageBtn"
-              class="settings-choice-btn"
-            >
-              🇮🇳 Hindi
-            </button>
-
-
-            <button
-              type="button"
-              id="englishLanguageBtn"
-              class="settings-choice-btn"
-            >
-              English
-            </button>
-
-          </div>
-
-
-          <p
-            id="languageMessage"
-            class="form-message"
-          ></p>
-
-        </div>
-
-
-        <!-- APPEARANCE -->
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Appearance
-              </h2>
-
-              <p>
-                Change the app theme.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="themeBtn"
-            class="settings-wide-btn"
-          >
-            🌙 Toggle Dark Mode
-          </button>
-
-        </div>
-
-
-        <!-- NOTIFICATIONS -->
-        <div class="card">
-
-          <div class="card-header">
-
-            <div>
-
-              <h2>
-                Notifications
-              </h2>
-
-              <p>
-                Control notification preferences.
-              </p>
-
-            </div>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="notificationBtn"
-            class="settings-wide-btn"
-          >
-            🔔 Enable Notifications
-          </button>
-
-
-          <p
-            id="notificationMessage"
-            class="form-message"
-          ></p>
-
-        </div>
-
-
-        <!-- OWNER LOGIN -->
-        <div class="card owner-settings">
-
-          <div class="card-header">
-
-            <div>
-
-              <span class="card-eyebrow">
-                OWNER
-              </span>
-
-              <h2>
-                Owner Panel
-              </h2>
-
-              <p>
-                Restricted owner management area.
-              </p>
+                <div
+                    id="ownerUsersList"
+                    class="owner-users-list"
+                >
+                </div>
 
             </div>
 
 
-            <span class="secure-badge">
-              🔒 Secure
-            </span>
+            <!-- ACTIVITY -->
 
-          </div>
+            <div class="owner-section">
 
+                <div class="owner-section-head">
 
-          <div class="form-group">
+                    <div>
+                        <span class="section-kicker">
+                            ACTIVITY
+                        </span>
 
-            <label for="ownerPasswordInput">
-              Owner Password
-            </label>
+                        <strong>
+                            Recent activity
+                        </strong>
+                    </div>
 
-            <input
-              type="password"
-              id="ownerPasswordInput"
-              placeholder="Enter owner password"
-              autocomplete="off"
-            >
-
-          </div>
+                </div>
 
 
-          <button
-            type="button"
-            id="ownerLoginBtn"
-            class="primary-btn"
-          >
-            Open Owner Panel
-          </button>
-
-
-          <p
-            id="ownerPasswordMessage"
-            class="error-message"
-          ></p>
-
-        </div>
-
-
-        <!-- DANGER ZONE -->
-        <div class="card danger-card">
-
-          <div class="card-header">
-
-            <div>
-
-              <span class="card-eyebrow">
-                DANGER ZONE
-              </span>
-
-              <h2>
-                App Data
-              </h2>
-
-              <p>
-                Use this carefully.
-              </p>
+                <div
+                    id="ownerActivityList"
+                    class="owner-activity-list"
+                >
+                </div>
 
             </div>
 
-          </div>
-
-
-          <button
-            type="button"
-            id="clearDataBtn"
-            class="danger-btn"
-          >
-            Reset Local Profile
-          </button>
-
-
-          <p
-            id="settingsMessage"
-            class="form-message"
-          ></p>
-
-        </div>
-
-      </section>
+        </section>
 
     </main>
 
 
-    <!-- ===================================================
-         OWNER PANEL
-    ==================================================== -->
+    <!-- =================================================
+         GLOBAL SEARCH
+    ================================================== -->
+
     <div
-      id="ownerPanel"
-      class="owner-panel hidden"
-      aria-hidden="true"
+        id="globalSearchModal"
+        class="modal"
+        style="display:none;"
     >
 
-      <div class="owner-panel-topbar">
+        <div class="modal-box search-modal">
 
-        <div class="owner-panel-brand">
-
-          <div class="owner-panel-logo">
-
-            <img
-              src="icon-192.png"
-              alt="StudyConnect"
-            >
-
-          </div>
-
-
-          <div>
-
-            <span>
-              STUDYCONNECT
-            </span>
-
-            <strong>
-              Owner Panel
-            </strong>
-
-          </div>
-
-        </div>
-
-
-        <div class="owner-panel-actions">
-
-          <span class="owner-status">
-            <i></i>
-            Owner Access
-          </span>
-
-
-          <button
-            type="button"
-            id="closeOwnerPanelBtn"
-            class="owner-close-btn"
-          >
-            ×
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <div class="owner-panel-body">
-
-
-        <!-- OWNER HERO -->
-        <div class="owner-hero">
-
-          <div class="owner-hero-decoration"></div>
-
-
-          <div class="owner-hero-dp">
-
-            <img
-              id="ownerPanelDP"
-              src="icon-192.png"
-              alt="Krishna Ji"
-            >
-
-            <span>✓</span>
-
-          </div>
-
-
-          <div>
-
-            <span class="owner-hero-label">
-              OWNER ACCOUNT
-            </span>
-
-            <h1>
-              Krishna Ji
-            </h1>
-
-            <p>
-              Manage your StudyConnect community.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- DASHBOARD -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                OVERVIEW
-              </span>
-
-              <h2>
-                Dashboard
-              </h2>
-
-            </div>
-
-
-            <button
-              type="button"
-              id="refreshOwnerDashboardBtn"
-              class="owner-small-btn"
-            >
-              Refresh
-            </button>
-
-          </div>
-
-
-          <div class="owner-stats-grid">
-
-            <div class="owner-stat-card">
-
-              <span class="owner-stat-icon">
-                👨‍🎓
-              </span>
-
-              <div>
-
-                <small>
-                  Total Students
-                </small>
-
-                <strong id="ownerTotalStudents">
-                  0
-                </strong>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span class="owner-stat-icon">
-                ✓
-              </span>
-
-              <div>
-
-                <small>
-                  Allowed
-                </small>
-
-                <strong id="ownerAllowedStudents">
-                  0
-                </strong>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span class="owner-stat-icon">
-                ⊘
-              </span>
-
-              <div>
-
-                <small>
-                  Blocked
-                </small>
-
-                <strong id="ownerBlockedStudents">
-                  0
-                </strong>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span class="owner-stat-icon">
-                ●
-              </span>
-
-              <div>
-
-                <small>
-                  Online
-                </small>
-
-                <strong id="ownerOnlineStudents">
-                  0
-                </strong>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span class="owner-stat-icon">
-                💬
-              </span>
-
-              <div>
-
-                <small>
-                  Total Messages
-                </small>
-
-                <strong id="ownerTotalMessages">
-                  0
-                </strong>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span class="owner-stat-icon">
-                👥
-              </span>
-
-              <div>
-
-                <small>
-                  Total Groups
-                </small>
-
-                <strong id="ownerTotalGroups">
-                  0
-                </strong>
-
-              </div>
-
-            </div>
-
-          </div>
-
-        </div>
-
-
-        <!-- USER MANAGEMENT -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                ACCESS CONTROL
-              </span>
-
-              <h2>
-                User Management
-              </h2>
-
-            </div>
-
-
-            <button
-              type="button"
-              id="refreshUsersBtn"
-              class="owner-small-btn"
-            >
-              Refresh
-            </button>
-
-          </div>
-
-
-          <div class="owner-search">
-
-            <input
-              type="search"
-              id="ownerUserSearch"
-              placeholder="Search student by name or mobile..."
-            >
-
-
-            <button
-              type="button"
-              id="clearOwnerSearchBtn"
-            >
-              ×
-            </button>
-
-          </div>
-
-
-          <div
-            id="allowedUsersList"
-            class="owner-users-list"
-          >
-
-            <p class="owner-empty">
-              No registered students yet.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- ONLINE STUDENTS -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                LIVE STATUS
-              </span>
-
-              <h2>
-                Online Students
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div
-            id="ownerOnlineList"
-            class="owner-online-list"
-          >
-
-            <p class="owner-empty">
-              No students online.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- CHAT MANAGEMENT -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                COMMUNITY
-              </span>
-
-              <h2>
-                Chat Management
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div class="owner-management-grid">
-
-            <div class="owner-info-card">
-
-              <small>
-                Total Messages
-              </small>
-
-              <strong id="ownerChatMessageCount">
-                0
-              </strong>
-
-            </div>
-
-
-            <div class="owner-info-card">
-
-              <small>
-                Seen Messages
-              </small>
-
-              <strong id="ownerSeenMessageCount">
-                0
-              </strong>
-
-            </div>
-
-          </div>
-
-
-          <div
-            id="ownerRecentMessages"
-            class="owner-content-list"
-          >
-
-            <p class="owner-empty">
-              No messages available.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- SCHOOL UPDATES -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                CONTENT
-              </span>
-
-              <h2>
-                School Updates
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div
-            id="ownerSchoolList"
-            class="owner-content-list"
-          >
-
-            <p class="owner-empty">
-              No school updates.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- HOMEWORK -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                CONTENT
-              </span>
-
-              <h2>
-                Homework Management
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div
-            id="ownerHomeworkList"
-            class="owner-content-list"
-          >
-
-            <p class="owner-empty">
-              No homework.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- GROUP MANAGEMENT -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                COMMUNITY
-              </span>
-
-              <h2>
-                Group Management
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div
-            id="ownerGroupList"
-            class="owner-content-list"
-          >
-
-            <p class="owner-empty">
-              No groups.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- NOTIFICATIONS -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                COMMUNICATION
-              </span>
-
-              <h2>
-                Send Notification
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="ownerNotificationTitle">
-              Title
-            </label>
-
-            <input
-              type="text"
-              id="ownerNotificationTitle"
-              placeholder="Notification title"
-              maxlength="100"
-            >
-
-          </div>
-
-
-          <div class="form-group">
-
-            <label for="ownerNotificationMessage">
-              Message
-            </label>
-
-            <textarea
-              id="ownerNotificationMessage"
-              rows="4"
-              placeholder="Write announcement..."
-              maxlength="2000"
-            ></textarea>
-
-          </div>
-
-
-          <button
-            type="button"
-            id="sendOwnerNotificationBtn"
-            class="owner-primary-btn"
-          >
-            Send Announcement
-          </button>
-
-
-          <p
-            id="ownerNotificationStatus"
-            class="owner-message"
-          ></p>
-
-        </div>
-
-
-        <!-- GLOBAL SEARCH -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                SEARCH
-              </span>
-
-              <h2>
-                Global Search
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div class="owner-search">
-
-            <input
-              type="search"
-              id="ownerGlobalSearchInput"
-              placeholder="Search across StudyConnect..."
-            >
-
-
-            <button
-              type="button"
-              id="ownerGlobalSearchBtn"
-            >
-              Search
-            </button>
-
-          </div>
-
-
-          <div
-            id="ownerGlobalSearchResults"
-            class="owner-content-list"
-          ></div>
-
-        </div>
-
-
-        <!-- ACTIVITY LOG -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                SECURITY & HISTORY
-              </span>
-
-              <h2>
-                Activity Log
-              </h2>
-
-            </div>
-
-
-            <button
-              type="button"
-              id="refreshOwnerActivityBtn"
-              class="owner-small-btn"
-            >
-              Refresh
-            </button>
-
-          </div>
-
-
-          <div
-            id="ownerActivityLog"
-            class="owner-content-list"
-          >
-
-            <p class="owner-empty">
-              No activity recorded.
-            </p>
-
-          </div>
-
-        </div>
-
-
-        <!-- APP SETTINGS -->
-        <div class="owner-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                CONTROL CENTER
-              </span>
-
-              <h2>
-                App Settings
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div class="owner-settings-grid">
-
-            <button
-              type="button"
-              id="maintenanceModeBtn"
-              class="owner-setting-btn"
-            >
-
-              <span>🛠</span>
-
-              <strong>
-                Maintenance Mode
-              </strong>
-
-              <small>
-                Control app availability
-              </small>
-
-            </button>
-
-
-            <button
-              type="button"
-              id="registrationControlBtn"
-              class="owner-setting-btn"
-            >
-
-              <span>👤</span>
-
-              <strong>
-                Registration
-              </strong>
-
-              <small>
-                Control new registrations
-              </small>
-
-            </button>
-
-
-            <button
-              type="button"
-              id="featureToggleBtn"
-              class="owner-setting-btn"
-            >
-
-              <span>⚙</span>
-
-              <strong>
-                Feature Controls
-              </strong>
-
-              <small>
-                Manage app features
-              </small>
-
-            </button>
-
-          </div>
-
-        </div>
-
-
-        <!-- SECURITY -->
-        <div class="owner-section owner-security-section">
-
-          <div class="owner-section-title">
-
-            <div>
-
-              <span>
-                PROTECTION
-              </span>
-
-              <h2>
-                Security
-              </h2>
-
-            </div>
-
-          </div>
-
-
-          <div class="security-info">
-
-            <div>
-
-              <span>🔐</span>
-
-              <div>
+            <div class="modal-top">
 
                 <strong>
-                  Owner Protected
+                    Search
                 </strong>
 
-                <small>
-                  Owner account cannot be blocked.
-                </small>
-
-              </div>
+                <button
+                    type="button"
+                    class="modal-close"
+                    data-close-modal="globalSearchModal"
+                >
+                    ×
+                </button>
 
             </div>
 
 
-            <div>
+            <input
+                id="globalSearchInput"
+                type="search"
+                placeholder="Search everything..."
+            >
 
-              <span>📝</span>
 
-              <div>
-
-                <strong>
-                  Access Logs
-                </strong>
-
-                <small>
-                  Permission changes are recorded.
-                </small>
-
-              </div>
-
+            <div
+                id="globalSearchResults"
+                class="search-results"
+            >
             </div>
-
-
-            <div>
-
-              <span>👁</span>
-
-              <div>
-
-                <strong>
-                  Message Seen Status
-                </strong>
-
-                <small>
-                  Message viewers can be recorded.
-                </small>
-
-              </div>
-
-            </div>
-
-          </div>
 
         </div>
-
-      </div>
 
     </div>
 
 
-    <!-- ===================================================
-         MESSAGE INFO MODAL
-    ==================================================== -->
+    <!-- =================================================
+         MESSAGE INFO
+    ================================================== -->
+
     <div
-      id="messageInfoModal"
-      class="modal-overlay hidden"
-      aria-hidden="true"
+        id="messageInfoModal"
+        class="modal"
+        style="display:none;"
     >
 
-      <div class="modal-card">
+        <div class="modal-box">
 
-        <div class="modal-header">
+            <div class="modal-top">
 
-          <div>
+                <strong>
+                    Message info
+                </strong>
 
-            <span class="card-eyebrow">
-              MESSAGE INFO
-            </span>
+                <button
+                    type="button"
+                    class="modal-close"
+                    data-close-modal="messageInfoModal"
+                >
+                    ×
+                </button>
 
-            <h2>
-              Seen By
-            </h2>
-
-          </div>
+            </div>
 
 
-          <button
-            type="button"
-            id="closeMessageInfoBtn"
-            class="close-btn"
-          >
-            ×
-          </button>
+            <div id="messageInfoContent"></div>
 
         </div>
-
-
-        <div
-          id="messageInfoContent"
-          class="message-info-content"
-        >
-
-          <p class="empty-message">
-            Nobody has seen this message yet.
-          </p>
-
-        </div>
-
-      </div>
 
     </div>
 
 
-    <!-- ===================================================
-         CONFIRM MODAL
-    ==================================================== -->
+    <!-- =================================================
+         CONFIRM
+    ================================================== -->
+
     <div
-      id="confirmModal"
-      class="modal-overlay hidden"
-      aria-hidden="true"
+        id="confirmModal"
+        class="modal"
+        style="display:none;"
     >
 
-      <div class="modal-card confirm-card">
+        <div class="modal-box confirm-modal">
 
-        <div class="confirm-icon">
-          ⚠
+            <div class="modal-top">
+
+                <strong>
+                    Confirm
+                </strong>
+
+                <button
+                    type="button"
+                    class="modal-close"
+                    data-close-modal="confirmModal"
+                >
+                    ×
+                </button>
+
+            </div>
+
+
+            <p id="confirmMessage">
+                Are you sure?
+            </p>
+
+
+            <div class="modal-buttons">
+
+                <button
+                    type="button"
+                    id="confirmCancelBtn"
+                    class="secondary-action-btn"
+                >
+                    Cancel
+                </button>
+
+
+                <button
+                    type="button"
+                    id="confirmOkBtn"
+                    class="danger-action-btn"
+                >
+                    Confirm
+                </button>
+
+            </div>
+
         </div>
-
-
-        <h2 id="confirmTitle">
-          Confirm Action
-        </h2>
-
-
-        <p id="confirmMessage">
-          Are you sure?
-        </p>
-
-
-        <div class="modal-actions">
-
-          <button
-            type="button"
-            id="cancelConfirmBtn"
-            class="secondary-btn"
-          >
-            Cancel
-          </button>
-
-
-          <button
-            type="button"
-            id="confirmActionBtn"
-            class="danger-btn"
-          >
-            Confirm
-          </button>
-
-        </div>
-
-      </div>
 
     </div>
 
 
-    <!-- ===================================================
-         MULTI-SELECT DELETE TOOLBAR
-    ==================================================== -->
+    <!-- =================================================
+         DELETE BAR
+    ================================================== -->
+
     <div
-      id="selectionToolbar"
-      class="selection-toolbar hidden"
+        id="selectionBar"
+        class="selection-bar"
+        style="display:none;"
     >
-
-      <div>
-
-        <strong id="selectedCount">
-          0
-        </strong>
 
         <span>
-          selected
+            <strong id="selectedCount">
+                0
+            </strong>
+            selected
         </span>
 
-      </div>
 
-
-      <button
-        type="button"
-        id="cancelSelectionBtn"
-      >
-        Cancel
-      </button>
-
-
-      <button
-        type="button"
-        id="deleteSelectedBtn"
-        class="danger-btn"
-      >
-        Delete
-      </button>
+        <button
+            type="button"
+            id="deleteSelectedBtn"
+            class="selection-delete-btn"
+        >
+            Delete
+        </button>
 
     </div>
 
 
-    <!-- ===================================================
-         TOAST MESSAGE
-    ==================================================== -->
-    <div
-      id="toast"
-      class="toast hidden"
-      role="status"
-      aria-live="polite"
-    >
-
-      <span id="toastIcon">
-        ✓
-      </span>
-
-      <span id="toastMessage">
-        Done
-      </span>
-
-    </div>
-
-  </div>
+</div>
 
 
-  <!-- =====================================================
-       APP JAVASCRIPT
-  ====================================================== -->
-  <script
+<!-- =====================================================
+     SCRIPT
+===================================================== -->
+
+<script
     type="module"
     src="script.js"
-  ></script>
+></script>
 
 </body>
+</html>
