@@ -1,206 +1,135 @@
 /* =========================================================
-   STUDYCONNECT - COMPLETE JAVASCRIPT
-   Firebase + Chat + Groups + Owner Panel + Global Settings
+   STUDYCONNECT - script.js
+   PART 1 / 2
    ========================================================= */
 
 import {
-    initializeApp
+  initializeApp
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 
 import {
-    getFirestore,
-    collection,
-    doc,
-    getDoc,
-    getDocs,
-    addDoc,
-    setDoc,
-    updateDoc,
-    deleteDoc,
-    query,
-    where,
-    orderBy,
-    onSnapshot,
-    serverTimestamp,
-    arrayUnion,
-    arrayRemove
+  getFirestore,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  arrayUnion,
+  arrayRemove
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 import {
-    getAuth,
-    signInAnonymously,
-    onAuthStateChanged
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
 
 /* =========================================================
-   FIREBASE CONFIG
+   FIREBASE
    ========================================================= */
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCquRX2YB59FObuIyi3SwWc3aUCdPWypag",
-    authDomain: "studyconnect-99006.firebaseapp.com",
-    projectId: "studyconnect-99006",
-    storageBucket: "studyconnect-99006.firebasestorage.app",
-    messagingSenderId: "15964627995",
-    appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
-    measurementId: "G-SYJYMREJJL"
+  apiKey: "AIzaSyCquRX2YB59FObuIyiSw3Wc3aUCdPWypag",
+  authDomain: "studyconnect-99006.firebaseapp.com",
+  projectId: "studyconnect-99006",
+  storageBucket: "studyconnect-99006.firebasestorage.app",
+  messagingSenderId: "15964627995",
+  appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
+  measurementId: "G-SYJYMREJJL"
 };
 
-
-/* =========================================================
-   FIREBASE START
-   ========================================================= */
-
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
-const auth = getAuth(app);
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp);
+const auth = getAuth(firebaseApp);
 
 
 /* =========================================================
-   APP CONSTANTS
+   APP CONFIG
    ========================================================= */
 
 const OWNER_NAME = "Krishna Yadav";
-const OWNER_SHORT_NAME = "Krishna Ji";
+const OWNER_PASSWORD = "12341";
+const DEFAULT_STUDENT_PASSWORD = "123";
 
-const DEFAULT_SETTINGS = {
-    appName: "StudyConnect",
-    language: "en",
-    theme: "system",
-    welcomeAnimation: "on",
-
-    features: {
-        chat: true,
-        groups: true,
-        homework: true,
-        notes: true,
-        announcements: true,
-        registration: true,
-        studentSearch: true,
-        maintenance: false
-    }
-};
-
-
-/* =========================================================
-   GLOBAL STATE
-   ========================================================= */
+const STORAGE_NAME = "studyName";
+const STORAGE_PHONE = "studyPhone";
+const STORAGE_ID = "studyProfileId";
 
 let currentUser = null;
-let currentStudent = null;
+let currentProfile = null;
+let currentPage = "home";
+let currentChatUser = null;
+let currentGroup = null;
 
-let selectedChatPerson = null;
-let selectedOwnerPerson = null;
+let appSettings = {
+  appName: "StudyConnect",
+  globalLanguage: "hi",
+  globalTheme: "light",
+  welcomeAnimation: true,
+
+  chat: true,
+  groups: true,
+  homework: true,
+  notes: true,
+  announcements: true,
+  registration: true,
+  maintenance: false
+};
 
 let selectedGroupMembers = [];
-
-let currentSettings = structuredClone(DEFAULT_SETTINGS);
-
-let unsubscribeMessages = null;
+let unsubscribeChat = null;
 let unsubscribeStudents = null;
+let unsubscribeMessages = null;
+let unsubscribeGroups = null;
 let unsubscribeSettings = null;
 
-let onlineHeartbeat = null;
-
-let isOwner = false;
+let navigationHistory = [];
 
 
 /* =========================================================
-   DOM HELPER
+   SHORTCUTS
    ========================================================= */
 
 const $ = id => document.getElementById(id);
 
+function qs(selector) {
+  return document.querySelector(selector);
+}
 
-/* =========================================================
-   SAFE HTML
-   ========================================================= */
+function qsa(selector) {
+  return [...document.querySelectorAll(selector)];
+}
+
+function show(el) {
+  if (el) el.style.display = "";
+}
+
+function hide(el) {
+  if (el) el.style.display = "none";
+}
+
+function setText(id, text) {
+  const el = $(id);
+  if (el) el.textContent = text;
+}
 
 function escapeHTML(value = "") {
-    return String(value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-}
-
-
-/* =========================================================
-   DATE / TIME
-   ========================================================= */
-
-function formatDateTime(timestamp) {
-
-    if (!timestamp) return "";
-
-    let date;
-
-    if (timestamp?.toDate) {
-        date = timestamp.toDate();
-    } else if (timestamp instanceof Date) {
-        date = timestamp;
-    } else {
-        date = new Date(timestamp);
-    }
-
-    if (Number.isNaN(date.getTime())) {
-        return "";
-    }
-
-    return date.toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-    });
-}
-
-
-function formatTime(timestamp) {
-
-    if (!timestamp) return "";
-
-    let date;
-
-    if (timestamp?.toDate) {
-        date = timestamp.toDate();
-    } else {
-        date = new Date(timestamp);
-    }
-
-    if (Number.isNaN(date.getTime())) return "";
-
-    return date.toLocaleTimeString("en-IN", {
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: true
-    });
-}
-
-
-function formatDateOnly(timestamp) {
-
-    if (!timestamp) return "";
-
-    let date;
-
-    if (timestamp?.toDate) {
-        date = timestamp.toDate();
-    } else {
-        date = new Date(timestamp);
-    }
-
-    if (Number.isNaN(date.getTime())) return "";
-
-    return date.toLocaleDateString("en-IN", {
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-    });
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
 
 
@@ -208,56 +137,115 @@ function formatDateOnly(timestamp) {
    TOAST
    ========================================================= */
 
-function showToast(message, icon = "✓") {
+function toast(message, icon = "✓") {
+  const box = $("toast");
+  const msg = $("toastMessage");
+  const ico = $("toastIcon");
 
-    const toast = $("toast");
-    const toastMessage = $("toastMessage");
-    const toastIcon = $("toastIcon");
+  if (!box || !msg) return;
 
-    if (!toast || !toastMessage) return;
+  msg.textContent = message;
+  if (ico) ico.textContent = icon;
 
-    toastMessage.textContent = message;
+  box.classList.add("show");
 
-    if (toastIcon) {
-        toastIcon.textContent = icon;
-    }
+  clearTimeout(window.__toastTimer);
 
-    toast.classList.add("show");
-
-    setTimeout(() => {
-        toast.classList.remove("show");
-    }, 2800);
+  window.__toastTimer = setTimeout(() => {
+    box.classList.remove("show");
+  }, 2500);
 }
 
 
 /* =========================================================
-   LOCAL USER HELPERS
+   MODAL
    ========================================================= */
 
-function getUserName() {
-    return localStorage.getItem("studyName") || "";
+function openModal(title, body) {
+  setText("appModalTitle", title);
+
+  const bodyEl = $("appModalBody");
+  if (bodyEl) bodyEl.innerHTML = body;
+
+  const modal = $("appModal");
+  if (modal) modal.classList.add("active");
+}
+
+function closeModal() {
+  const modal = $("appModal");
+  if (modal) modal.classList.remove("active");
 }
 
 
-function getUserPhone() {
-    return localStorage.getItem("studyPhone") || "";
+/* =========================================================
+   HASH PASSWORD
+   ========================================================= */
+
+async function hashPassword(password) {
+  const data = new TextEncoder().encode(password);
+  const hash = await crypto.subtle.digest("SHA-256", data);
+
+  return [...new Uint8Array(hash)]
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 
-function setLocalUser(name, phone) {
+/* =========================================================
+   PROFILE ID
+   ========================================================= */
 
-    localStorage.setItem("studyName", name);
-    localStorage.setItem("studyPhone", phone);
+function makeProfileId(phone) {
+  return btoa(
+    encodeURIComponent(String(phone).trim())
+  )
+    .replaceAll("=", "")
+    .replaceAll("/", "_")
+    .replaceAll("+", "-");
 }
 
 
-function getProfileId(phone = getUserPhone()) {
+/* =========================================================
+   DATE / TIME
+   ========================================================= */
 
-    const cleanPhone = String(phone).replace(/\D/g, "");
+function formatTime(timestamp) {
+  if (!timestamp) return "";
 
-    if (!cleanPhone) return "";
+  let date;
 
-    return cleanPhone;
+  if (timestamp?.toDate) {
+    date = timestamp.toDate();
+  } else {
+    date = new Date(timestamp);
+  }
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
+function formatDate(timestamp) {
+  if (!timestamp) return "";
+
+  let date;
+
+  if (timestamp?.toDate) {
+    date = timestamp.toDate();
+  } else {
+    date = new Date(timestamp);
+  }
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  return date.toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
 }
 
 
@@ -266,73 +254,87 @@ function getProfileId(phone = getUserPhone()) {
    ========================================================= */
 
 async function startFirebaseAuth() {
-
-    try {
-
-        if (!auth.currentUser) {
-            await signInAnonymously(auth);
-        }
-
-    } catch (error) {
-
-        console.error("Firebase Auth error:", error);
-
-        showToast(
-            "Firebase Authentication शुरू नहीं हो पाया।",
-            "⚠️"
-        );
-    }
+  try {
+    await signInAnonymously(auth);
+  } catch (error) {
+    console.error("Firebase Auth Error:", error);
+    toast("Firebase connection failed", "!");
+  }
 }
 
-
 onAuthStateChanged(auth, user => {
+  currentUser = user;
 
-    currentUser = user || null;
-
+  if (user) {
+    console.log("Firebase connected:", user.uid);
+  }
 });
 
 
 /* =========================================================
-   SETTINGS LOAD
+   APP SETTINGS
    ========================================================= */
 
-async function loadGlobalSettings() {
+async function loadAppSettings() {
+  try {
+    const ref = doc(db, "appSettings", "global");
+    const snap = await getDoc(ref);
 
-    try {
-
-        const ref = doc(db, "appSettings", "main");
-        const snap = await getDoc(ref);
-
-        if (!snap.exists()) {
-
-            currentSettings = structuredClone(DEFAULT_SETTINGS);
-
-            return;
-        }
-
-        const data = snap.data();
-
-        currentSettings = {
-            ...DEFAULT_SETTINGS,
-            ...data,
-            features: {
-                ...DEFAULT_SETTINGS.features,
-                ...(data.features || {})
-            }
-        };
-
-        applyGlobalSettings();
-
-    } catch (error) {
-
-        console.error(
-            "Global settings error:",
-            error
-        );
-
-        currentSettings = structuredClone(DEFAULT_SETTINGS);
-        applyGlobalSettings();
+    if (snap.exists()) {
+      appSettings = {
+        ...appSettings,
+        ...snap.data()
+      };
     }
+
+    applyGlobalSettings();
+
+  } catch (error) {
+    console.error("Settings error:", error);
+  }
+}
+
+function applyGlobalSettings() {
+  const root = document.documentElement;
+
+  if (appSettings.globalTheme === "dark") {
+    document.body.classList.add("dark");
+  } else {
+    document.body.classList.remove("dark");
+  }
+
+  setText(
+    "appTitle",
+    appSettings.appName || "StudyConnect"
+  );
+
+  setText(
+    "appNameInput",
+    appSettings.appName || "StudyConnect"
+  );
+
+  if ($("languageSelect")) {
+    $("languageSelect").value =
+      appSettings.globalLanguage || "hi";
+  }
+
+  if ($("ownerGlobalLanguage")) {
+    $("ownerGlobalLanguage").value =
+      appSettings.globalLanguage || "hi";
+  }
+
+  if ($("ownerGlobalTheme")) {
+    $("ownerGlobalTheme").value =
+      appSettings.globalTheme || "light";
+  }
+
+  if ($("ownerAppName")) {
+    $("ownerAppName").value =
+      appSettings.appName || "StudyConnect";
+  }
+
+  updateFeatureVisibility();
+  applyLanguage();
 }
 
 
@@ -340,355 +342,181 @@ async function loadGlobalSettings() {
    GLOBAL SETTINGS LISTENER
    ========================================================= */
 
-function listenToGlobalSettings() {
+function listenGlobalSettings() {
+  if (unsubscribeSettings) unsubscribeSettings();
 
-    if (unsubscribeSettings) {
-        unsubscribeSettings();
+  const ref = doc(db, "appSettings", "global");
+
+  unsubscribeSettings = onSnapshot(ref, snap => {
+    if (snap.exists()) {
+      appSettings = {
+        ...appSettings,
+        ...snap.data()
+      };
+
+      applyGlobalSettings();
     }
-
-    unsubscribeSettings = onSnapshot(
-        doc(db, "appSettings", "main"),
-        snapshot => {
-
-            if (!snapshot.exists()) return;
-
-            const data = snapshot.data();
-
-            currentSettings = {
-                ...DEFAULT_SETTINGS,
-                ...data,
-                features: {
-                    ...DEFAULT_SETTINGS.features,
-                    ...(data.features || {})
-                }
-            };
-
-            applyGlobalSettings();
-
-        },
-        error => {
-            console.error(
-                "Settings listener error:",
-                error
-            );
-        }
-    );
+  });
 }
 
 
 /* =========================================================
-   APPLY GLOBAL SETTINGS
+   LOGIN
    ========================================================= */
 
-function applyGlobalSettings() {
+async function loginUser(name, phone, password) {
+  const cleanName = String(name || "").trim();
+  const cleanPhone = String(phone || "").trim();
+  const cleanPassword = String(password || "");
 
-    const settings = currentSettings;
+  /* OWNER LOGIN
+     Owner only needs password.
+  */
 
-    const appTitle = $("appTitle");
+  if (
+    cleanPassword === OWNER_PASSWORD &&
+    (
+      cleanName.toLowerCase() === OWNER_NAME.toLowerCase() ||
+      cleanName === ""
+    )
+  ) {
+    const ownerId = "owner";
 
-    if (appTitle) {
-        appTitle.textContent =
-            settings.appName || "StudyConnect";
+    const ownerRef = doc(db, "students", ownerId);
+    const ownerSnap = await getDoc(ownerRef);
+
+    if (!ownerSnap.exists()) {
+      await setDoc(ownerRef, {
+        id: ownerId,
+        name: OWNER_NAME,
+        phone: "",
+        role: "owner",
+        status: "approved",
+        permission: "allow",
+        followers: [],
+        following: [],
+        joinedAt: serverTimestamp()
+      });
     }
 
-    document.title =
-        settings.appName || "StudyConnect";
-
-    applyTheme(settings.theme);
-
-    applyLanguage(settings.language);
-
-    applyFeatureVisibility(settings.features);
-
-    const maintenanceNotice =
-        $("maintenanceNotice");
-
-    if (maintenanceNotice) {
-
-        maintenanceNotice.classList.toggle(
-            "hidden",
-            !settings.features.maintenance
-        );
-    }
-
-    if (
-        settings.features.maintenance &&
-        !isOwner
-    ) {
-
-        document.body.classList.add(
-            "maintenance-active"
-        );
-
-    } else {
-
-        document.body.classList.remove(
-            "maintenance-active"
-        );
-    }
-}
-
-
-/* =========================================================
-   THEME
-   ========================================================= */
-
-function applyTheme(theme) {
-
-    document.documentElement.dataset.theme =
-        theme || "system";
-
-    document.body.classList.remove(
-        "dark-theme",
-        "light-theme"
-    );
-
-    if (theme === "dark") {
-        document.body.classList.add(
-            "dark-theme"
-        );
-    }
-
-    if (theme === "light") {
-        document.body.classList.add(
-            "light-theme"
-        );
-    }
-
-    const themeSelect = $("themeSelect");
-
-    if (themeSelect) {
-        themeSelect.value =
-            theme || "system";
-    }
-}
-
-
-/* =========================================================
-   LANGUAGE
-   ========================================================= */
-
-const translations = {
-
-    en: {
-
-        home: "Home",
-        chat: "Chat",
-        groups: "Groups",
-        homework: "Homework",
-        school: "School Updates",
-        notes: "Notes",
-        settings: "Settings",
-        logout: "Logout",
-
-        loginTitle: "StudyConnect",
-        loginSubtitle: "Student Community",
-
-        homeDescription:
-            "Welcome to your StudyConnect student community.",
-
-        noStudents:
-            "No students found.",
-
-        noGroups:
-            "No groups available.",
-
-        noHomework:
-            "No homework available.",
-
-        noUpdates:
-            "No school updates available.",
-
-        noNotes:
-            "No notes available."
-    },
-
-    hi: {
-
-        home: "होम",
-        chat: "चैट",
-        groups: "ग्रुप",
-        homework: "होमवर्क",
-        school: "स्कूल अपडेट",
-        notes: "नोट्स",
-        settings: "सेटिंग्स",
-        logout: "लॉगआउट",
-
-        loginTitle: "StudyConnect",
-        loginSubtitle: "Student Community",
-
-        homeDescription:
-            "आपके StudyConnect Student Community में आपका स्वागत है।",
-
-        noStudents:
-            "कोई विद्यार्थी नहीं मिला।",
-
-        noGroups:
-            "अभी कोई ग्रुप उपलब्ध नहीं है।",
-
-        noHomework:
-            "अभी कोई होमवर्क उपलब्ध नहीं है।",
-
-        noUpdates:
-            "अभी कोई स्कूल अपडेट उपलब्ध नहीं है।",
-
-        noNotes:
-            "अभी कोई नोट उपलब्ध नहीं है।"
-    }
-};
-
-
-function applyLanguage(language = "en") {
-
-    const lang =
-        translations[language]
-            ? language
-            : "en";
-
-    document.documentElement.lang =
-        lang === "hi"
-            ? "hi"
-            : "en";
-
-    localStorage.setItem(
-        "studyLanguage",
-        lang
-    );
-
-    const t = translations[lang];
-
-    document.querySelectorAll(
-        "[data-i18n]"
-    ).forEach(element => {
-
-        const key =
-            element.dataset.i18n;
-
-        if (t[key]) {
-            element.textContent =
-                t[key];
-        }
-    });
-
-    const loginTitle = $("loginTitle");
-
-    if (loginTitle) {
-        loginTitle.textContent =
-            t.loginTitle;
-    }
-
-    const loginSubtitle =
-        $("loginSubtitle");
-
-    if (loginSubtitle) {
-        loginSubtitle.textContent =
-            t.loginSubtitle;
-    }
-
-    const homeDescription =
-        $("homeDescription");
-
-    if (homeDescription) {
-        homeDescription.textContent =
-            t.homeDescription;
-    }
-
-    const languageSelect =
-        $("languageSelect");
-
-    if (languageSelect) {
-        languageSelect.value = lang;
-    }
-}
-
-
-/* =========================================================
-   FEATURE CONTROL
-   ========================================================= */
-
-function applyFeatureVisibility(features = {}) {
-
-    const mapping = {
-
-        chat: [
-            '[data-page="chat"]'
-        ],
-
-        groups: [
-            '[data-page="groups"]'
-        ],
-
-        homework: [
-            '[data-page="homework"]'
-        ],
-
-        notes: [
-            '[data-page="notes"]'
-        ],
-
-        announcements: [
-            '[data-page="school"]'
-        ]
+    currentProfile = {
+      id: ownerId,
+      name: OWNER_NAME,
+      phone: "",
+      role: "owner",
+      status: "approved",
+      permission: "allow",
+      followers: [],
+      following: []
     };
 
+    localStorage.setItem(STORAGE_NAME, OWNER_NAME);
+    localStorage.setItem(STORAGE_PHONE, "");
+    localStorage.setItem(STORAGE_ID, ownerId);
 
-    Object.entries(mapping).forEach(
-        ([feature, selectors]) => {
+    showOwnerWelcome();
+    return true;
+  }
 
-            const enabled =
-                features[feature] !== false;
+  if (!cleanName || !cleanPhone || !cleanPassword) {
+    showLoginMessage("नाम, मोबाइल और पासवर्ड भरें।", true);
+    return false;
+  }
 
-            selectors.forEach(selector => {
+  const id = makeProfileId(cleanPhone);
+  const ref = doc(db, "students", id);
+  const snap = await getDoc(ref);
 
-                document.querySelectorAll(
-                    selector
-                ).forEach(element => {
+  if (!snap.exists()) {
 
-                    element.classList.toggle(
-                        "feature-disabled",
-                        !enabled
-                    );
+    if (appSettings.registration === false) {
+      showLoginMessage(
+        "नई registration अभी बंद है।",
+        true
+      );
+      return false;
+    }
 
-                    element.style.display =
-                        enabled
-                            ? ""
-                            : "none";
-                });
-            });
-        }
+    const passwordHash = await hashPassword(cleanPassword);
+
+    await setDoc(ref, {
+      id,
+      name: cleanName,
+      phone: cleanPhone,
+      passwordHash,
+      role: "student",
+      status: "pending",
+      permission: "none",
+      followers: [],
+      following: [],
+      joinedAt: serverTimestamp()
+    });
+
+    showLoginMessage(
+      "Registration हो गई। Owner की approval का इंतजार करें।",
+      false
     );
+
+    toast("Registration submitted", "✓");
+    return false;
+  }
+
+  const data = snap.data();
+
+  if (data.status === "blocked") {
+    showLoginMessage(
+      "आपका account blocked है।",
+      true
+    );
+    return false;
+  }
+
+  const enteredHash = await hashPassword(cleanPassword);
+
+  if (data.passwordHash !== enteredHash) {
+    showLoginMessage(
+      "गलत password।",
+      true
+    );
+    return false;
+  }
+
+  if (data.status !== "approved") {
+    showLoginMessage(
+      "आपका account अभी Owner approval में है।",
+      true
+    );
+    return false;
+  }
+
+  currentProfile = {
+    id,
+    ...data
+  };
+
+  localStorage.setItem(STORAGE_NAME, data.name || cleanName);
+  localStorage.setItem(STORAGE_PHONE, data.phone || cleanPhone);
+  localStorage.setItem(STORAGE_ID, id);
+
+  openMainApp();
+
+  return true;
 }
 
 
 /* =========================================================
-   OWNER CHECK
+   LOGIN MESSAGE
    ========================================================= */
 
-function checkOwner(name, phone) {
+function showLoginMessage(message, error = false) {
+  const el = $("loginMessage");
 
-    const normalizedName =
-        String(name || "")
-            .trim()
-            .toLowerCase();
+  if (!el) return;
 
-    const normalizedOwner =
-        OWNER_NAME
-            .trim()
-            .toLowerCase();
-
-    /*
-       IMPORTANT:
-       This is only a UI-level Owner recognition.
-       It is NOT real security.
-
-       Production Owner security must be enforced
-       using Firebase Authentication + custom claims.
-    */
-
-    isOwner =
-        normalizedName === normalizedOwner;
-
-    return isOwner;
+  el.textContent = message;
+  el.className = error
+    ? "login-message error"
+    : "login-message success";
 }
 
 
@@ -697,441 +525,130 @@ function checkOwner(name, phone) {
    ========================================================= */
 
 function showOwnerWelcome() {
+  const screen = $("ownerWelcome");
 
-    const welcome =
-        $("ownerWelcome");
+  if (!screen) {
+    openMainApp();
+    return;
+  }
 
-    if (!welcome) return;
+  setText(
+    "ownerWelcomeTitle",
+    "Welcome Owner Krishna Ji"
+  );
 
-    if (
-        currentSettings.welcomeAnimation ===
-        "off"
-    ) {
-        return;
+  setText(
+    "ownerWelcomeText",
+    "StudyConnect Owner Panel"
+  );
+
+  const stars = $("fallingStars");
+
+  if (stars) {
+    stars.innerHTML = "";
+
+    for (let i = 0; i < 35; i++) {
+      const star = document.createElement("span");
+
+      star.className = "falling-star";
+
+      star.textContent =
+        Math.random() > 0.5 ? "★" : "✦";
+
+      star.style.left =
+        Math.random() * 100 + "%";
+
+      star.style.animationDelay =
+        Math.random() * 1.4 + "s";
+
+      star.style.animationDuration =
+        1.5 + Math.random() * 1.5 + "s";
+
+      stars.appendChild(star);
     }
+  }
 
-    welcome.classList.remove("hidden");
+  screen.classList.add("active");
 
-    createFallingStars();
+  playOwnerTone();
 
-    playWelcomeTone();
-
-    setTimeout(() => {
-
-        welcome.classList.add("hidden");
-
-        openOwnerPanel();
-
-    }, 2100);
-}
-
-
-function createFallingStars() {
-
-    const container =
-        $("fallingStars");
-
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    for (let i = 0; i < 45; i++) {
-
-        const star =
-            document.createElement("span");
-
-        star.className =
-            "falling-star";
-
-        star.textContent =
-            Math.random() > 0.5
-                ? "★"
-                : "✦";
-
-        star.style.left =
-            `${Math.random() * 100}%`;
-
-        star.style.animationDelay =
-            `${Math.random() * 1.2}s`;
-
-        star.style.animationDuration =
-            `${1.2 + Math.random() * 1.2}s`;
-
-        container.appendChild(star);
-    }
+  setTimeout(() => {
+    screen.classList.remove("active");
+    openMainApp();
+    navigateTo("owner", false);
+  }, 2100);
 }
 
 
 /* =========================================================
-   WELCOME SOUND
+   OWNER TONE
    ========================================================= */
 
-function playWelcomeTone() {
+function playOwnerTone() {
+  try {
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
 
-    try {
+    if (!AudioContext) return;
 
-        const AudioContext =
-            window.AudioContext ||
-            window.webkitAudioContext;
+    const ctx = new AudioContext();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
 
-        if (!AudioContext) return;
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
 
-        const context =
-            new AudioContext();
+    gain.gain.setValueAtTime(
+      0.001,
+      ctx.currentTime
+    );
 
-        const oscillator =
-            context.createOscillator();
+    gain.gain.exponentialRampToValueAtTime(
+      0.08,
+      ctx.currentTime + 0.04
+    );
 
-        const gain =
-            context.createGain();
+    gain.gain.exponentialRampToValueAtTime(
+      0.001,
+      ctx.currentTime + 0.45
+    );
 
-        oscillator.type =
-            "sine";
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
 
-        oscillator.frequency.setValueAtTime(
-            660,
-            context.currentTime
-        );
-
-        oscillator.frequency.exponentialRampToValueAtTime(
-            990,
-            context.currentTime + 0.25
-        );
-
-        gain.gain.setValueAtTime(
-            0.0001,
-            context.currentTime
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.12,
-            context.currentTime + 0.02
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.0001,
-            context.currentTime + 0.45
-        );
-
-        oscillator.connect(gain);
-        gain.connect(context.destination);
-
-        oscillator.start();
-
-        oscillator.stop(
-            context.currentTime + 0.5
-        );
-
-    } catch (error) {
-
-        console.log(
-            "Welcome tone unavailable."
-        );
-    }
+    oscillator.start();
+    oscillator.stop(ctx.currentTime + 0.5);
+  } catch (error) {
+    console.log("Tone unavailable");
+  }
 }
 
 
 /* =========================================================
-   LOGIN
+   OPEN APP
    ========================================================= */
 
-async function handleLogin(event) {
+function openMainApp() {
+  hide($("loginScreen"));
 
-    event.preventDefault();
+  const app = $("app");
 
-    const name =
-        $("loginName")?.value.trim();
+  if (app) {
+    app.classList.add("active");
+  }
 
-    const phone =
-        $("loginPhone")?.value.trim();
+  updateProfileUI();
+  updatePermissionUI();
 
-    const password =
-        $("loginPassword")?.value;
+  if (currentProfile?.role === "owner") {
+    show($("ownerSettingsCard"));
+  } else {
+    hide($("ownerSettingsCard"));
+  }
 
-    const message =
-        $("loginMessage");
-
-    if (!name) {
-
-        showLoginError(
-            "Please enter your name."
-        );
-
-        return;
-    }
-
-    if (!/^\d{10}$/.test(phone)) {
-
-        showLoginError(
-            "Please enter a valid 10-digit mobile number."
-        );
-
-        return;
-    }
-
-    if (!password) {
-
-        showLoginError(
-            "Please enter the app password."
-        );
-
-        return;
-    }
-
-
-    try {
-
-        await startFirebaseAuth();
-
-        const profileId =
-            getProfileId(phone);
-
-        const studentRef =
-            doc(
-                db,
-                "students",
-                profileId
-            );
-
-        const studentSnap =
-            await getDoc(studentRef);
-
-        let studentData;
-
-
-        if (studentSnap.exists()) {
-
-            studentData =
-                studentSnap.data();
-
-            /*
-              Existing user.
-              Password validation is performed through
-              the configured application hash when available.
-            */
-
-            const passwordValid =
-                await verifyStoredPassword(
-                    password,
-                    studentData.appPasswordHash
-                );
-
-            if (!passwordValid) {
-
-                showLoginError(
-                    "Wrong password."
-                );
-
-                return;
-            }
-
-        } else {
-
-            /*
-              New user:
-              create pending student profile.
-
-              The actual approval state is controlled
-              by Owner/Firebase.
-            */
-
-            const hash =
-                await sha256(password);
-
-            studentData = {
-
-                name,
-                phone,
-
-                status: "pending",
-
-                permission: "normal",
-
-                followers: [],
-                following: [],
-
-                groups: [],
-
-                appPasswordHash: hash,
-
-                joinedAt:
-                    serverTimestamp(),
-
-                lastSeen:
-                    serverTimestamp(),
-
-                online: true
-            };
-
-
-            await setDoc(
-                studentRef,
-                studentData,
-                { merge: true }
-            );
-
-            showLoginError(
-                "Registration submitted. Owner approval is required."
-            );
-
-            return;
-        }
-
-
-        if (studentData.status === "blocked") {
-
-            showLoginError(
-                "Your account is blocked by the Owner."
-            );
-
-            return;
-        }
-
-
-        setLocalUser(
-            studentData.name || name,
-            studentData.phone || phone
-        );
-
-
-        currentStudent = {
-            id: profileId,
-            ...studentData
-        };
-
-
-        checkOwner(
-            studentData.name || name,
-            studentData.phone || phone
-        );
-
-
-        await updateStudentOnline(
-            true
-        );
-
-
-        $("loginScreen")
-            ?.classList.add("hidden");
-
-        $("app")
-            ?.classList.remove("hidden");
-
-
-        updateProfileUI();
-
-        await loadGlobalSettings();
-
-        listenToGlobalSettings();
-
-        setupNavigation();
-
-        await loadAllContent();
-
-        await loadStudents();
-
-
-        if (isOwner) {
-
-            showOwnerWelcome();
-
-        } else {
-
-            showPage("home");
-        }
-
-
-        startOnlineHeartbeat();
-
-        showToast(
-            `Welcome, ${studentData.name || name}!`,
-            "👋"
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Login error:",
-            error
-        );
-
-        showLoginError(
-            "Login failed. Please try again."
-        );
-    }
-}
-
-
-function showLoginError(text) {
-
-    const box =
-        $("loginMessage");
-
-    if (!box) return;
-
-    box.textContent = text;
-
-    box.classList.add("error");
-
-    setTimeout(() => {
-        box.classList.remove("error");
-    }, 100);
-}
-
-
-/* =========================================================
-   PASSWORD HASH
-   ========================================================= */
-
-async function sha256(text) {
-
-    const data =
-        new TextEncoder()
-            .encode(text);
-
-    const hashBuffer =
-        await crypto.subtle.digest(
-            "SHA-256",
-            data
-        );
-
-    const hashArray =
-        Array.from(
-            new Uint8Array(hashBuffer)
-        );
-
-    return hashArray
-        .map(
-            byte =>
-                byte
-                    .toString(16)
-                    .padStart(2, "0")
-        )
-        .join("");
-}
-
-
-async function verifyStoredPassword(
-    password,
-    storedHash
-) {
-
-    if (!storedHash) {
-
-        /*
-          Compatibility fallback for first setup.
-          Change the app password from Owner Security
-          after proper Firebase Auth is configured.
-        */
-
-        return password === "123";
-    }
-
-    const hash =
-        await sha256(password);
-
-    return hash === storedHash;
+  navigateTo("home", false);
+  loadHomeData();
 }
 
 
@@ -1140,73 +657,172 @@ async function verifyStoredPassword(
    ========================================================= */
 
 function updateProfileUI() {
+  if (!currentProfile) return;
 
-    const name =
-        currentStudent?.name ||
-        getUserName() ||
-        "Student";
+  setText(
+    "profileName",
+    currentProfile.name || "Student"
+  );
 
-    const phone =
-        currentStudent?.phone ||
-        getUserPhone() ||
-        "";
+  setText(
+    "profilePhone",
+    currentProfile.phone || ""
+  );
 
-    const initial =
-        name.charAt(0)
-            .toUpperCase();
+  const initial =
+    (currentProfile.name || "S").charAt(0).toUpperCase();
+
+  setText("headerProfileInitial", initial);
+
+  const avatar = $("profileAvatar");
+
+  if (avatar) {
+    avatar.textContent = initial;
+  }
+
+  setText(
+    "homeGreeting",
+    `Hello, ${currentProfile.name || "Student"} 👋`
+  );
+
+  if ($("profileSettingsName")) {
+    $("profileSettingsName").value =
+      currentProfile.name || "";
+  }
+
+  if ($("profileSettingsPhone")) {
+    $("profileSettingsPhone").value =
+      currentProfile.phone || "";
+  }
+}
 
 
-    const profileName =
-        $("profileName");
+/* =========================================================
+   PERMISSIONS
+   ========================================================= */
 
-    if (profileName) {
-        profileName.textContent =
-            name;
+function isOwner() {
+  return currentProfile?.role === "owner";
+}
+
+function permissionLevel() {
+  if (isOwner()) return "allow";
+  return currentProfile?.permission || "none";
+}
+
+function canUsePage(page) {
+  if (isOwner()) return true;
+
+  const permission = permissionLevel();
+
+  if (page === "home" || page === "settings") {
+    return true;
+  }
+
+  if (page === "homework" || page === "school") {
+    return true;
+  }
+
+  if (page === "chat") {
+    return (
+      permission === "normal" ||
+      permission === "allow"
+    );
+  }
+
+  if (page === "groups" || page === "notes") {
+    return permission === "allow";
+  }
+
+  if (page === "owner") {
+    return false;
+  }
+
+  return false;
+}
+
+function updatePermissionUI() {
+  qsa(".nav-item[data-page]").forEach(item => {
+    const page = item.dataset.page;
+
+    if (
+      page === "owner" &&
+      !isOwner()
+    ) {
+      hide(item);
+      return;
     }
 
-
-    const profilePhone =
-        $("profilePhone");
-
-    if (profilePhone) {
-        profilePhone.textContent =
-            phone;
+    if (
+      !canUsePage(page) ||
+      !featureEnabledForPage(page)
+    ) {
+      item.classList.add("disabled-nav");
+    } else {
+      item.classList.remove("disabled-nav");
     }
+  });
+}
 
 
-    const avatar =
-        $("profileAvatar");
+/* =========================================================
+   FEATURE CHECK
+   ========================================================= */
 
-    if (avatar) {
-        avatar.textContent =
-            initial;
+function featureEnabledForPage(page) {
+  if (isOwner()) return true;
+
+  if (page === "chat") {
+    return appSettings.chat !== false;
+  }
+
+  if (page === "groups") {
+    return appSettings.groups !== false;
+  }
+
+  if (page === "homework") {
+    return appSettings.homework !== false;
+  }
+
+  if (page === "notes") {
+    return appSettings.notes !== false;
+  }
+
+  if (page === "school") {
+    return appSettings.announcements !== false;
+  }
+
+  return true;
+}
+
+function updateFeatureVisibility() {
+  updatePermissionUI();
+
+  const featureMap = {
+    chat: "featureChat",
+    groups: "featureGroups",
+    homework: "featureHomework",
+    notes: "featureNotes",
+    school: "featureAnnouncements"
+  };
+
+  Object.entries(featureMap).forEach(
+    ([page, id]) => {
+      const enabled =
+        appSettings[
+          page === "school"
+            ? "announcements"
+            : page
+        ] !== false;
+
+      qsa(
+        `[data-page="${page}"]`
+      ).forEach(el => {
+        el.style.display =
+          enabled ? "" : "none";
+      });
     }
-
-
-    const headerInitial =
-        $("headerProfileInitial");
-
-    if (headerInitial) {
-        headerInitial.textContent =
-            initial;
-    }
-
-
-    const greeting =
-        $("homeGreeting");
-
-    if (greeting) {
-
-        greeting.textContent =
-            `Welcome ${name} 👋`;
-    }
-
-
-    if (isOwner) {
-
-        $("ownerSettingsCard")
-            ?.classList.remove("hidden");
-    }
+  );
 }
 
 
@@ -1214,1050 +830,169 @@ function updateProfileUI() {
    NAVIGATION
    ========================================================= */
 
-function setupNavigation() {
+function navigateTo(page, addHistory = true) {
+  if (!page) return;
 
-    document
-        .querySelectorAll(
-            "[data-page]"
-        )
-        .forEach(button => {
+  if (
+    page !== "owner" &&
+    !canUsePage(page)
+  ) {
+    toast("इस feature की permission नहीं है।", "!");
+    return;
+  }
 
-            button.onclick = () => {
+  if (
+    page !== "owner" &&
+    !featureEnabledForPage(page)
+  ) {
+    toast("यह feature अभी बंद है।", "!");
+    return;
+  }
 
-                const page =
-                    button.dataset.page;
+  if (addHistory && currentPage !== page) {
+    navigationHistory.push(currentPage);
 
-                if (!page) return;
+    if (navigationHistory.length > 30) {
+      navigationHistory.shift();
+    }
+  }
 
-                if (
-                    page === "chat" &&
-                    currentStudent?.permission ===
-                    "deny"
-                ) {
+  currentPage = page;
 
-                    showToast(
-                        "Chat permission is disabled.",
-                        "🔒"
-                    );
+  qsa(".page").forEach(p => {
+    p.classList.remove("active");
+  });
 
-                    return;
-                }
+  const target = $(`page-${page}`);
+
+  if (target) {
+    target.classList.add("active");
+  }
+
+  qsa(".nav-item[data-page]").forEach(item => {
+    item.classList.toggle(
+      "active",
+      item.dataset.page === page
+    );
+  });
+
+  qsa(".bottom-nav-item[data-page]").forEach(item => {
+    item.classList.toggle(
+      "active",
+      item.dataset.page === page
+    );
+  });
+
+  setText(
+    "appTitle",
+    page === "owner"
+      ? "Owner Panel"
+      : appSettings.appName || "StudyConnect"
+  );
+
+  const sidebar = $("sidebar");
+
+  if (sidebar) {
+    sidebar.classList.remove("open");
+  }
+
+  if (page === "home") loadHomeData();
+  if (page === "chat") loadChatPeople();
+  if (page === "groups") loadGroups();
+  if (page === "homework") loadHomework();
+  if (page === "school") loadSchoolUpdates();
+  if (page === "notes") loadNotes();
+  if (page === "owner") loadOwnerPanel();
+  if (page === "settings") loadSettingsPage();
+
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
+}
 
 
-                if (
-                    page === "groups" &&
-                    currentStudent?.permission !==
-                    "allow"
-                ) {
+/* =========================================================
+   BACK BUTTON
+   ========================================================= */
 
-                    showToast(
-                        "Groups are available only with Allow permission.",
-                        "🔒"
-                    );
+function goBack() {
+  if (navigationHistory.length === 0) {
+    navigateTo("home", false);
+    return;
+  }
 
-                    return;
-                }
+  const previous =
+    navigationHistory.pop();
 
-
-                showPage(page);
-            };
-        });
+  navigateTo(previous, false);
+}
 
 
-    $("mobileMenuBtn")?.addEventListener(
-        "click",
-        () => {
+/* =========================================================
+   MOBILE MENU
+   ========================================================= */
 
-            $("sidebar")
-                ?.classList.toggle(
-                    "mobile-open"
-                );
-        }
+function toggleMobileMenu() {
+  const sidebar = $("sidebar");
+
+  if (!sidebar) return;
+
+  sidebar.classList.toggle("open");
+}
+
+
+/* =========================================================
+   HOME
+   ========================================================= */
+
+async function loadHomeData() {
+  updateProfileUI();
+
+  try {
+    const q = query(
+      collection(db, "school"),
+      orderBy("createdAt", "desc"),
+      limit(5)
     );
 
+    const snap = await getDocs(q);
 
-    $("logoutBtn")?.addEventListener(
-        "click",
-        logout
-    );
+    const container =
+      $("homeAnnouncements");
 
+    if (!container) return;
 
-    $("settingsLogoutBtn")
-        ?.addEventListener(
-            "click",
-            logout
-        );
+    container.innerHTML = "";
 
-
-    $("headerProfileBtn")
-        ?.addEventListener(
-            "click",
-            () => showPage("settings")
-        );
-
-
-    $("openOwnerPanelBtn")
-        ?.addEventListener(
-            "click",
-            openOwnerPanel
-        );
-
-
-    $("closeOwnerPanelBtn")
-        ?.addEventListener(
-            "click",
-            () => showPage("settings")
-        );
-
-
-    setupSettingsControls();
-
-    setupOwnerControls();
-
-    setupChatControls();
-
-    setupGroupControls();
-}
-
-
-function showPage(page) {
-
-    document
-        .querySelectorAll(".page")
-        .forEach(section => {
-
-            section.classList.remove(
-                "active-page"
-            );
-        });
-
-
-    const target =
-        $(`page-${page}`);
-
-    if (target) {
-
-        target.classList.add(
-            "active-page"
-        );
+    if (snap.empty) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📢</div>
+          <p>अभी कोई announcement नहीं है।</p>
+        </div>
+      `;
+      return;
     }
 
-
-    document
-        .querySelectorAll(
-            ".nav-item, .bottom-nav-item, .feature-card"
-        )
-        .forEach(element => {
-
-            element.classList.toggle(
-                "active",
-                element.dataset.page === page
-            );
-        });
-
-
-    $("sidebar")
-        ?.classList.remove(
-            "mobile-open"
-        );
-
-
-    if (page === "chat") {
-
-        loadStudents();
-    }
-
-    if (page === "groups") {
-
-        loadGroups();
-    }
-
-    if (page === "homework") {
-
-        loadHomework();
-    }
-
-    if (page === "school") {
-
-        loadSchoolUpdates();
-    }
-
-    if (page === "notes") {
-
-        loadNotes();
-    }
-}
-
-
-/* =========================================================
-   SETTINGS CONTROLS
-   ========================================================= */
-
-function setupSettingsControls() {
-
-    $("languageSelect")
-        ?.addEventListener(
-            "change",
-            async event => {
-
-                const language =
-                    event.target.value;
-
-                applyLanguage(language);
-
-                if (isOwner) {
-
-                    await saveGlobalSettings({
-                        language
-                    });
-
-                } else {
-
-                    showToast(
-                        "Language is controlled globally by Owner.",
-                        "🌐"
-                    );
-                }
-            }
-        );
-
-
-    $("themeSelect")
-        ?.addEventListener(
-            "change",
-            async event => {
-
-                const theme =
-                    event.target.value;
-
-                applyTheme(theme);
-
-                if (isOwner) {
-
-                    await saveGlobalSettings({
-                        theme
-                    });
-
-                } else {
-
-                    showToast(
-                        "Theme is controlled globally by Owner.",
-                        "🎨"
-                    );
-                }
-            }
-        );
-
-
-    $("notificationToggle")
-        ?.addEventListener(
-            "change",
-            event => {
-
-                localStorage.setItem(
-                    "studyNotifications",
-                    event.target.checked
-                );
-            }
-        );
-}
-
-
-/* =========================================================
-   SAVE GLOBAL SETTINGS
-   ========================================================= */
-
-async function saveGlobalSettings(
-    updates
-) {
-
-    if (!isOwner) {
-
-        showToast(
-            "Only Owner can change global settings.",
-            "🔒"
-        );
-
-        return;
-    }
-
-
-    try {
-
-        await setDoc(
-            doc(
-                db,
-                "appSettings",
-                "main"
-            ),
-            updates,
-            { merge: true }
-        );
-
-
-        showToast(
-            "Global settings saved for everyone.",
-            "🌐"
-        );
-
-
-        await logActivity(
-            "Updated global settings"
-        );
-
-
-    } catch (error) {
-
-        console.error(
-            "Global settings save error:",
-            error
-        );
-
-        showToast(
-            "Settings save नहीं हुए।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   OWNER PANEL
-   ========================================================= */
-
-function openOwnerPanel() {
-
-    if (!isOwner) {
-
-        showToast(
-            "Owner access denied.",
-            "🔒"
-        );
-
-        return;
-    }
-
-    showPage("owner");
-
-    loadOwnerDashboard();
-
-    loadOwnerStudents();
-
-    loadOwnerApprovals();
-
-    loadOwnerGroups();
-
-    loadOwnerContent();
-
-    loadOwnerSettings();
-
-    loadOwnerActivity();
-}
-
-
-/* =========================================================
-   OWNER CONTROLS
-   ========================================================= */
-
-function setupOwnerControls() {
-
-    document
-        .querySelectorAll(
-            ".owner-tab"
-        )
-        .forEach(tab => {
-
-            tab.addEventListener(
-                "click",
-                () => {
-
-                    if (!isOwner) return;
-
-                    document
-                        .querySelectorAll(
-                            ".owner-tab"
-                        )
-                        .forEach(item =>
-                            item.classList.remove(
-                                "active"
-                            )
-                        );
-
-                    tab.classList.add(
-                        "active"
-                    );
-
-
-                    const section =
-                        tab.dataset.ownerSection;
-
-
-                    document
-                        .querySelectorAll(
-                            ".owner-section"
-                        )
-                        .forEach(item =>
-                            item.classList.remove(
-                                "active"
-                            )
-                        );
-
-
-                    const target =
-                        $(
-                            `ownerSection-${section}`
-                        );
-
-                    target?.classList.add(
-                        "active"
-                    );
-                }
-            );
-        });
-
-
-    $("saveGlobalSettingsBtn")
-        ?.addEventListener(
-            "click",
-            saveOwnerAppearance
-        );
-
-
-    $("saveFeatureSettingsBtn")
-        ?.addEventListener(
-            "click",
-            saveOwnerFeatures
-        );
-
-
-    $("changeOwnerPasswordBtn")
-        ?.addEventListener(
-            "click",
-            changeAppPassword
-        );
-
-
-    $("ownerStudentSearch")
-        ?.addEventListener(
-            "input",
-            filterOwnerStudents
-        );
-
-
-    $("ownerAddHomeworkBtn")
-        ?.addEventListener(
-            "click",
-            openHomeworkAdminModal
-        );
-
-
-    $("ownerAddNoteBtn")
-        ?.addEventListener(
-            "click",
-            openNoteAdminModal
-        );
-
-
-    $("ownerAddAnnouncementBtn")
-        ?.addEventListener(
-            "click",
-            openAnnouncementAdminModal
-        );
-}
-
-
-/* =========================================================
-   OWNER APPEARANCE
-   ========================================================= */
-
-async function saveOwnerAppearance() {
-
-    if (!isOwner) return;
-
-    const appName =
-        $("ownerAppName")?.value.trim() ||
-        "StudyConnect";
-
-    const language =
-        $("ownerGlobalLanguage")?.value ||
-        "en";
-
-    const theme =
-        $("ownerGlobalTheme")?.value ||
-        "system";
-
-    const welcomeAnimation =
-        $("ownerWelcomeAnimation")?.value ||
-        "on";
-
-
-    await saveGlobalSettings({
-
-        appName,
-        language,
-        theme,
-        welcomeAnimation
+    snap.forEach(item => {
+      const data = item.data();
+
+      container.innerHTML += `
+        <div class="announcement-card">
+          <div class="announcement-icon">📢</div>
+          <div class="announcement-content">
+            <h3>${escapeHTML(data.title || "")}</h3>
+            <p>${escapeHTML(data.description || data.text || "")}</p>
+            <small>${formatDate(data.createdAt)}</small>
+          </div>
+        </div>
+      `;
     });
-}
 
-
-/* =========================================================
-   OWNER FEATURES
-   ========================================================= */
-
-async function saveOwnerFeatures() {
-
-    if (!isOwner) return;
-
-    const features = {
-
-        chat:
-            $("featureChat")?.checked ?? true,
-
-        groups:
-            $("featureGroups")?.checked ?? true,
-
-        homework:
-            $("featureHomework")?.checked ?? true,
-
-        notes:
-            $("featureNotes")?.checked ?? true,
-
-        announcements:
-            $("featureAnnouncements")
-                ?.checked ?? true,
-
-        registration:
-            $("featureRegistration")
-                ?.checked ?? true,
-
-        maintenance:
-            $("featureMaintenance")
-                ?.checked ?? false
-    };
-
-
-    await saveGlobalSettings({
-        features
-    });
-}
-
-
-/* =========================================================
-   OWNER LOAD SETTINGS
-   ========================================================= */
-
-function loadOwnerSettings() {
-
-    if (!isOwner) return;
-
-    $("ownerAppName").value =
-        currentSettings.appName ||
-        "StudyConnect";
-
-    $("ownerGlobalLanguage").value =
-        currentSettings.language ||
-        "en";
-
-    $("ownerGlobalTheme").value =
-        currentSettings.theme ||
-        "system";
-
-    $("ownerWelcomeAnimation").value =
-        currentSettings.welcomeAnimation ||
-        "on";
-
-
-    const features =
-        currentSettings.features || {};
-
-
-    if ($("featureChat")) {
-        $("featureChat").checked =
-            features.chat !== false;
-    }
-
-    if ($("featureGroups")) {
-        $("featureGroups").checked =
-            features.groups !== false;
-    }
-
-    if ($("featureHomework")) {
-        $("featureHomework").checked =
-            features.homework !== false;
-    }
-
-    if ($("featureNotes")) {
-        $("featureNotes").checked =
-            features.notes !== false;
-    }
-
-    if ($("featureAnnouncements")) {
-        $("featureAnnouncements").checked =
-            features.announcements !== false;
-    }
-
-    if ($("featureRegistration")) {
-        $("featureRegistration").checked =
-            features.registration !== false;
-    }
-
-    if ($("featureMaintenance")) {
-        $("featureMaintenance").checked =
-            features.maintenance === true;
-    }
-}
-
-
-/* =========================================================
-   OWNER DASHBOARD
-   ========================================================= */
-
-async function loadOwnerDashboard() {
-
-    if (!isOwner) return;
-
-    try {
-
-        const students =
-            await getDocs(
-                collection(
-                    db,
-                    "students"
-                )
-            );
-
-        const messages =
-            await getDocs(
-                collection(
-                    db,
-                    "messages"
-                )
-            );
-
-        const groups =
-            await getDocs(
-                collection(
-                    db,
-                    "groups"
-                )
-            );
-
-        const homework =
-            await getDocs(
-                collection(
-                    db,
-                    "homework"
-                )
-            );
-
-
-        let online = 0;
-        let pending = 0;
-
-
-        students.forEach(item => {
-
-            const data =
-                item.data();
-
-            if (data.online === true) {
-                online++;
-            }
-
-            if (
-                data.status ===
-                "pending"
-            ) {
-                pending++;
-            }
-        });
-
-
-        $("ownerTotalStudents")
-            .textContent =
-            students.size;
-
-        $("ownerOnlineStudents")
-            .textContent =
-            online;
-
-        $("ownerPendingStudents")
-            .textContent =
-            pending;
-
-        $("ownerTotalMessages")
-            .textContent =
-            messages.size;
-
-        $("ownerTotalGroups")
-            .textContent =
-            groups.size;
-
-        $("ownerTotalHomework")
-            .textContent =
-            homework.size;
-
-
-    } catch (error) {
-
-        console.error(
-            "Owner dashboard error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   LOAD STUDENTS
-   ========================================================= */
-
-async function loadStudents() {
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "students"
-                )
-            );
-
-
-        const list =
-            $("chatPeopleList");
-
-        if (!list) return;
-
-        list.innerHTML = "";
-
-
-        if (snapshot.empty) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No students found.
-                </div>`;
-
-            return;
-        }
-
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            if (
-                item.id ===
-                getProfileId()
-            ) {
-                return;
-            }
-
-
-            if (
-                data.status ===
-                "blocked"
-            ) {
-                return;
-            }
-
-
-            const element =
-                document.createElement(
-                    "button"
-                );
-
-            element.type =
-                "button";
-
-            element.className =
-                "chat-person-item";
-
-
-            const name =
-                data.name ||
-                "Student";
-
-            const initial =
-                name
-                    .charAt(0)
-                    .toUpperCase();
-
-
-            element.innerHTML = `
-
-                <div class="person-avatar">
-                    ${escapeHTML(initial)}
-                </div>
-
-                <div class="person-info">
-
-                    <strong>
-                        ${escapeHTML(name)}
-                    </strong>
-
-                    <small>
-                        ${data.online === true
-                            ? "🟢 Online"
-                            : "Offline"}
-                    </small>
-
-                </div>
-            `;
-
-
-            element.addEventListener(
-                "click",
-                () => {
-
-                    selectedChatPerson = {
-
-                        id: item.id,
-                        ...data
-                    };
-
-                    openChatPerson();
-                }
-            );
-
-
-            list.appendChild(
-                element
-            );
-        });
-
-
-    } catch (error) {
-
-        console.error(
-            "Students load error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   CHAT
-   ========================================================= */
-
-function setupChatControls() {
-
-    $("chatSearchBtn")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                $("chatSearchBox")
-                    ?.classList.toggle(
-                        "hidden"
-                    );
-            }
-        );
-
-
-    $("chatSearchInput")
-        ?.addEventListener(
-            "input",
-            filterChatPeople
-        );
-}
-
-
-function filterChatPeople(event) {
-
-    const search =
-        event.target.value
-            .trim()
-            .toLowerCase();
-
-    document
-        .querySelectorAll(
-            ".chat-person-item"
-        )
-        .forEach(item => {
-
-            item.style.display =
-                item.textContent
-                    .toLowerCase()
-                    .includes(search)
-                        ? ""
-                        : "none";
-        });
-}
-
-
-/* =========================================================
-   OPEN CHAT PERSON
-   ========================================================= */
-
-function openChatPerson() {
-
-    if (!selectedChatPerson) return;
-
-    const person =
-        selectedChatPerson;
-
-    const chatWindow =
-        $("chatWindow");
-
-    if (!chatWindow) return;
-
-
-    const name =
-        person.name ||
-        "Student";
-
-    const initial =
-        name
-            .charAt(0)
-            .toUpperCase();
-
-
-    chatWindow.innerHTML = `
-
-        <div class="chat-header">
-
-            <button
-                id="backFromChat"
-                class="icon-btn mobile-chat-back"
-                type="button"
-            >
-                ←
-            </button>
-
-            <div class="person-avatar">
-                ${escapeHTML(initial)}
-            </div>
-
-            <div class="chat-header-info">
-
-                <strong>
-                    ${escapeHTML(name)}
-                </strong>
-
-                <small>
-                    ${
-                        person.online === true
-                            ? "🟢 Online"
-                            : "Offline"
-                    }
-                </small>
-
-            </div>
-
-            <button
-                id="chatProfileBtn"
-                class="icon-btn"
-                type="button"
-            >
-                ⋮
-            </button>
-
-        </div>
-
-
-        <div
-            id="chatMessages"
-            class="chat-messages"
-        >
-
-            <div class="empty-state">
-                Loading messages...
-            </div>
-
-        </div>
-
-
-        <div class="chat-input-area">
-
-            <button
-                id="emojiBtn"
-                class="emoji-btn"
-                type="button"
-            >
-                😊
-            </button>
-
-            <input
-                id="messageInput"
-                type="text"
-                placeholder="Type a message..."
-                maxlength="2000"
-                autocomplete="off"
-            />
-
-            <button
-                id="sendMessageBtn"
-                class="send-btn"
-                type="button"
-            >
-                ➤
-            </button>
-
-        </div>
-    `;
-
-
-    $("backFromChat")
-        ?.addEventListener(
-            "click",
-            () => {
-
-                chatWindow.innerHTML = `
-                    <div class="chat-empty">
-                        <div class="chat-empty-icon">
-                            💬
-                        </div>
-                        <h2>
-                            Select a person
-                        </h2>
-                        <p>
-                            Select a student to start chatting.
-                        </p>
-                    </div>
-                `;
-            }
-        );
-
-
-    $("emojiBtn")
-        ?.addEventListener(
-            "click",
-            openEmojiPicker
-        );
-
-
-    $("sendMessageBtn")
-        ?.addEventListener(
-            "click",
-            sendMessage
-        );
-
-
-    $("messageInput")
-        ?.addEventListener(
-            "keydown",
-            event => {
-
-                if (
-                    event.key ===
-                    "Enter"
-                ) {
-
-                    event.preventDefault();
-
-                    sendMessage();
-                }
-            }
-        );
-
-
-    loadChatMessages();
+  } catch (error) {
+    console.error("Home data error:", error);
+  }
 }
 
 
@@ -2265,218 +1000,395 @@ function openChatPerson() {
    CHAT ID
    ========================================================= */
 
-function createChatId(
-    firstId,
-    secondId
-) {
-
-    return [
-        firstId,
-        secondId
-    ]
-        .sort()
-        .join("_");
+function makeChatId(id1, id2) {
+  return [id1, id2]
+    .sort()
+    .join("_");
 }
 
 
 /* =========================================================
-   LOAD CHAT MESSAGES
+   LOAD CHAT PEOPLE
    ========================================================= */
 
-function loadChatMessages() {
+async function loadChatPeople(searchText = "") {
+  const container =
+    $("chatPeopleList");
 
-    if (!selectedChatPerson) return;
+  if (!container || !currentProfile) return;
 
-    const myId =
-        getProfileId();
+  try {
+    const snap =
+      await getDocs(collection(db, "students"));
 
-    const otherId =
-        selectedChatPerson.id;
+    container.innerHTML = "";
 
-    const chatId =
-        createChatId(
-            myId,
-            otherId
-        );
+    let people = [];
 
+    snap.forEach(item => {
+      const data = item.data();
 
-    if (unsubscribeMessages) {
-        unsubscribeMessages();
+      if (
+        data.id === currentProfile.id ||
+        data.role === "owner" &&
+        !isOwner()
+      ) {
+        return;
+      }
+
+      if (
+        data.status !== "approved"
+      ) {
+        return;
+      }
+
+      if (
+        searchText &&
+        !String(data.name || "")
+          .toLowerCase()
+          .includes(searchText.toLowerCase()) &&
+        !String(data.phone || "")
+          .includes(searchText)
+      ) {
+        return;
+      }
+
+      people.push({
+        id: item.id,
+        ...data
+      });
+    });
+
+    people.sort((a, b) =>
+      String(a.name || "").localeCompare(
+        String(b.name || "")
+      )
+    );
+
+    if (people.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">👥</div>
+          <p>कोई student नहीं मिला।</p>
+        </div>
+      `;
+      return;
     }
 
+    people.forEach(person => {
+      const initial =
+        (person.name || "S")
+          .charAt(0)
+          .toUpperCase();
 
-    const chatMessages =
-        $("chatMessages");
+      const item =
+        document.createElement("button");
 
-    if (!chatMessages) return;
+      item.className = "chat-person-item";
 
+      item.innerHTML = `
+        <div class="person-avatar">
+          ${escapeHTML(initial)}
+        </div>
+        <div class="person-info">
+          <strong>
+            ${escapeHTML(person.name || "Student")}
+          </strong>
+          <small>
+            ${escapeHTML(person.phone || "")}
+          </small>
+        </div>
+      `;
 
-    const messagesQuery =
-        query(
-            collection(
-                db,
-                "messages"
-            ),
-            where(
-                "chatId",
-                "==",
-                chatId
-            ),
-            orderBy(
-                "createdAt",
-                "asc"
-            )
-        );
+      item.addEventListener(
+        "click",
+        () => openChat(person)
+      );
 
+      container.appendChild(item);
+    });
 
-    unsubscribeMessages =
-        onSnapshot(
-            messagesQuery,
-            snapshot => {
-
-                chatMessages.innerHTML = "";
-
-                let previousDate = "";
-
-
-                if (snapshot.empty) {
-
-                    chatMessages.innerHTML =
-                        `<div class="chat-empty-inline">
-                            <div>👋</div>
-                            <p>Start your conversation.</p>
-                        </div>`;
-
-                    return;
-                }
+  } catch (error) {
+    console.error("Chat people error:", error);
+  }
+}
 
 
-                snapshot.forEach(
-                    item => {
+/* =========================================================
+   OPEN CHAT
+   ========================================================= */
 
-                        const data =
-                            item.data();
+function openChat(person) {
+  currentChatUser = person;
 
-                        const mine =
-                            data.senderId ===
-                            myId;
+  const windowEl = $("chatWindow");
+
+  if (!windowEl) return;
+
+  windowEl.innerHTML = `
+    <div class="chat-header">
+      <button class="chat-back-btn" id="chatBackBtn">
+        ←
+      </button>
+
+      <div class="chat-user-avatar">
+        ${escapeHTML(
+          (person.name || "S")
+            .charAt(0)
+            .toUpperCase()
+        )}
+      </div>
+
+      <div class="chat-user-info">
+        <strong>
+          ${escapeHTML(person.name || "Student")}
+        </strong>
+        <small>Student</small>
+      </div>
+    </div>
+
+    <div class="chat-messages" id="chatMessages">
+      <div class="chat-loading">
+        Loading...
+      </div>
+    </div>
+
+    <div class="emoji-panel" id="emojiPanel">
+      ${[
+        "😀","😂","😊","😍","👍",
+        "❤️","🔥","🎉","😎","🙏",
+        "👏","💯","✨","🤝","📚"
+      ].map(e => `
+        <button class="emoji-item">
+          ${e}
+        </button>
+      `).join("")}
+    </div>
+
+    <div class="chat-input-area">
+      <button
+        class="emoji-btn"
+        id="emojiBtn"
+        type="button"
+      >
+        😊
+      </button>
+
+      <input
+        id="messageInput"
+        type="text"
+        maxlength="1000"
+        autocomplete="off"
+        placeholder="Message..."
+      />
+
+      <button
+        class="send-message-btn"
+        id="sendMessageBtn"
+        type="button"
+      >
+        ➤
+      </button>
+    </div>
+  `;
+
+  $("chatBackBtn")?.addEventListener(
+    "click",
+    () => {
+      currentChatUser = null;
+      loadChatPeople();
+    }
+  );
+
+  $("sendMessageBtn")?.addEventListener(
+    "click",
+    sendChatMessage
+  );
+
+  $("messageInput")?.addEventListener(
+    "keydown",
+    event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        sendChatMessage();
+      }
+    }
+  );
+
+  $("emojiBtn")?.addEventListener(
+    "click",
+    () => {
+      $("emojiPanel")?.classList.toggle("show");
+    }
+  );
+
+  qsa(".emoji-item").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const input = $("messageInput");
+
+      if (!input) return;
+
+      input.value += btn.textContent.trim();
+      input.focus();
+    });
+  });
+
+  listenChatMessages();
+}
 
 
-                        const currentDate =
-                            formatDateOnly(
-                                data.createdAt
-                            );
+/* =========================================================
+   CHAT MESSAGES
+   ========================================================= */
+
+function listenChatMessages() {
+  if (unsubscribeChat) {
+    unsubscribeChat();
+    unsubscribeChat = null;
+  }
+
+  if (
+    !currentProfile ||
+    !currentChatUser
+  ) {
+    return;
+  }
+
+  const chatId = makeChatId(
+    currentProfile.id,
+    currentChatUser.id
+  );
+
+  const messagesRef =
+    collection(db, "messages");
+
+  const q = query(
+    messagesRef,
+    where("chatId", "==", chatId),
+    orderBy("createdAt", "asc")
+  );
+
+  unsubscribeChat = onSnapshot(
+    q,
+    snap => {
+      renderChatMessages(
+        snap.docs.map(d => ({
+          id: d.id,
+          ...d.data()
+        }))
+      );
+    },
+    error => {
+      console.error(
+        "Chat listener error:",
+        error
+      );
+
+      const box = $("chatMessages");
+
+      if (box) {
+        box.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">⚠️</div>
+            <p>Messages load नहीं हो पाए।</p>
+          </div>
+        `;
+      }
+    }
+  );
+}
 
 
-                        if (
-                            currentDate &&
-                            currentDate !==
-                            previousDate
-                        ) {
+/* =========================================================
+   RENDER CHAT
+   ========================================================= */
 
-                            const dateSeparator =
-                                document.createElement(
-                                    "div"
-                                );
+function renderChatMessages(messages) {
+  const box = $("chatMessages");
 
-                            dateSeparator.className =
-                                "chat-date-separator";
+  if (!box) return;
 
-                            dateSeparator.textContent =
-                                currentDate;
+  box.innerHTML = "";
 
-                            chatMessages.appendChild(
-                                dateSeparator
-                            );
+  if (messages.length === 0) {
+    box.innerHTML = `
+      <div class="empty-chat">
+        <div class="empty-chat-icon">💬</div>
+        <h3>Start a conversation</h3>
+        <p>पहला message भेजिए।</p>
+      </div>
+    `;
+    return;
+  }
 
-                            previousDate =
-                                currentDate;
-                        }
+  let previousDate = "";
 
+  messages.forEach(message => {
+    const dateLabel =
+      formatDate(message.createdAt);
 
-                        const bubble =
-                            document.createElement(
-                                "div"
-                            );
+    if (
+      dateLabel &&
+      dateLabel !== previousDate
+    ) {
+      const separator =
+        document.createElement("div");
 
+      separator.className =
+        "chat-date-separator";
 
-                        /*
-                           User requested:
-                           SENT = LEFT
-                           RECEIVED = RIGHT
-                        */
+      separator.textContent =
+        dateLabel;
 
-                        bubble.className =
-                            mine
-                                ? "message-bubble sent"
-                                : "message-bubble received";
+      box.appendChild(separator);
 
+      previousDate = dateLabel;
+    }
 
-                        const ticks =
-                            mine
-                                ? getMessageTicks(
-                                    data,
-                                    myId
-                                )
-                                : "";
+    const outgoing =
+      message.senderId === currentProfile.id;
 
+    const bubble =
+      document.createElement("div");
 
-                        bubble.innerHTML = `
+    bubble.className =
+      outgoing
+        ? "message-row outgoing"
+        : "message-row incoming";
 
-                            <div class="message-text">
-                                ${escapeHTML(
-                                    data.text || ""
-                                )}
-                            </div>
+    let status = "";
 
-                            <div class="message-meta">
+    if (outgoing) {
+      if (message.seen) {
+        status = `<span class="message-status seen">✓✓</span>`;
+      } else if (message.delivered) {
+        status = `<span class="message-status">✓✓</span>`;
+      } else {
+        status = `<span class="message-status">✓</span>`;
+      }
+    }
 
-                                <span>
-                                    ${escapeHTML(
-                                        formatTime(
-                                            data.createdAt
-                                        )
-                                    )}
-                                </span>
+    bubble.innerHTML = `
+      <div class="message-bubble">
+        <div class="message-text">
+          ${escapeHTML(message.text || "")}
+        </div>
 
-                                ${ticks}
+        <div class="message-meta">
+          <span>
+            ${formatTime(message.createdAt)}
+          </span>
+          ${status}
+        </div>
+      </div>
+    `;
 
-                            </div>
-                        `;
+    box.appendChild(bubble);
+  });
 
+  box.scrollTop = box.scrollHeight;
 
-                        chatMessages.appendChild(
-                            bubble
-                        );
-
-
-                        if (!mine) {
-
-                            markMessageSeen(
-                                item.id,
-                                data
-                            );
-                        }
-                    }
-                );
-
-
-                chatMessages.scrollTop =
-                    chatMessages.scrollHeight;
-            },
-            error => {
-
-                console.error(
-                    "Chat listener error:",
-                    error
-                );
-
-                chatMessages.innerHTML =
-                    `<div class="empty-state">
-                        Chat load नहीं हो पाया।
-                    </div>`;
-            }
-        );
+  markMessagesSeen(messages);
 }
 
 
@@ -2484,796 +1396,373 @@ function loadChatMessages() {
    SEND MESSAGE
    ========================================================= */
 
-async function sendMessage() {
-
-    const input =
-        $("messageInput");
-
-    if (!input) return;
-
-    const text =
-        input.value.trim();
-
-    if (!text) return;
-
-
-    if (!selectedChatPerson) {
-
-        showToast(
-            "पहले किसी student को select करें।",
-            "💬"
-        );
-
-        return;
-    }
-
-
-    if (
-        currentStudent?.permission ===
-        "deny"
-    ) {
-
-        showToast(
-            "Chat permission disabled.",
-            "🔒"
-        );
-
-        return;
-    }
-
-
-    const senderId =
-        getProfileId();
-
-    const receiverId =
-        selectedChatPerson.id;
-
-
-    const chatId =
-        createChatId(
-            senderId,
-            receiverId
-        );
-
-
-    try {
-
-        await addDoc(
-            collection(
-                db,
-                "messages"
-            ),
-            {
-
-                chatId,
-
-                senderId,
-
-                receiverId,
-
-                senderName:
-                    currentStudent?.name ||
-                    getUserName(),
-
-                receiverName:
-                    selectedChatPerson.name ||
-                    "Student",
-
-                text,
-
-                createdAt:
-                    serverTimestamp(),
-
-                delivered:
-                    false,
-
-                seenBy: []
-            }
-        );
-
-
-        input.value = "";
-
-        input.focus();
-
-
-    } catch (error) {
-
-        console.error(
-            "Send message error:",
-            error
-        );
-
-        showToast(
-            "Message send नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   MESSAGE TICKS
-   ========================================================= */
-
-function getMessageTicks(
-    data,
-    myId
-) {
-
-    if (
-        Array.isArray(
-            data.seenBy
-        ) &&
-        data.seenBy.includes(
-            data.receiverId
-        )
-    ) {
-
-        return `
-            <span
-                class="message-ticks blue-ticks"
-                title="Seen"
-            >
-                ✓✓
-            </span>
-        `;
-    }
-
-
-    if (
-        data.delivered === true
-    ) {
-
-        return `
-            <span
-                class="message-ticks"
-                title="Delivered"
-            >
-                ✓✓
-            </span>
-        `;
-    }
-
-
-    return `
-        <span
-            class="message-ticks"
-            title="Sent"
-        >
-            ✓
-        </span>
-    `;
-}
-
-
-/* =========================================================
-   MARK MESSAGE SEEN
-   ========================================================= */
-
-async function markMessageSeen(
-    messageId,
-    data
-) {
-
-    const myId =
-        getProfileId();
-
-    if (
-        !data ||
-        data.senderId === myId
-    ) {
-        return;
-    }
-
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "messages",
-                messageId
-            ),
-            {
-
-                delivered: true,
-
-                seenBy:
-                    arrayUnion(
-                        myId
-                    )
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Seen update error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   EMOJI PICKER
-   ========================================================= */
-
-function openEmojiPicker() {
-
-    const input =
-        $("messageInput");
-
-    if (!input) return;
-
-
-    const emojis = [
-        "😀",
-        "😂",
-        "😊",
-        "😍",
-        "🥰",
-        "😎",
-        "👍",
-        "👏",
-        "❤️",
-        "🔥",
-        "🎉",
-        "🙏",
-        "💯",
-        "📚",
-        "✏️",
-        "🏫"
-    ];
-
-
-    let picker =
-        $("emojiPicker");
-
-
-    if (!picker) {
-
-        picker =
-            document.createElement(
-                "div"
-            );
-
-        picker.id =
-            "emojiPicker";
-
-        picker.className =
-            "emoji-picker";
-
-
-        emojis.forEach(
-            emoji => {
-
-                const button =
-                    document.createElement(
-                        "button"
-                    );
-
-                button.type =
-                    "button";
-
-                button.textContent =
-                    emoji;
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        input.value +=
-                            emoji;
-
-                        input.focus();
-
-                        picker.classList.add(
-                            "hidden"
-                        );
-                    }
-                );
-
-                picker.appendChild(
-                    button
-                );
-            }
-        );
-
-
-        document.body.appendChild(
-            picker
-        );
-    }
-
-
-    const rect =
-        $("emojiBtn")
-            ?.getBoundingClientRect();
-
-
-    if (rect) {
-
-        picker.style.position =
-            "fixed";
-
-        picker.style.left =
-            `${rect.left}px`;
-
-        picker.style.bottom =
-            `${window.innerHeight - rect.top + 8}px`;
-    }
-
-
-    picker.classList.toggle(
-        "hidden"
+async function sendChatMessage() {
+  if (
+    !currentProfile ||
+    !currentChatUser
+  ) {
+    return;
+  }
+
+  const input = $("messageInput");
+
+  if (!input) return;
+
+  const text =
+    input.value.trim();
+
+  if (!text) return;
+
+  if (text.length > 1000) {
+    toast("Message बहुत बड़ा है।", "!");
+    return;
+  }
+
+  const chatId = makeChatId(
+    currentProfile.id,
+    currentChatUser.id
+  );
+
+  try {
+    await addDoc(
+      collection(db, "messages"),
+      {
+        chatId,
+        senderId: currentProfile.id,
+        senderName: currentProfile.name,
+        receiverId: currentChatUser.id,
+        receiverName: currentChatUser.name,
+        text,
+        delivered: false,
+        seen: false,
+        createdAt: serverTimestamp()
+      }
     );
-}
 
+    input.value = "";
 
-/* =========================================================
-   GROUP CONTROLS
-   ========================================================= */
+    const emojiPanel =
+      $("emojiPanel");
 
-function setupGroupControls() {
-
-    $("createGroupBtn")
-        ?.addEventListener(
-            "click",
-            openGroupModal
-        );
-
-
-    $("closeGroupModalBtn")
-        ?.addEventListener(
-            "click",
-            closeGroupModal
-        );
-
-
-    $("groupForm")
-        ?.addEventListener(
-            "submit",
-            createPrivateGroup
-        );
-
-
-    $("groupMemberSearch")
-        ?.addEventListener(
-            "input",
-            searchGroupMember
-        );
-}
-
-
-/* =========================================================
-   GROUP MODAL
-   ========================================================= */
-
-function openGroupModal() {
-
-    if (
-        currentStudent?.permission !==
-        "allow"
-    ) {
-
-        showToast(
-            "Groups require Allow permission.",
-            "🔒"
-        );
-
-        return;
+    if (emojiPanel) {
+      emojiPanel.classList.remove("show");
     }
 
+  } catch (error) {
+    console.error(
+      "Send message error:",
+      error
+    );
 
-    selectedGroupMembers = [];
-
-    renderSelectedGroupMembers();
-
-    $("groupModal")
-        ?.classList.remove(
-            "hidden"
-        );
+    toast(
+      "Message send नहीं हुआ। Firebase Rules check करें।",
+      "!"
+    );
+  }
 }
 
 
-function closeGroupModal() {
+/* =========================================================
+   MESSAGE SEEN
+   ========================================================= */
 
-    $("groupModal")
-        ?.classList.add(
-            "hidden"
-        );
-}
+async function markMessagesSeen(messages) {
+  if (!currentProfile) return;
 
+  const updates = messages.filter(
+    message =>
+      message.receiverId === currentProfile.id &&
+      !message.seen
+  );
 
-async function searchGroupMember() {
-
-    const input =
-        $("groupMemberSearch");
-
-    const result =
-        $("groupMemberResults");
-
-    if (!input || !result) return;
-
-
-    const phone =
-        input.value
-            .replace(/\D/g, "")
-            .trim();
-
-
-    result.innerHTML = "";
-
-
-    if (phone.length < 10) return;
-
-
+  for (const message of updates) {
     try {
-
-        const q =
-            query(
-                collection(
-                    db,
-                    "students"
-                ),
-                where(
-                    "phone",
-                    "==",
-                    phone
-                )
-            );
-
-
-        const snapshot =
-            await getDocs(q);
-
-
-        if (snapshot.empty) {
-
-            result.innerHTML =
-                `<div class="empty-state">
-                    Student not found.
-                </div>`;
-
-            return;
+      await updateDoc(
+        doc(db, "messages", message.id),
+        {
+          delivered: true,
+          seen: true
         }
-
-
-        snapshot.forEach(
-            item => {
-
-                const data =
-                    item.data();
-
-
-                if (
-                    item.id ===
-                    getProfileId()
-                ) {
-                    return;
-                }
-
-
-                const button =
-                    document.createElement(
-                        "button"
-                    );
-
-                button.type =
-                    "button";
-
-                button.className =
-                    "member-result";
-
-
-                button.innerHTML = `
-                    <strong>
-                        ${escapeHTML(
-                            data.name ||
-                            "Student"
-                        )}
-                    </strong>
-
-                    <small>
-                        ${escapeHTML(
-                            data.phone ||
-                            ""
-                        )}
-                    </small>
-                `;
-
-
-                button.addEventListener(
-                    "click",
-                    () => {
-
-                        if (
-                            !selectedGroupMembers
-                                .some(
-                                    member =>
-                                        member.id ===
-                                        item.id
-                                )
-                        ) {
-
-                            selectedGroupMembers.push(
-                                {
-                                    id: item.id,
-                                    name:
-                                        data.name,
-                                    phone:
-                                        data.phone
-                                }
-                            );
-                        }
-
-
-                        renderSelectedGroupMembers();
-
-                        input.value = "";
-
-                        result.innerHTML = "";
-                    }
-                );
-
-
-                result.appendChild(
-                    button
-                );
-            }
-        );
-
-
+      );
     } catch (error) {
-
-        console.error(
-            "Group member search error:",
-            error
-        );
+      console.error(
+        "Seen update error:",
+        error
+      );
     }
+  }
 }
 
+
+/* =========================================================
+   GROUP MEMBER SEARCH
+   ========================================================= */
+
+async function searchGroupMembers(value) {
+  const container =
+    $("groupMemberResults");
+
+  if (!container) return;
+
+  const text =
+    String(value || "").trim().toLowerCase();
+
+  container.innerHTML = "";
+
+  if (!text) return;
+
+  try {
+    const snap =
+      await getDocs(collection(db, "students"));
+
+    snap.forEach(item => {
+      const data = item.data();
+
+      if (
+        data.id === currentProfile?.id ||
+        data.status !== "approved"
+      ) {
+        return;
+      }
+
+      const matches =
+        String(data.name || "")
+          .toLowerCase()
+          .includes(text) ||
+        String(data.phone || "")
+          .includes(text);
+
+      if (!matches) return;
+
+      const alreadySelected =
+        selectedGroupMembers.some(
+          m => m.id === item.id
+        );
+
+      const row =
+        document.createElement("button");
+
+      row.type = "button";
+      row.className =
+        "member-result";
+
+      row.innerHTML = `
+        <span class="member-result-avatar">
+          ${escapeHTML(
+            (data.name || "S")
+              .charAt(0)
+              .toUpperCase()
+          )}
+        </span>
+
+        <span class="member-result-info">
+          <strong>
+            ${escapeHTML(data.name || "")}
+          </strong>
+          <small>
+            ${escapeHTML(data.phone || "")}
+          </small>
+        </span>
+
+        <span>
+          ${alreadySelected ? "✓" : "+"}
+        </span>
+      `;
+
+      row.addEventListener(
+        "click",
+        () => toggleGroupMember({
+          id: item.id,
+          ...data
+        })
+      );
+
+      container.appendChild(row);
+    });
+
+  } catch (error) {
+    console.error(
+      "Member search error:",
+      error
+    );
+  }
+}
+
+
+/* =========================================================
+   GROUP MEMBER TOGGLE
+   ========================================================= */
+
+function toggleGroupMember(member) {
+  const exists =
+    selectedGroupMembers.some(
+      m => m.id === member.id
+    );
+
+  if (exists) {
+    selectedGroupMembers =
+      selectedGroupMembers.filter(
+        m => m.id !== member.id
+      );
+  } else {
+    selectedGroupMembers.push(member);
+  }
+
+  renderSelectedGroupMembers();
+
+  const search =
+    $("groupMemberSearch");
+
+  if (search) {
+    searchGroupMembers(search.value);
+  }
+}
+
+
+/* =========================================================
+   SELECTED GROUP MEMBERS
+   ========================================================= */
 
 function renderSelectedGroupMembers() {
+  const container =
+    $("selectedGroupMembers");
 
-    const box =
-        $("selectedGroupMembers");
+  if (!container) return;
 
-    if (!box) return;
+  container.innerHTML = "";
 
+  selectedGroupMembers.forEach(member => {
+    const chip =
+      document.createElement("div");
 
-    box.innerHTML = "";
+    chip.className =
+      "selected-member-chip";
 
+    chip.innerHTML = `
+      <span>
+        ${escapeHTML(member.name || "")}
+      </span>
+      <button
+        type="button"
+        data-member-id="${escapeHTML(member.id)}"
+      >
+        ×
+      </button>
+    `;
 
-    if (
-        selectedGroupMembers.length ===
-        0
-    ) {
+    chip.querySelector("button")
+      ?.addEventListener(
+        "click",
+        () => toggleGroupMember(member)
+      );
 
-        box.innerHTML =
-            `<span class="empty-selection">
-                No members selected.
-            </span>`;
-
-        return;
-    }
-
-
-    selectedGroupMembers.forEach(
-        member => {
-
-            const item =
-                document.createElement(
-                    "div"
-                );
-
-            item.className =
-                "selected-member";
-
-
-            item.innerHTML = `
-
-                <span>
-                    ${escapeHTML(
-                        member.name
-                    )}
-                </span>
-
-                <button
-                    type="button"
-                    aria-label="Remove"
-                >
-                    ✕
-                </button>
-            `;
-
-
-            item
-                .querySelector("button")
-                .addEventListener(
-                    "click",
-                    () => {
-
-                        selectedGroupMembers =
-                            selectedGroupMembers
-                                .filter(
-                                    person =>
-                                        person.id !==
-                                        member.id
-                                );
-
-                        renderSelectedGroupMembers();
-                    }
-                );
-
-
-            box.appendChild(
-                item
-            );
-        }
-    );
+    container.appendChild(chip);
+  });
 }
 
 
 /* =========================================================
-   CREATE PRIVATE GROUP
+   CREATE GROUP
    ========================================================= */
 
-async function createPrivateGroup(
-    event
-) {
+async function createGroup() {
+  if (!currentProfile) return;
 
-    event.preventDefault();
+  const name =
+    $("groupNameInput")?.value.trim();
 
+  const password =
+    $("groupPasswordInput")?.value || "";
 
-    const name =
-        $("groupNameInput")
-            ?.value.trim();
+  if (!name) {
+    toast("Group name डालें।", "!");
+    return;
+  }
 
-    const password =
-        $("groupPasswordInput")
-            ?.value;
+  if (
+    selectedGroupMembers.length === 0
+  ) {
+    toast(
+      "कम से कम एक member चुनें।",
+      "!"
+    );
+    return;
+  }
 
+  if (password.length < 4) {
+    toast(
+      "Group password कम से कम 4 characters का रखें।",
+      "!"
+    );
+    return;
+  }
 
-    if (!name) {
+  try {
+    const passwordHash =
+      await hashPassword(password);
 
-        showToast(
-            "Group name लिखें।",
-            "⚠️"
-        );
+    const memberIds = [
+      currentProfile.id,
+      ...selectedGroupMembers.map(
+        m => m.id
+      )
+    ];
 
-        return;
-    }
+    await addDoc(
+      collection(db, "groups"),
+      {
+        name,
+        creatorId: currentProfile.id,
+        creatorName: currentProfile.name,
+        memberIds: [...new Set(memberIds)],
+        passwordHash,
+        disabled: false,
+        createdAt: serverTimestamp()
+      }
+    );
 
+    toast("Group बन गया।", "✓");
 
-    if (!password || password.length < 4) {
+    closeGroupModal();
+    loadGroups();
 
-        showToast(
-            "Group password कम से कम 4 characters का रखें।",
-            "🔐"
-        );
+  } catch (error) {
+    console.error(
+      "Create group error:",
+      error
+    );
 
-        return;
-    }
-
-
-    try {
-
-        const creatorId =
-            getProfileId();
-
-
-        const memberIds = [
-            creatorId,
-
-            ...selectedGroupMembers.map(
-                member =>
-                    member.id
-            )
-        ];
-
-
-        const memberDetails = [
-            {
-                id: creatorId,
-                name:
-                    currentStudent?.name ||
-                    getUserName(),
-                phone:
-                    currentStudent?.phone ||
-                    getUserPhone()
-            },
-
-            ...selectedGroupMembers
-        ];
-
-
-        const passwordHash =
-            await sha256(password);
-
-
-        const groupRef =
-            await addDoc(
-                collection(
-                    db,
-                    "groups"
-                ),
-                {
-
-                    name,
-
-                    creatorId,
-
-                    creatorName:
-                        currentStudent?.name ||
-                        getUserName(),
-
-                    members:
-                        memberIds,
-
-                    memberDetails,
-
-                    passwordHash,
-
-                    createdAt:
-                        serverTimestamp(),
-
-                    disabled:
-                        false
-                }
-            );
+    toast(
+      "Group create नहीं हुआ।",
+      "!"
+    );
+  }
+}
 
 
-        await updateDoc(
-            doc(
-                db,
-                "students",
-                creatorId
-            ),
-            {
+/* =========================================================
+   CLOSE GROUP MODAL
+   ========================================================= */
 
-                groups:
-                    arrayUnion(
-                        groupRef.id
-                    )
-            }
-        );
+function closeGroupModal() {
+  const modal =
+    $("groupModal");
 
+  if (modal) {
+    modal.classList.remove("active");
+  }
 
-        closeGroupModal();
+  selectedGroupMembers = [];
 
-        $("groupForm")
-            ?.reset();
+  renderSelectedGroupMembers();
 
+  if ($("groupForm")) {
+    $("groupForm").reset();
+  }
 
-        showToast(
-            "Private group created.",
-            "👥"
-        );
-
-
-        await logActivity(
-            `Created group: ${name}`
-        );
-
-
-        await loadGroups();
-
-
-    } catch (error) {
-
-        console.error(
-            "Create group error:",
-            error
-        );
-
-        showToast(
-            "Group create नहीं हुआ।",
-            "❌"
-        );
-    }
+  if ($("groupMemberResults")) {
+    $("groupMemberResults").innerHTML = "";
+  }
 }
 
 
@@ -3282,122 +1771,179 @@ async function createPrivateGroup(
    ========================================================= */
 
 async function loadGroups() {
+  const container =
+    $("groupsList");
 
-    const list =
-        $("groupsList");
+  if (!container || !currentProfile) return;
 
-    if (!list) return;
+  try {
+    const snap =
+      await getDocs(collection(db, "groups"));
 
+    container.innerHTML = "";
 
-    try {
+    let groups = [];
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "groups"
-                )
-            );
+    snap.forEach(item => {
+      const data = item.data();
 
-
-        list.innerHTML = "";
-
-
-        if (snapshot.empty) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No groups available.
-                </div>`;
-
-            return;
+      if (
+        isOwner() ||
+        (
+          Array.isArray(data.memberIds) &&
+          data.memberIds.includes(
+            currentProfile.id
+          )
+        )
+      ) {
+        if (!data.disabled || isOwner()) {
+          groups.push({
+            id: item.id,
+            ...data
+          });
         }
+      }
+    });
 
-
-        const myId =
-            getProfileId();
-
-
-        snapshot.forEach(
-            item => {
-
-                const data =
-                    item.data();
-
-
-                const members =
-                    Array.isArray(
-                        data.members
-                    )
-                        ? data.members
-                        : [];
-
-
-                if (
-                    !members.includes(
-                        myId
-                    )
-                ) {
-                    return;
-                }
-
-
-                const card =
-                    document.createElement(
-                        "div"
-                    );
-
-                card.className =
-                    "group-card";
-
-
-                card.innerHTML = `
-
-                    <div class="group-icon">
-                        👥
-                    </div>
-
-                    <div class="group-card-content">
-
-                        <h3>
-                            ${escapeHTML(
-                                data.name ||
-                                "Group"
-                            )}
-                        </h3>
-
-                        <p>
-                            👤 ${members.length} members
-                        </p>
-
-                        <small>
-                            Created by
-                            ${escapeHTML(
-                                datadata.creatorName ||
-                                "Student"
-                            )}
-                        </small>
-
-                    </div>
-                `;
-
-                list.appendChild(card);
-
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Groups load error:",
-            error
-        );
-
-        list.innerHTML =
-            `<div class="empty-state">
-                Groups load नहीं हो पाए।
-            </div>`;
+    if (groups.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">👥</div>
+          <p>अभी कोई group नहीं है।</p>
+        </div>
+      `;
+      return;
     }
+
+    groups.forEach(group => {
+      const card =
+        document.createElement("div");
+
+      card.className =
+        "group-card";
+
+      card.innerHTML = `
+        <div class="group-card-icon">
+          👥
+        </div>
+
+        <div class="group-card-info">
+          <h3>
+            ${escapeHTML(group.name || "Group")}
+          </h3>
+
+          <p>
+            ${Array.isArray(group.memberIds)
+              ? group.memberIds.length
+              : 0}
+            members
+          </p>
+
+          <small>
+            Creator:
+            ${escapeHTML(group.creatorName || "")}
+          </small>
+        </div>
+
+        <button
+          class="group-open-btn"
+          type="button"
+        >
+          Open
+        </button>
+      `;
+
+      card.querySelector(
+        ".group-open-btn"
+      )?.addEventListener(
+        "click",
+        () => openGroupDetails(group)
+      );
+
+      container.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error(
+      "Groups error:",
+      error
+    );
+  }
+}
+
+
+/* =========================================================
+   GROUP DETAILS
+   ========================================================= */
+
+async function openGroupDetails(group) {
+  currentGroup = group;
+
+  let membersHTML = "";
+
+  try {
+    const snap =
+      await getDocs(collection(db, "students"));
+
+    const members =
+      snap.docs
+        .map(d => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .filter(student =>
+          Array.isArray(group.memberIds) &&
+          group.memberIds.includes(student.id)
+        );
+
+    membersHTML = members.map(member => `
+      <div class="group-member-row">
+        <div class="person-avatar">
+          ${escapeHTML(
+            (member.name || "S")
+              .charAt(0)
+              .toUpperCase()
+          )}
+        </div>
+
+        <div>
+          <strong>
+            ${escapeHTML(member.name || "")}
+          </strong>
+          <small>
+            ${escapeHTML(member.phone || "")}
+          </small>
+        </div>
+      </div>
+    `).join("");
+
+  } catch (error) {
+    console.error(error);
+  }
+
+  openModal(
+    escapeHTML(group.name || "Group"),
+    `
+      <div class="group-details-modal">
+        <div class="group-detail-head">
+          <div class="big-group-icon">👥</div>
+          <h2>
+            ${escapeHTML(group.name || "Group")}
+          </h2>
+          <p>
+            Creator:
+            ${escapeHTML(group.creatorName || "")}
+          </p>
+        </div>
+
+        <h3>Members</h3>
+
+        <div class="group-members-list">
+          ${membersHTML || "<p>No members</p>"}
+        </div>
+      </div>
+    `
+  );
 }
 
 
@@ -3406,113 +1952,94 @@ async function loadGroups() {
    ========================================================= */
 
 async function loadHomework() {
+  const container =
+    $("homeworkList");
 
-    const list =
-        $("homeworkList");
+  if (!container) return;
 
-    if (!list) return;
+  try {
+    const q = query(
+      collection(db, "homework"),
+      orderBy("createdAt", "desc")
+    );
 
-    try {
+    const snap =
+      await getDocs(q);
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "homework"
-                )
-            );
+    container.innerHTML = "";
 
-        list.innerHTML = "";
-
-        if (snapshot.empty) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No homework available.
-                </div>`;
-
-            return;
-        }
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            if (data.published === false) {
-                return;
-            }
-
-            const card =
-                document.createElement("article");
-
-            card.className =
-                "content-card";
-
-            card.innerHTML = `
-
-                <div class="content-card-icon">
-                    📚
-                </div>
-
-                <div class="content-card-body">
-
-                    <h3>
-                        ${escapeHTML(
-                            data.title ||
-                            "Homework"
-                        )}
-                    </h3>
-
-                    <p>
-                        ${escapeHTML(
-                            data.description ||
-                            ""
-                        )}
-                    </p>
-
-                    <div class="content-meta">
-
-                        <span>
-                            ${escapeHTML(
-                                data.subject ||
-                                ""
-                            )}
-                        </span>
-
-                        <span>
-                            ${escapeHTML(
-                                data.chapter ||
-                                ""
-                            )}
-                        </span>
-
-                        <span>
-                            ${formatDateTime(
-                                data.createdAt
-                            )}
-                        </span>
-
-                    </div>
-
-                </div>
-            `;
-
-            list.appendChild(card);
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Homework load error:",
-            error
-        );
-
-        list.innerHTML =
-            `<div class="empty-state">
-                Homework load नहीं हो पाया।
-            </div>`;
+    if (snap.empty) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📚</div>
+          <p>अभी homework उपलब्ध नहीं है।</p>
+        </div>
+      `;
+      return;
     }
+
+    snap.forEach(item => {
+      const data = item.data();
+
+      if (
+        data.published === false &&
+        !isOwner()
+      ) {
+        return;
+      }
+
+      const card =
+        document.createElement("div");
+
+      card.className =
+        "homework-card";
+
+      card.innerHTML = `
+        <div class="homework-icon">
+          📚
+        </div>
+
+        <div class="homework-content">
+          <div class="homework-top">
+            <span>
+              ${escapeHTML(data.subject || "Subject")}
+            </span>
+            <small>
+              ${formatDate(data.createdAt)}
+            </small>
+          </div>
+
+          <h3>
+            ${escapeHTML(data.title || "")}
+          </h3>
+
+          <p>
+            ${escapeHTML(data.description || "")}
+          </p>
+
+          ${
+            data.chapter
+              ? `<small>Chapter: ${escapeHTML(data.chapter)}</small>`
+              : ""
+          }
+
+          ${
+            data.className
+              ? `<small>Class: ${escapeHTML(data.className)}</small>`
+              : ""
+          }
+        </div>
+      `;
+
+      container.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error(
+      "Homework error:",
+      error
+    );
+  }
 }
 
 
@@ -3521,100 +2048,81 @@ async function loadHomework() {
    ========================================================= */
 
 async function loadSchoolUpdates() {
+  const container =
+    $("schoolUpdatesList");
 
-    const list =
-        $("schoolUpdatesList");
+  if (!container) return;
 
-    if (!list) return;
+  try {
+    const q = query(
+      collection(db, "school"),
+      orderBy("createdAt", "desc")
+    );
 
-    try {
+    const snap =
+      await getDocs(q);
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "school"
-                )
-            );
+    container.innerHTML = "";
 
-        list.innerHTML = "";
-
-        if (snapshot.empty) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No school updates available.
-                </div>`;
-
-            return;
-        }
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            if (data.published === false) {
-                return;
-            }
-
-            const card =
-                document.createElement("article");
-
-            card.className =
-                "content-card announcement-card";
-
-            card.innerHTML = `
-
-                <div class="content-card-icon">
-                    📢
-                </div>
-
-                <div class="content-card-body">
-
-                    <h3>
-                        ${escapeHTML(
-                            data.title ||
-                            "School Update"
-                        )}
-                    </h3>
-
-                    <p>
-                        ${escapeHTML(
-                            data.description ||
-                            data.text ||
-                            ""
-                        )}
-                    </p>
-
-                    <div class="content-meta">
-
-                        <span>
-                            ${formatDateTime(
-                                data.createdAt
-                            )}
-                        </span>
-
-                    </div>
-
-                </div>
-            `;
-
-            list.appendChild(card);
-        });
-
-    } catch (error) {
-
-        console.error(
-            "School updates error:",
-            error
-        );
-
-        list.innerHTML =
-            `<div class="empty-state">
-                School updates load नहीं हो पाए।
-            </div>`;
+    if (snap.empty) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📢</div>
+          <p>अभी कोई school update नहीं है।</p>
+        </div>
+      `;
+      return;
     }
+
+    snap.forEach(item => {
+      const data = item.data();
+
+      if (
+        data.published === false &&
+        !isOwner()
+      ) {
+        return;
+      }
+
+      const card =
+        document.createElement("div");
+
+      card.className =
+        "school-update-card";
+
+      card.innerHTML = `
+        <div class="update-icon">
+          📢
+        </div>
+
+        <div class="update-content">
+          <h3>
+            ${escapeHTML(data.title || "")}
+          </h3>
+
+          <p>
+            ${escapeHTML(
+              data.description ||
+              data.text ||
+              ""
+            )}
+          </p>
+
+          <small>
+            ${formatDate(data.createdAt)}
+          </small>
+        </div>
+      `;
+
+      container.appendChild(card);
+    });
+
+  } catch (error) {
+    console.error(
+      "School update error:",
+      error
+    );
+  }
 }
 
 
@@ -3623,2146 +2131,292 @@ async function loadSchoolUpdates() {
    ========================================================= */
 
 async function loadNotes() {
+  const container =
+    $("notesList");
 
-    const list =
-        $("notesList");
+  if (!container) return;
 
-    if (!list) return;
+  try {
+    const q = query(
+      collection(db, "notes"),
+      orderBy("createdAt", "desc")
+    );
 
-    try {
+    const snap =
+      await getDocs(q);
 
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "notes"
-                )
-            );
+    container.innerHTML = "";
 
-        list.innerHTML = "";
-
-        if (snapshot.empty) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No notes available.
-                </div>`;
-
-            return;
-        }
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            if (data.published === false) {
-                return;
-            }
-
-            const card =
-                document.createElement("article");
-
-            card.className =
-                "content-card";
-
-            card.innerHTML = `
-
-                <div class="content-card-icon">
-                    📝
-                </div>
-
-                <div class="content-card-body">
-
-                    <h3>
-                        ${escapeHTML(
-                            data.title ||
-                            "Note"
-                        )}
-                    </h3>
-
-                    <p>
-                        ${escapeHTML(
-                            data.description ||
-                            data.text ||
-                            ""
-                        )}
-                    </p>
-
-                    <div class="content-meta">
-
-                        <span>
-                            ${escapeHTML(
-                                data.subject ||
-                                ""
-                            )}
-                        </span>
-
-                        <span>
-                            ${escapeHTML(
-                                data.chapter ||
-                                ""
-                            )}
-                        </span>
-
-                    </div>
-
-                </div>
-            `;
-
-            list.appendChild(card);
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Notes load error:",
-            error
-        );
-
-        list.innerHTML =
-            `<div class="empty-state">
-                Notes load नहीं हो पाए।
-            </div>`;
+    if (snap.empty) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">📝</div>
+          <p>अभी notes उपलब्ध नहीं हैं।</p>
+        </div>
+      `;
+      return;
     }
-}
 
+    snap.forEach(item => {
+      const data = item.data();
 
-/* =========================================================
-   LOAD ALL CONTENT
-   ========================================================= */
-
-async function loadAllContent() {
-
-    await Promise.allSettled([
-        loadHomework(),
-        loadSchoolUpdates(),
-        loadNotes(),
-        loadGroups()
-    ]);
-}
-
-
-/* =========================================================
-   OWNER STUDENTS
-   ========================================================= */
-
-let ownerStudentsCache = [];
-
-
-async function loadOwnerStudents() {
-
-    if (!isOwner) return;
-
-    const list =
-        $("ownerStudentsList");
-
-    if (!list) return;
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "students"
-                )
-            );
-
-        ownerStudentsCache = [];
-
-        snapshot.forEach(item => {
-
-            ownerStudentsCache.push({
-                id: item.id,
-                ...item.data()
-            });
-
-        });
-
-        renderOwnerStudents(
-            ownerStudentsCache
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Owner students error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   RENDER OWNER STUDENTS
-   ========================================================= */
-
-function renderOwnerStudents(students) {
-
-    const list =
-        $("ownerStudentsList");
-
-    if (!list) return;
-
-    list.innerHTML = "";
-
-    if (!students.length) {
-
-        list.innerHTML =
-            `<div class="empty-state">
-                No students found.
-            </div>`;
-
+      if (
+        data.published === false &&
+        !isOwner()
+      ) {
         return;
-    }
+      }
 
-    students.forEach(student => {
+      const card =
+        document.createElement("div");
 
-        const button =
-            document.createElement("button");
+      card.className =
+        "note-card";
 
-        button.type = "button";
+      card.innerHTML = `
+        <div class="note-icon">
+          📝
+        </div>
 
-        button.className =
-            "owner-student-item";
+        <div class="note-content">
+          <div class="note-top">
+            <span>
+              ${escapeHTML(data.subject || "Subject")}
+            </span>
 
-        const name =
-            student.name ||
-            "Student";
+            <small>
+              ${formatDate(data.createdAt)}
+            </small>
+          </div>
 
-        const initial =
-            name
-                .charAt(0)
-                .toUpperCase();
+          <h3>
+            ${escapeHTML(data.title || "")}
+          </h3>
 
-        button.innerHTML = `
+          <p>
+            ${escapeHTML(data.description || "")}
+          </p>
 
-            <div class="person-avatar">
-                ${escapeHTML(initial)}
-            </div>
+          ${
+            data.chapter
+              ? `<small>
+                  Chapter: ${escapeHTML(data.chapter)}
+                </small>`
+              : ""
+          }
+        </div>
+      `;
 
-            <div class="person-info">
-
-                <strong>
-                    ${escapeHTML(name)}
-                </strong>
-
-                <small>
-                    ${escapeHTML(
-                        student.phone ||
-                        ""
-                    )}
-                </small>
-
-            </div>
-
-            <span class="status-dot ${
-                student.online
-                    ? "online"
-                    : ""
-            }"></span>
-        `;
-
-        button.addEventListener(
-            "click",
-            () => {
-
-                selectedOwnerPerson =
-                    student;
-
-                renderOwnerStudentDetails(
-                    student
-                );
-            }
-        );
-
-        list.appendChild(button);
+      container.appendChild(card);
     });
+
+  } catch (error) {
+    console.error(
+      "Notes error:",
+      error
+    );
+  }
 }
 
 
 /* =========================================================
-   OWNER STUDENT SEARCH
+   SETTINGS PAGE
    ========================================================= */
 
-function filterOwnerStudents(event) {
+function loadSettingsPage() {
+  updateProfileUI();
 
-    const search =
-        event.target.value
-            .trim()
-            .toLowerCase();
+  if ($("languageSelect")) {
+    $("languageSelect").value =
+      appSettings.globalLanguage || "hi";
+  }
 
-    const filtered =
-        ownerStudentsCache.filter(
-            student => {
+  if ($("themeSelect")) {
+    $("themeSelect").value =
+      appSettings.globalTheme || "light";
+  }
 
-                return (
-                    String(
-                        student.name || ""
-                    )
-                    .toLowerCase()
-                    .includes(search)
-
-                    ||
-
-                    String(
-                        student.phone || ""
-                    )
-                    .includes(search)
-                );
-            }
-        );
-
-    renderOwnerStudents(filtered);
+  if ($("notificationToggle")) {
+    $("notificationToggle").checked =
+      localStorage.getItem(
+        "studyNotifications"
+      ) !== "off";
+  }
 }
 
 
 /* =========================================================
-   OWNER STUDENT DETAILS
+   PROFILE UPDATE
    ========================================================= */
 
-function renderOwnerStudentDetails(student) {
+async function saveProfile() {
+  if (
+    !currentProfile ||
+    isOwner()
+  ) {
+    return;
+  }
 
-    const box =
-        $("ownerStudentDetails");
+  const name =
+    $("profileSettingsName")
+      ?.value.trim();
 
-    if (!box) return;
+  if (!name) {
+    toast("Name खाली नहीं हो सकता।", "!");
+    return;
+  }
 
-    const name =
-        student.name ||
-        "Student";
+  try {
+    await updateDoc(
+      doc(db, "students", currentProfile.id),
+      {
+        name
+      }
+    );
 
-    const permission =
-        student.permission ||
-        "normal";
+    currentProfile.name = name;
 
-    const followers =
-        Array.isArray(
-            student.followers
-        )
-            ? student.followers.length
-            : 0;
+    localStorage.setItem(
+      STORAGE_NAME,
+      name
+    );
 
-    const following =
-        Array.isArray(
-            student.following
-        )
-            ? student.following.length
-            : 0;
+    updateProfileUI();
 
-    const groups =
-        Array.isArray(
-            student.groups
-        )
-            ? student.groups.length
-            : 0;
+    toast(
+      "Profile updated",
+      "✓"
+    );
 
-    box.innerHTML = `
+  } catch (error) {
+    console.error(
+      "Profile update error:",
+      error
+    );
 
-        <div class="owner-profile-header">
-
-            <div class="large-avatar">
-                ${escapeHTML(
-                    name.charAt(0).toUpperCase()
-                )}
-            </div>
-
-            <div>
-
-                <h2>
-                    ${escapeHTML(name)}
-                </h2>
-
-                <p>
-                    ${escapeHTML(
-                        student.phone || ""
-                    )}
-                </p>
-
-            </div>
-
-        </div>
-
-        <div class="owner-follow-stats">
-
-            <div class="follow-stat">
-                <strong>
-                    ${followers}
-                </strong>
-                <span>
-                    Followers
-                </span>
-            </div>
-
-            <div class="follow-stat">
-                <strong>
-                    ${following}
-                </strong>
-                <span>
-                    Following
-                </span>
-            </div>
-
-            <div class="follow-stat">
-                <strong>
-                    ${groups}
-                </strong>
-                <span>
-                    Groups
-                </span>
-            </div>
-
-        </div>
-
-        <div class="owner-detail-grid">
-
-            <div>
-                <small>Status</small>
-                <strong>
-                    ${escapeHTML(
-                        student.status ||
-                        "pending"
-                    )}
-                </strong>
-            </div>
-
-            <div>
-                <small>Permission</small>
-                <strong>
-                    ${escapeHTML(permission)}
-                </strong>
-            </div>
-
-            <div>
-                <small>Joined</small>
-                <strong>
-                    ${escapeHTML(
-                        formatDateTime(
-                            student.joinedAt
-                        )
-                    )}
-                </strong>
-            </div>
-
-            <div>
-                <small>Last Seen</small>
-                <strong>
-                    ${escapeHTML(
-                        formatDateTime(
-                            student.lastSeen
-                        )
-                    )}
-                </strong>
-            </div>
-
-        </div>
-
-        <div class="owner-actions">
-
-            <button
-                type="button"
-                class="owner-action-btn"
-                id="approveStudentBtn"
-            >
-                ✓ Approve
-            </button>
-
-            <button
-                type="button"
-                class="owner-action-btn"
-                id="blockStudentBtn"
-            >
-                🔒 Block
-            </button>
-
-            <button
-                type="button"
-                class="owner-action-btn"
-                id="removeStudentBtn"
-            >
-                🗑 Remove
-            </button>
-
-        </div>
-
-        <div class="permission-box">
-
-            <h3>
-                Student Permission
-            </h3>
-
-            <p>
-                Choose what this student can use.
-            </p>
-
-            <select id="studentPermissionSelect">
-
-                <option value="deny">
-                    Don't Allow
-                </option>
-
-                <option value="normal">
-                    Normal
-                </option>
-
-                <option value="allow">
-                    Allow
-                </option>
-
-            </select>
-
-            <button
-                type="button"
-                id="saveStudentPermissionBtn"
-                class="primary-btn"
-            >
-                Save Permission
-            </button>
-
-        </div>
-    `;
-
-    $("studentPermissionSelect")
-        .value = permission;
-
-    $("approveStudentBtn")
-        ?.addEventListener(
-            "click",
-            () =>
-                updateStudentStatus(
-                    student.id,
-                    "approved"
-                )
-        );
-
-    $("blockStudentBtn")
-        ?.addEventListener(
-            "click",
-            () =>
-                updateStudentStatus(
-                    student.id,
-                    "blocked"
-                )
-        );
-
-    $("removeStudentBtn")
-        ?.addEventListener(
-            "click",
-            () =>
-                removeStudent(
-                    student.id
-                )
-        );
-
-    $("saveStudentPermissionBtn")
-        ?.addEventListener(
-            "click",
-            () =>
-                saveStudentPermission(
-                    student.id
-                )
-        );
+    toast(
+      "Profile update नहीं हुआ।",
+      "!"
+    );
+  }
 }
 
 
 /* =========================================================
-   UPDATE STUDENT STATUS
+   LANGUAGE
    ========================================================= */
 
-async function updateStudentStatus(
-    studentId,
-    status
-) {
+const translations = {
+  hi: {
+    home: "होम",
+    chat: "चैट",
+    groups: "ग्रुप्स",
+    homework: "होमवर्क",
+    school: "स्कूल अपडेट",
+    notes: "नोट्स",
+    settings: "सेटिंग्स",
+    owner: "Owner Panel",
+    logout: "Logout",
+    search: "Search",
+    send: "भेजें",
+    createGroup: "ग्रुप बनाएं",
+    save: "Save",
+    cancel: "Cancel"
+  },
 
-    if (!isOwner) return;
+  en: {
+    home: "Home",
+    chat: "Chat",
+    groups: "Groups",
+    homework: "Homework",
+    school: "School Updates",
+    notes: "Notes",
+    settings: "Settings",
+    owner: "Owner Panel",
+    logout: "Logout",
+    search: "Search",
+    send: "Send",
+    createGroup: "Create Group",
+    save: "Save",
+    cancel: "Cancel"
+  }
+};
 
-    try {
+function applyLanguage() {
+  const lang =
+    appSettings.globalLanguage === "en"
+      ? "en"
+      : "hi";
 
-        await updateDoc(
-            doc(
-                db,
-                "students",
-                studentId
-            ),
-            {
-                status
-            }
-        );
+  const t =
+    translations[lang];
 
-        showToast(
-            `Student status: ${status}`,
-            "✓"
-        );
+  qsa(".nav-item[data-page]").forEach(
+    item => {
+      const page =
+        item.dataset.page;
 
-        await logActivity(
-            `Changed student ${studentId} status to ${status}`
-        );
+      const span =
+        item.querySelector("span");
 
-        await loadOwnerStudents();
-
-        await loadOwnerApprovals();
-
-        await loadOwnerDashboard();
-
-    } catch (error) {
-
-        console.error(
-            "Student status error:",
-            error
-        );
-
-        showToast(
-            "Student status update नहीं हुआ।",
-            "❌"
-        );
+      if (
+        span &&
+        t[page]
+      ) {
+        span.textContent =
+          t[page];
+      }
     }
-}
-
-
-/* =========================================================
-   SAVE STUDENT PERMISSION
-   ========================================================= */
-
-async function saveStudentPermission(
-    studentId
-) {
-
-    if (!isOwner) return;
-
-    const permission =
-        $("studentPermissionSelect")
-            ?.value;
-
-    if (!permission) return;
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "students",
-                studentId
-            ),
-            {
-                permission
-            }
-        );
-
-        showToast(
-            "Permission updated.",
-            "✓"
-        );
-
-        await logActivity(
-            `Changed permission for ${studentId} to ${permission}`
-        );
-
-        await loadOwnerStudents();
-
-    } catch (error) {
-
-        console.error(
-            "Permission error:",
-            error
-        );
-
-        showToast(
-            "Permission save नहीं हुई।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   REMOVE STUDENT
-   ========================================================= */
-
-async function removeStudent(studentId) {
-
-    if (!isOwner) return;
-
-    const confirmed =
-        window.confirm(
-            "क्या आप इस student को remove करना चाहते हैं?"
-        );
-
-    if (!confirmed) return;
-
-    try {
-
-        await deleteDoc(
-            doc(
-                db,
-                "students",
-                studentId
-            )
-        );
-
-        showToast(
-            "Student removed.",
-            "🗑"
-        );
-
-        await logActivity(
-            `Removed student ${studentId}`
-        );
-
-        await loadOwnerStudents();
-
-        await loadOwnerDashboard();
-
-    } catch (error) {
-
-        console.error(
-            "Remove student error:",
-            error
-        );
-
-        showToast(
-            "Student remove नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   OWNER APPROVALS
-   ========================================================= */
-
-async function loadOwnerApprovals() {
-
-    if (!isOwner) return;
-
-    const list =
-        $("ownerApprovalsList");
-
-    if (!list) return;
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "students"
-                )
-            );
-
-        list.innerHTML = "";
-
-        let count = 0;
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            if (
-                data.status !==
-                "pending"
-            ) {
-                return;
-            }
-
-            count++;
-
-            const card =
-                document.createElement("div");
-
-            card.className =
-                "approval-card";
-
-            card.innerHTML = `
-
-                <div>
-
-                    <strong>
-                        ${escapeHTML(
-                            data.name ||
-                            "Student"
-                        )}
-                    </strong>
-
-                    <small>
-                        ${escapeHTML(
-                            data.phone ||
-                            ""
-                        )}
-                    </small>
-
-                </div>
-
-                <div class="approval-actions">
-
-                    <button
-                        type="button"
-                        class="approve-btn"
-                    >
-                        ✓ Approve
-                    </button>
-
-                    <button
-                        type="button"
-                        class="reject-btn"
-                    >
-                        ✕ Reject
-                    </button>
-
-                </div>
-            `;
-
-            card
-                .querySelector(".approve-btn")
-                ?.addEventListener(
-                    "click",
-                    () =>
-                        updateStudentStatus(
-                            item.id,
-                            "approved"
-                        )
-                );
-
-            card
-                .querySelector(".reject-btn")
-                ?.addEventListener(
-                    "click",
-                    () =>
-                        updateStudentStatus(
-                            item.id,
-                            "rejected"
-                        )
-                );
-
-            list.appendChild(card);
-        });
-
-        if (count === 0) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No pending approvals.
-                </div>`;
-        }
-
-    } catch (error) {
-
-        console.error(
-            "Approvals load error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   OWNER GROUPS
-   ========================================================= */
-
-async function loadOwnerGroups() {
-
-    if (!isOwner) return;
-
-    const list =
-        $("ownerGroupsList");
-
-    if (!list) return;
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "groups"
-                )
-            );
-
-        list.innerHTML = "";
-
-        if (snapshot.empty) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No groups found.
-                </div>`;
-
-            return;
-        }
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            const members =
-                Array.isArray(
-                    data.memberDetails
-                )
-                    ? data.memberDetails
-                    : [];
-
-            const card =
-                document.createElement("div");
-
-            card.className =
-                "owner-group-card";
-
-            card.innerHTML = `
-
-                <div class="owner-group-header">
-
-                    <div class="group-icon">
-                        👥
-                    </div>
-
-                    <div>
-
-                        <h3>
-                            ${escapeHTML(
-                                data.name ||
-                                "Group"
-                            )}
-                        </h3>
-
-                        <small>
-                            Creator:
-                            ${escapeHTML(
-                                data.creatorName ||
-                                ""
-                            )}
-                        </small>
-
-                    </div>
-
-                </div>
-
-                <p>
-                    ${members.length} members
-                </p>
-
-                <div class="group-members-list">
-
-                    ${members.map(member => `
-                        <div class="group-member-line">
-
-                            <span>
-                                ${escapeHTML(
-                                    member.name ||
-                                    "Student"
-                                )}
-                            </span>
-
-                            <small>
-                                ${escapeHTML(
-                                    member.phone ||
-                                    ""
-                                )}
-                            </small>
-
-                        </div>
-                    `).join("")}
-
-                </div>
-
-                <button
-                    type="button"
-                    class="danger-btn disable-group-btn"
-                >
-                    ${data.disabled
-                        ? "Enable Group"
-                        : "Disable Group"}
-                </button>
-            `;
-
-            card
-                .querySelector(
-                    ".disable-group-btn"
-                )
-                ?.addEventListener(
-                    "click",
-                    () =>
-                        toggleGroupDisabled(
-                            item.id,
-                            data.disabled === true
-                        )
-                );
-
-            list.appendChild(card);
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Owner groups error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   DISABLE / ENABLE GROUP
-   ========================================================= */
-
-async function toggleGroupDisabled(
-    groupId,
-    currentlyDisabled
-) {
-
-    if (!isOwner) return;
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "groups",
-                groupId
-            ),
-            {
-                disabled:
-                    !currentlyDisabled
-            }
-        );
-
-        showToast(
-            currentlyDisabled
-                ? "Group enabled."
-                : "Group disabled.",
-            "👥"
-        );
-
-        await loadOwnerGroups();
-
-    } catch (error) {
-
-        console.error(
-            "Group control error:",
-            error
-        );
-
-        showToast(
-            "Group update नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   OWNER CONTENT
-   ========================================================= */
-
-async function loadOwnerContent() {
-
-    if (!isOwner) return;
-
-    await Promise.allSettled([
-        loadOwnerHomework(),
-        loadOwnerNotes(),
-        loadOwnerAnnouncements()
-    ]);
-}
-
-
-/* =========================================================
-   OWNER HOMEWORK
-   ========================================================= */
-
-async function loadOwnerHomework() {
-
-    const list =
-        $("ownerHomeworkList");
-
-    if (!list) return;
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "homework"
-                )
-            );
-
-        list.innerHTML = "";
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            const card =
-                document.createElement("div");
-
-            card.className =
-                "admin-content-item";
-
-            card.innerHTML = `
-
-                <div>
-
-                    <strong>
-                        ${escapeHTML(
-                            data.title ||
-                            "Homework"
-                        )}
-                    </strong>
-
-                    <small>
-                        ${escapeHTML(
-                            data.subject ||
-                            ""
-                        )}
-                    </small>
-
-                </div>
-
-                <button
-                    type="button"
-                    class="delete-content-btn"
-                >
-                    🗑
-                </button>
-            `;
-
-            card
-                .querySelector(
-                    ".delete-content-btn"
-                )
-                ?.addEventListener(
-                    "click",
-                    () =>
-                        deleteContent(
-                            "homework",
-                            item.id
-                        )
-                );
-
-            list.appendChild(card);
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Owner homework error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   OWNER NOTES
-   ========================================================= */
-
-async function loadOwnerNotes() {
-
-    const list =
-        $("ownerNotesList");
-
-    if (!list) return;
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "notes"
-                )
-            );
-
-        list.innerHTML = "";
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            const card =
-                document.createElement("div");
-
-            card.className =
-                "admin-content-item";
-
-            card.innerHTML = `
-
-                <div>
-
-                    <strong>
-                        ${escapeHTML(
-                            data.title ||
-                            "Note"
-                        )}
-                    </strong>
-
-                    <small>
-                        ${escapeHTML(
-                            data.subject ||
-                            ""
-                        )}
-                    </small>
-
-                </div>
-
-                <button
-                    type="button"
-                    class="delete-content-btn"
-                >
-                    🗑
-                </button>
-            `;
-
-            card
-                .querySelector(
-                    ".delete-content-btn"
-                )
-                ?.addEventListener(
-                    "click",
-                    () =>
-                        deleteContent(
-                            "notes",
-                            item.id
-                        )
-                );
-
-            list.appendChild(card);
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Owner notes error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   OWNER ANNOUNCEMENTS
-   ========================================================= */
-
-async function loadOwnerAnnouncements() {
-
-    const list =
-        $("ownerAnnouncementsList");
-
-    if (!list) return;
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "school"
-                )
-            );
-
-        list.innerHTML = "";
-
-        snapshot.forEach(item => {
-
-            const data =
-                item.data();
-
-            const card =
-                document.createElement("div");
-
-            card.className =
-                "admin-content-item";
-
-            card.innerHTML = `
-
-                <div>
-
-                    <strong>
-                        ${escapeHTML(
-                            data.title ||
-                            "Announcement"
-                        )}
-                    </strong>
-
-                    <small>
-                        ${escapeHTML(
-                            data.description ||
-                            ""
-                        )}
-                    </small>
-
-                </div>
-
-                <button
-                    type="button"
-                    class="delete-content-btn"
-                >
-                    🗑
-                </button>
-            `;
-
-            card
-                .querySelector(
-                    ".delete-content-btn"
-                )
-                ?.addEventListener(
-                    "click",
-                    () =>
-                        deleteContent(
-                            "school",
-                            item.id
-                        )
-                );
-
-            list.appendChild(card);
-        });
-
-    } catch (error) {
-
-        console.error(
-            "Owner announcements error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   DELETE CONTENT
-   ========================================================= */
-
-async function deleteContent(
-    collectionName,
-    documentId
-) {
-
-    if (!isOwner) return;
-
-    const confirmed =
-        window.confirm(
-            "क्या आप इसे delete करना चाहते हैं?"
-        );
-
-    if (!confirmed) return;
-
-    try {
-
-        await deleteDoc(
-            doc(
-                db,
-                collectionName,
-                documentId
-            )
-        );
-
-        showToast(
-            "Content deleted.",
-            "🗑"
-        );
-
-        await logActivity(
-            `Deleted ${collectionName}/${documentId}`
-        );
-
-        await loadOwnerContent();
-
-        await loadAllContent();
-
-    } catch (error) {
-
-        console.error(
-            "Delete content error:",
-            error
-        );
-
-        showToast(
-            "Delete नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   ADMIN MODALS
-   ========================================================= */
-
-function openHomeworkAdminModal() {
-
-    const modal =
-        $("homeworkAdminModal");
-
-    if (!modal) return;
-
-    modal.classList.remove("hidden");
-}
-
-
-function openNoteAdminModal() {
-
-    const modal =
-        $("noteAdminModal");
-
-    if (!modal) return;
-
-    modal.classList.remove("hidden");
-}
-
-
-function openAnnouncementAdminModal() {
-
-    const modal =
-        $("announcementAdminModal");
-
-    if (!modal) return;
-
-    modal.classList.remove("hidden");
-}
-
-
-/* =========================================================
-   ADD CONTENT HELPERS
-   ========================================================= */
-
-async function addHomeworkFromForm(event) {
-
-    event.preventDefault();
-
-    if (!isOwner) return;
-
-    const title =
-        $("adminHomeworkTitle")
-            ?.value.trim();
-
-    const description =
-        $("adminHomeworkDescription")
-            ?.value.trim();
-
-    const subject =
-        $("adminHomeworkSubject")
-            ?.value.trim();
-
-    const chapter =
-        $("adminHomeworkChapter")
-            ?.value.trim();
-
-    if (!title) return;
-
-    try {
-
-        await addDoc(
-            collection(
-                db,
-                "homework"
-            ),
-            {
-                title,
-                description,
-                subject,
-                chapter,
-                published: true,
-                createdAt:
-                    serverTimestamp()
-            }
-        );
-
-        showToast(
-            "Homework published.",
-            "📚"
-        );
-
-        $("homeworkAdminForm")
-            ?.reset();
-
-        $("homeworkAdminModal")
-            ?.classList.add(
-                "hidden"
-            );
-
-        await loadOwnerHomework();
-        await loadHomework();
-
-    } catch (error) {
-
-        console.error(
-            "Add homework error:",
-            error
-        );
-
-        showToast(
-            "Homework save नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-async function addNoteFromForm(event) {
-
-    event.preventDefault();
-
-    if (!isOwner) return;
-
-    const title =
-        $("adminNoteTitle")
-            ?.value.trim();
-
-    const description =
-        $("adminNoteDescription")
-            ?.value.trim();
-
-    const subject =
-        $("adminNoteSubject")
-            ?.value.trim();
-
-    const chapter =
-        $("adminNoteChapter")
-            ?.value.trim();
-
-    if (!title) return;
-
-    try {
-
-        await addDoc(
-            collection(
-                db,
-                "notes"
-            ),
-            {
-                title,
-                description,
-                subject,
-                chapter,
-                published: true,
-                createdAt:
-                    serverTimestamp()
-            }
-        );
-
-        showToast(
-            "Note published.",
-            "📝"
-        );
-
-        $("noteAdminForm")
-            ?.reset();
-
-        $("noteAdminModal")
-            ?.classList.add(
-                "hidden"
-            );
-
-        await loadOwnerNotes();
-        await loadNotes();
-
-    } catch (error) {
-
-        console.error(
-            "Add note error:",
-            error
-        );
-
-        showToast(
-            "Note save नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-async function addAnnouncementFromForm(event) {
-
-    event.preventDefault();
-
-    if (!isOwner) return;
-
-    const title =
-        $("adminAnnouncementTitle")
-            ?.value.trim();
-
-    const description =
-        $("adminAnnouncementDescription")
-            ?.value.trim();
-
-    if (!title) return;
-
-    try {
-
-        await addDoc(
-            collection(
-                db,
-                "school"
-            ),
-            {
-                title,
-                description,
-                published: true,
-                createdAt:
-                    serverTimestamp()
-            }
-        );
-
-        showToast(
-            "Announcement published.",
-            "📢"
-        );
-
-        $("announcementAdminForm")
-            ?.reset();
-
-        $("announcementAdminModal")
-            ?.classList.add(
-                "hidden"
-            );
-
-        await loadOwnerAnnouncements();
-        await loadSchoolUpdates();
-
-    } catch (error) {
-
-        console.error(
-            "Announcement error:",
-            error
-        );
-
-        showToast(
-            "Announcement save नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   PASSWORD CHANGE
-   ========================================================= */
-
-async function changeAppPassword() {
-
-    if (!isOwner) return;
-
-    const newPassword =
-        $("newOwnerPassword")
-            ?.value || "";
-
-    if (newPassword.length < 6) {
-
-        showToast(
-            "Password कम से कम 6 characters का रखें।",
-            "🔐"
-        );
-
-        return;
-    }
-
-    try {
-
-        const hash =
-            await sha256(
-                newPassword
-            );
-
-        await setDoc(
-            doc(
-                db,
-                "appSettings",
-                "main"
-            ),
-            {
-                appPasswordHash: hash
-            },
-            {
-                merge: true
-            }
-        );
-
-        showToast(
-            "App password updated.",
-            "🔐"
-        );
-
-        if ($("newOwnerPassword")) {
-            $("newOwnerPassword").value = "";
-        }
-
-        await logActivity(
-            "Changed app password"
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Password change error:",
-            error
-        );
-
-        showToast(
-            "Password change नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   ACTIVITY LOG
-   ========================================================= */
-
-async function logActivity(action) {
-
-    try {
-
-        await addDoc(
-            collection(
-                db,
-                "activityLogs"
-            ),
-            {
-
-                action,
-
-                actorId:
-                    getProfileId(),
-
-                actorName:
-                    currentStudent?.name ||
-                    getUserName(),
-
-                createdAt:
-                    serverTimestamp()
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Activity log error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   OWNER ACTIVITY
-   ========================================================= */
-
-async function loadOwnerActivity() {
-
-    if (!isOwner) return;
-
-    const list =
-        $("ownerActivityList");
-
-    if (!list) return;
-
-    try {
-
-        const snapshot =
-            await getDocs(
-                collection(
-                    db,
-                    "activityLogs"
-                )
-            );
-
-        list.innerHTML = "";
-
-        const logs =
-            [];
-
-        snapshot.forEach(item => {
-
-            logs.push({
-                id: item.id,
-                ...item.data()
-            });
-
-        });
-
-        logs.sort(
-            (a, b) => {
-
-                const aTime =
-                    a.createdAt?.toMillis
-                        ? a.createdAt.toMillis()
-                        : 0;
-
-                const bTime =
-                    b.createdAt?.toMillis
-                        ? b.createdAt.toMillis()
-                        : 0;
-
-                return bTime - aTime;
-            }
-        );
-
-        logs.slice(0, 100)
-            .forEach(log => {
-
-                const row =
-                    document.createElement(
-                        "div"
-                    );
-
-                row.className =
-                    "activity-row";
-
-                row.innerHTML = `
-
-                    <div>
-
-                        <strong>
-                            ${escapeHTML(
-                                log.action ||
-                                "Activity"
-                            )}
-                        </strong>
-
-                        <small>
-                            ${escapeHTML(
-                                log.actorName ||
-                                ""
-                            )}
-                        </small>
-
-                    </div>
-
-                    <time>
-                        ${escapeHTML(
-                            formatDateTime(
-                                log.createdAt
-                            )
-                        )}
-                    </time>
-                `;
-
-                list.appendChild(row);
-            });
-
-        if (!list.children.length) {
-
-            list.innerHTML =
-                `<div class="empty-state">
-                    No activity yet.
-                </div>`;
-        }
-
-    } catch (error) {
-
-        console.error(
-            "Activity load error:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   ONLINE STATUS
-   ========================================================= */
-
-async function updateStudentOnline(
-    online
-) {
-
-    const id =
-        getProfileId();
-
-    if (!id) return;
-
-    try {
-
-        await updateDoc(
-            doc(
-                db,
-                "students",
-                id
-            ),
-            {
-
-                online,
-
-                lastSeen:
-                    serverTimestamp()
-            }
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Online status error:",
-            error
-        );
-    }
-}
-
-
-function startOnlineHeartbeat() {
-
-    if (onlineHeartbeat) {
-        clearInterval(
-            onlineHeartbeat
-        );
-    }
-
-    updateStudentOnline(true);
-
-    onlineHeartbeat =
-        setInterval(
-            () => {
-
-                updateStudentOnline(
-                    true
-                );
-
-            },
-            30000
-        );
-}
-
-
-function stopOnlineHeartbeat() {
-
-    if (onlineHeartbeat) {
-
-        clearInterval(
-            onlineHeartbeat
-        );
-
-        onlineHeartbeat = null;
-    }
-
-    updateStudentOnline(false);
-}
-
-
-/* =========================================================
-   FOLLOW SYSTEM
-   ========================================================= */
-
-async function toggleFollow(
-    targetStudentId
-) {
-
-    const myId =
-        getProfileId();
-
-    if (!myId || !targetStudentId) {
-        return;
-    }
-
-    if (myId === targetStudentId) {
-        return;
-    }
-
-    try {
-
-        const myRef =
-            doc(
-                db,
-                "students",
-                myId
-            );
-
-        const targetRef =
-            doc(
-                db,
-                "students",
-                targetStudentId
-            );
-
-        const mySnap =
-            await getDoc(myRef);
-
-        const targetSnap =
-            await getDoc(targetRef);
-
-        if (
-            !mySnap.exists() ||
-            !targetSnap.exists()
-        ) {
-            return;
-        }
-
-        const myData =
-            mySnap.data();
-
-        const following =
-            Array.isArray(
-                myData.following
-            )
-                ? myData.following
-                : [];
-
-        const alreadyFollowing =
-            following.includes(
-                targetStudentId
-            );
-
-        if (alreadyFollowing) {
-
-            await updateDoc(
-                myRef,
-                {
-                    following:
-                        arrayRemove(
-                            targetStudentId
-                        )
-                }
-            );
-
-            await updateDoc(
-                targetRef,
-                {
-                    followers:
-                        arrayRemove(
-                            myId
-                        )
-                }
-            );
-
-            showToast(
-                "Unfollowed.",
-                "👤"
-            );
-
-        } else {
-
-            await updateDoc(
-                myRef,
-                {
-                    following:
-                        arrayUnion(
-                            targetStudentId
-                        )
-                }
-            );
-
-            await updateDoc(
-                targetRef,
-                {
-                    followers:
-                        arrayUnion(
-                            myId
-                        )
-                }
-            );
-
-            showToast(
-                "Following.",
-                "💙"
-            );
-        }
-
-        await logActivity(
-            alreadyFollowing
-                ? `Unfollowed ${targetStudentId}`
-                : `Followed ${targetStudentId}`
-        );
-
-    } catch (error) {
-
-        console.error(
-            "Follow error:",
-            error
-        );
-
-        showToast(
-            "Follow action नहीं हुआ।",
-            "❌"
-        );
-    }
-}
-
-
-/* =========================================================
-   PROFILE FOLLOW BUTTON
-   ========================================================= */
-
-function renderFollowButton(
-    targetStudent
-) {
-
-    const box =
-        $("profileFollowBox");
-
-    if (!box) return;
-
-    const myId =
-        getProfileId();
+  );
+
+  qsa(
+    ".bottom-nav-item[data-page]"
+  ).forEach(item => {
+    const page =
+      item.dataset.page;
+
+    const span =
+      item.querySelector("span");
 
     if (
-        !targetStudent ||
-        targetStudent.id === myId
+      span &&
+      t[page]
     ) {
-
-        box.innerHTML = "";
-
-        return;
+      span.textContent =
+        t[page];
     }
+  });
 
-    const following =
-        Array.isArray(
-            currentStudent?.following
-        )
-            ? currentStudent.following
-            : [];
+  if ($("createGroupBtn")) {
+    $("createGroupBtn").textContent =
+      t.createGroup;
+  }
 
-    const isFollowing =
-        following.includes(
-            targetStudent.id
-        );
+  if ($("logoutBtn")) {
+    $("logoutBtn").textContent =
+      t.logout;
+  }
 
-    box.innerHTML = `
+  if ($("settingsLogoutBtn")) {
+    $("settingsLogoutBtn").textContent =
+      t.logout;
+  }
+}
 
-        <button
-            type="button"
-            id="followTargetBtn"
-            class="follow-btn"
-        >
-            ${isFollowing
-                ? "Following"
-                : "Follow"}
-        </button>
-    `;
 
-    $("followTargetBtn")
-        ?.addEventListener(
-            "click",
-            async () => {
+/* =========================================================
+   THEME
+   ========================================================= */
 
-                await toggleFollow(
-                    targetStudent.id
-                );
+function changeTheme(theme) {
+  if (theme === "dark") {
+    document.body.classList.add("dark");
+  } else {
+    document.body.classList.remove("dark");
+  }
 
-                const updated =
-                    await getDoc(
-                        doc(
-                            db,
-                            "students",
-                            myId
-                        )
-                    );
-
-                if (updated.exists()) {
-
-                    currentStudent = {
-                        id: myId,
-                        ...updated.data()
-                    };
-
-                    renderFollowButton(
-                        targetStudent
-                    );
-                }
-            }
-        );
+  appSettings.globalTheme =
+    theme;
 }
 
 
@@ -5770,259 +2424,1386 @@ function renderFollowButton(
    LOGOUT
    ========================================================= */
 
-async function logout() {
+function logout() {
+  if (unsubscribeChat) {
+    unsubscribeChat();
+    unsubscribeChat = null;
+  }
 
-    try {
+  currentProfile = null;
+  currentChatUser = null;
+  currentGroup = null;
+  navigationHistory = [];
 
-        stopOnlineHeartbeat();
+  localStorage.removeItem(
+    STORAGE_NAME
+  );
 
-        if (unsubscribeMessages) {
-            unsubscribeMessages();
-            unsubscribeMessages = null;
-        }
+  localStorage.removeItem(
+    STORAGE_PHONE
+  );
 
-        if (unsubscribeStudents) {
-            unsubscribeStudents();
-            unsubscribeStudents = null;
-        }
+  localStorage.removeItem(
+    STORAGE_ID
+  );
 
-        if (unsubscribeSettings) {
-            unsubscribeSettings();
-            unsubscribeSettings = null;
-        }
+  $("app")?.classList.remove("active");
 
-    } catch (error) {
+  show($("loginScreen"));
 
-        console.error(
-            "Logout cleanup error:",
-            error
-        );
-    }
+  if ($("loginForm")) {
+    $("loginForm").reset();
+  }
 
-    currentUser = null;
-    currentStudent = null;
+  showLoginMessage("", false);
 
-    selectedChatPerson = null;
-    selectedOwnerPerson = null;
-
-    isOwner = false;
-
-    $("app")
-        ?.classList.add("hidden");
-
-    $("loginScreen")
-        ?.classList.remove("hidden");
-
-    $("loginForm")
-        ?.reset();
-
-    showToast(
-        "Logged out.",
-        "👋"
-    );
+  toast(
+    "Logged out",
+    "✓"
+  );
 }
 
 
 /* =========================================================
-   WINDOW EVENTS
+   EVENT LISTENERS - BASIC
    ========================================================= */
-
-window.addEventListener(
-    "beforeunload",
-    () => {
-
-        if (getProfileId()) {
-            updateStudentOnline(false);
-        }
-    }
-);
-
 
 document.addEventListener(
-    "visibilitychange",
-    () => {
+  "DOMContentLoaded",
+  async () => {
 
-        if (!getProfileId()) return;
+    /* Firebase */
+    startFirebaseAuth();
+    await loadAppSettings();
+    listenGlobalSettings();
 
-        if (
-            document.visibilityState ===
-            "visible"
-        ) {
+    /* Login */
+    $("loginForm")?.addEventListener(
+      "submit",
+      async event => {
+        event.preventDefault();
 
-            updateStudentOnline(true);
+        const btn =
+          $("loginBtn");
 
-        } else {
-
-            updateStudentOnline(false);
+        if (btn) {
+          btn.disabled = true;
         }
-    }
+
+        try {
+          await loginUser(
+            $("loginName")?.value,
+            $("loginPhone")?.value,
+            $("loginPassword")?.value
+          );
+        } catch (error) {
+          console.error(
+            "Login error:",
+            error
+          );
+
+          showLoginMessage(
+            "Login में error आया।",
+            true
+          );
+        }
+
+        if (btn) {
+          btn.disabled = false;
+        }
+      }
+    );
+
+
+    /* Mobile menu */
+    $("mobileMenuBtn")
+      ?.addEventListener(
+        "click",
+        toggleMobileMenu
+      );
+
+
+    /* Navigation */
+    qsa(
+      ".nav-item[data-page], .bottom-nav-item[data-page]"
+    ).forEach(item => {
+      item.addEventListener(
+        "click",
+        event => {
+          event.preventDefault();
+
+          navigateTo(
+            item.dataset.page
+          );
+        }
+      );
+    });
+
+
+    /* Logout */
+    $("logoutBtn")
+      ?.addEventListener(
+        "click",
+        logout
+      );
+
+    $("settingsLogoutBtn")
+      ?.addEventListener(
+        "click",
+        logout
+      );
+
+
+    /* Generic modal */
+    $("closeAppModalBtn")
+      ?.addEventListener(
+        "click",
+        closeModal
+      );
+
+
+    $("appModal")
+      ?.addEventListener(
+        "click",
+        event => {
+          if (
+            event.target ===
+            $("appModal")
+          ) {
+            closeModal();
+          }
+        }
+      );
+
+
+    /* Group modal */
+    $("createGroupBtn")
+      ?.addEventListener(
+        "click",
+        () => {
+          if (!canUsePage("groups")) {
+            toast(
+              "Groups की permission नहीं है।",
+              "!"
+            );
+            return;
+          }
+
+          selectedGroupMembers = [];
+
+          $("groupModal")
+            ?.classList.add("active");
+        }
+      );
+
+
+    $("closeGroupModalBtn")
+      ?.addEventListener(
+        "click",
+        closeGroupModal
+      );
+
+
+    $("groupMemberSearch")
+      ?.addEventListener(
+        "input",
+        event => {
+          searchGroupMembers(
+            event.target.value
+          );
+        }
+      );
+
+
+    $("groupForm")
+      ?.addEventListener(
+        "submit",
+        event => {
+          event.preventDefault();
+          createGroup();
+        }
+      );
+
+
+    /* Chat search */
+    $("chatSearchBtn")
+      ?.addEventListener(
+        "click",
+        () => {
+          $("chatSearchBox")
+            ?.classList.toggle("show");
+
+          $("chatSearchInput")
+            ?.focus();
+        }
+      );
+
+
+    $("chatSearchInput")
+      ?.addEventListener(
+        "input",
+        event => {
+          loadChatPeople(
+            event.target.value
+          );
+        }
+      );
+
+
+    /* Profile */
+    $("profileSettingsBtn")
+      ?.addEventListener(
+        "click",
+        saveProfile
+      );
+
+
+    /* Language */
+    $("languageSelect")
+      ?.addEventListener(
+        "change",
+        async event => {
+
+          const language =
+            event.target.value;
+
+          appSettings.globalLanguage =
+            language;
+
+          applyLanguage();
+
+          try {
+            await updateDoc(
+              doc(
+                db,
+                "appSettings",
+                "global"
+              ),
+              {
+                globalLanguage: language
+              }
+            );
+
+            toast(
+              "Language updated",
+              "✓"
+            );
+
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      );
+
+
+    /* Theme */
+    $("themeSelect")
+      ?.addEventListener(
+        "change",
+        async event => {
+
+          const theme =
+            event.target.value;
+
+          changeTheme(theme);
+
+          try {
+            await updateDoc(
+              doc(
+                db,
+                "appSettings",
+                "global"
+              ),
+              {
+                globalTheme: theme
+              }
+            );
+
+          } catch (error) {
+            console.error(error);
+          }
+        }
+      );
+
+
+    /* Notifications */
+    $("notificationToggle")
+      ?.addEventListener(
+        "change",
+        event => {
+          localStorage.setItem(
+            "studyNotifications",
+            event.target.checked
+              ? "on"
+              : "off"
+          );
+
+          toast(
+            event.target.checked
+              ? "Notifications ON"
+              : "Notifications OFF",
+            "✓"
+          );
+        }
+      );
+
+
+    /* Owner panel button */
+    $("openOwnerPanelBtn")
+      ?.addEventListener(
+        "click",
+        () => {
+
+          if (!isOwner()) {
+            toast(
+              "Owner access required.",
+              "!"
+            );
+            return;
+          }
+
+          navigateTo("owner");
+        }
+      );
+
+
+    /* Start default page */
+    applyGlobalSettings();
+  }
 );
 
 
 /* =========================================================
-   FORM EVENT SETUP
+   END OF PART 1
    ========================================================= */
+// =========================
+// STUDYCONNECT - SCRIPT.JS
+// PART 2 / 2
+// =========================
 
-function setupFormEvents() {
+// ---------- OWNER PANEL ----------
 
-    $("loginForm")
-        ?.addEventListener(
-            "submit",
-            handleLogin
-        );
+const ownerTabs = document.querySelectorAll(".owner-tab");
 
-    $("homeworkAdminForm")
-        ?.addEventListener(
-            "submit",
-            addHomeworkFromForm
-        );
+ownerTabs.forEach(tab => {
+  tab.addEventListener("click", () => {
+    if (!isOwner) return;
 
-    $("noteAdminForm")
-        ?.addEventListener(
-            "submit",
-            addNoteFromForm
-        );
+    const section = tab.dataset.ownerSection;
+    if (!section) return;
 
-    $("announcementAdminForm")
-        ?.addEventListener(
-            "submit",
-            addAnnouncementFromForm
-        );
+    ownerTabs.forEach(t => t.classList.remove("active"));
+    tab.classList.add("active");
 
+    document.querySelectorAll(".owner-section").forEach(s => {
+      s.classList.remove("active");
+    });
 
-    document
-        .querySelectorAll(
-            "[data-close-modal]"
-        )
-        .forEach(button => {
+    const target = document.getElementById(`ownerSection-${section}`);
+    if (target) target.classList.add("active");
 
-            button.addEventListener(
-                "click",
-                () => {
+    if (section === "dashboard") loadOwnerDashboard();
+    if (section === "students") loadOwnerStudents();
+    if (section === "approvals") loadOwnerApprovals();
+    if (section === "groups") loadOwnerGroups();
+    if (section === "content") loadOwnerContent();
+    if (section === "activity") loadActivityLog();
+  });
+});
 
-                    const modalId =
-                        button.dataset.closeModal;
+async function loadOwnerDashboard() {
+  if (!isOwner) return;
 
-                    $(modalId)
-                        ?.classList.add(
-                            "hidden"
-                        );
-                }
-            );
-        });
+  try {
+    const studentsSnap = await getDocs(collection(db, "students"));
+    const groupsSnap = await getDocs(collection(db, "groups"));
+    const messagesSnap = await getDocs(collection(db, "messages"));
+    const homeworkSnap = await getDocs(collection(db, "homework"));
+
+    const students = studentsSnap.docs.map(d => d.data());
+
+    setText("ownerTotalStudents", students.length);
+    setText(
+      "ownerOnlineStudents",
+      students.filter(s => s.online === true && s.status !== "blocked").length
+    );
+    setText(
+      "ownerPendingStudents",
+      students.filter(s => s.status === "pending").length
+    );
+    setText("ownerTotalMessages", messagesSnap.size);
+    setText("ownerTotalGroups", groupsSnap.size);
+    setText("ownerTotalHomework", homeworkSnap.size);
+  } catch (error) {
+    console.error("Owner dashboard:", error);
+  }
 }
 
 
-/* =========================================================
-   INITIAL APP START
-   ========================================================= */
+// ---------- OWNER STUDENTS ----------
 
-async function initApp() {
+const ownerStudentSearch = document.getElementById("ownerStudentSearch");
 
-    try {
+if (ownerStudentSearch) {
+  ownerStudentSearch.addEventListener("input", () => {
+    loadOwnerStudents(ownerStudentSearch.value.trim().toLowerCase());
+  });
+}
 
-        setupFormEvents();
+async function loadOwnerStudents(searchText = "") {
+  if (!isOwner) return;
 
-        await loadGlobalSettings();
+  const box = document.getElementById("ownerPeopleList");
+  if (!box) return;
 
-        listenToGlobalSettings();
+  box.innerHTML = `<div class="empty-state">Loading students...</div>`;
 
-        const savedName =
-            getUserName();
+  try {
+    const snap = await getDocs(collection(db, "students"));
 
-        const savedPhone =
-            getUserPhone();
+    let students = snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
 
-        if (
-            savedName &&
-            savedPhone
-        ) {
+    students.sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""))
+    );
 
-            const profileId =
-                getProfileId(
-                    savedPhone
-                );
-
-            const studentSnap =
-                await getDoc(
-                    doc(
-                        db,
-                        "students",
-                        profileId
-                    )
-                );
-
-            if (studentSnap.exists()) {
-
-                const data =
-                    studentSnap.data();
-
-                if (
-                    data.status !==
-                    "blocked"
-                ) {
-
-                    currentStudent = {
-                        id: profileId,
-                        ...data
-                    };
-
-                    checkOwner(
-                        data.name,
-                        data.phone
-                    );
-
-                    /*
-                       Password is still required
-                       for actual login.
-                       Do not auto-login only
-                       because localStorage exists.
-                    */
-                }
-            }
-        }
-
-    } catch (error) {
-
-        console.error(
-            "App initialization error:",
-            error
-        );
+    if (searchText) {
+      students = students.filter(s =>
+        String(s.name || "").toLowerCase().includes(searchText) ||
+        String(s.phone || "").includes(searchText)
+      );
     }
+
+    if (!students.length) {
+      box.innerHTML = `<div class="empty-state">No students found.</div>`;
+      return;
+    }
+
+    box.innerHTML = students.map(student => `
+      <button class="owner-person-item" data-student-id="${escapeAttr(student.id)}">
+        <div class="owner-person-avatar">
+          ${escapeHtml(getInitial(student.name))}
+        </div>
+        <div class="owner-person-info">
+          <strong>${escapeHtml(student.name || "Unknown")}</strong>
+          <small>${escapeHtml(student.phone || "")}</small>
+        </div>
+        <span class="status-dot ${student.status === "blocked" ? "offline" : "online"}"></span>
+      </button>
+    `).join("");
+
+    box.querySelectorAll("[data-student-id]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        showOwnerStudent(btn.dataset.studentId);
+      });
+    });
+
+  } catch (error) {
+    console.error(error);
+    box.innerHTML = `<div class="empty-state">Unable to load students.</div>`;
+  }
 }
 
 
-/* =========================================================
-   START
-   ========================================================= */
+async function showOwnerStudent(studentId) {
+  const box = document.getElementById("ownerPersonDetails");
+  if (!box) return;
 
-initApp();
+  box.innerHTML = `<div class="empty-state">Loading...</div>`;
+
+  try {
+    const ref = doc(db, "students", studentId);
+    const snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+      box.innerHTML = `<div class="empty-state">Student not found.</div>`;
+      return;
+    }
+
+    const s = snap.data();
+
+    const followers = Array.isArray(s.followers) ? s.followers.length : 0;
+    const following = Array.isArray(s.following) ? s.following.length : 0;
+
+    box.innerHTML = `
+      <div class="owner-detail-card">
+
+        <div class="owner-detail-top">
+          <div class="owner-large-avatar">
+            ${escapeHtml(getInitial(s.name))}
+          </div>
+
+          <div>
+            <h3>${escapeHtml(s.name || "Unknown")}</h3>
+            <p>${escapeHtml(s.phone || "")}</p>
+          </div>
+        </div>
+
+        <div class="owner-detail-stats">
+          <div>
+            <strong>${followers}</strong>
+            <span>Followers</span>
+          </div>
+          <div>
+            <strong>${following}</strong>
+            <span>Following</span>
+          </div>
+          <div>
+            <strong>${escapeHtml(s.permission || "normal")}</strong>
+            <span>Permission</span>
+          </div>
+        </div>
+
+        <div class="owner-detail-row">
+          <span>Status</span>
+          <strong>${escapeHtml(s.status || "approved")}</strong>
+        </div>
+
+        <div class="owner-detail-row">
+          <span>Joined</span>
+          <strong>${formatDate(s.createdAt)}</strong>
+        </div>
+
+        <div class="owner-detail-actions">
+
+          <button class="owner-action-btn"
+            data-owner-action="permission"
+            data-id="${escapeAttr(studentId)}">
+            Change Permission
+          </button>
+
+          <button class="owner-action-btn"
+            data-owner-action="block"
+            data-id="${escapeAttr(studentId)}">
+            ${s.status === "blocked" ? "Unblock" : "Block"}
+          </button>
+
+          <button class="owner-action-btn danger"
+            data-owner-action="remove"
+            data-id="${escapeAttr(studentId)}">
+            Remove
+          </button>
+
+        </div>
+
+      </div>
+    `;
+
+    box.querySelectorAll("[data-owner-action]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const action = btn.dataset.ownerAction;
+        const id = btn.dataset.id;
+
+        if (action === "permission") changeStudentPermission(id);
+        if (action === "block") toggleStudentBlock(id);
+        if (action === "remove") removeStudent(id);
+      });
+    });
+
+  } catch (error) {
+    console.error(error);
+    box.innerHTML = `<div class="empty-state">Unable to load profile.</div>`;
+  }
+}
 
 
-/* =========================================================
-   GLOBAL DEBUG HELPERS
-   ========================================================= */
+async function changeStudentPermission(id) {
+  const value = prompt(
+    "Enter permission:\n\ndontallow\nnormal\nallow"
+  );
 
-window.StudyConnect = {
+  if (!value) return;
 
-    getCurrentStudent: () =>
-        currentStudent,
+  const permission = value.trim().toLowerCase();
 
-    getSettings: () =>
-        currentSettings,
+  if (!["dontallow", "normal", "allow"].includes(permission)) {
+    showToast("Invalid permission", "error");
+    return;
+  }
 
-    isOwner: () =>
-        isOwner,
+  try {
+    await updateDoc(doc(db, "students", id), {
+      permission,
+      updatedAt: serverTimestamp()
+    });
 
-    showPage,
+    showToast("Permission updated", "success");
+    showOwnerStudent(id);
+    loadOwnerStudents();
+  } catch (error) {
+    console.error(error);
+    showToast("Permission update failed", "error");
+  }
+}
 
-    loadStudents,
 
-    loadGroups,
+async function toggleStudentBlock(id) {
+  try {
+    const ref = doc(db, "students", id);
+    const snap = await getDoc(ref);
 
-    loadHomework,
+    if (!snap.exists()) return;
 
-    loadSchoolUpdates,
+    const current = snap.data().status;
+    const next = current === "blocked" ? "approved" : "blocked";
 
-    loadNotes
-};
+    await updateDoc(ref, {
+      status: next,
+      online: false,
+      updatedAt: serverTimestamp()
+    });
+
+    showToast(
+      next === "blocked" ? "Student blocked" : "Student unblocked",
+      "success"
+    );
+
+    showOwnerStudent(id);
+    loadOwnerStudents();
+
+  } catch (error) {
+    console.error(error);
+    showToast("Action failed", "error");
+  }
+}
+
+
+async function removeStudent(id) {
+  if (!confirm("Remove this student?")) return;
+
+  try {
+    await deleteDoc(doc(db, "students", id));
+
+    showToast("Student removed", "success");
+
+    const details = document.getElementById("ownerPersonDetails");
+    if (details) {
+      details.innerHTML = `<div class="empty-state">Select a student.</div>`;
+    }
+
+    loadOwnerStudents();
+    loadOwnerDashboard();
+
+  } catch (error) {
+    console.error(error);
+    showToast("Remove failed", "error");
+  }
+}
+
+
+// ---------- APPROVAL ----------
+
+async function loadOwnerApprovals() {
+  if (!isOwner) return;
+
+  const box = document.getElementById("ownerApprovalList");
+  if (!box) return;
+
+  box.innerHTML = `<div class="empty-state">Loading approvals...</div>`;
+
+  try {
+    const snap = await getDocs(collection(db, "students"));
+
+    const pending = snap.docs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(s => s.status === "pending");
+
+    if (!pending.length) {
+      box.innerHTML = `<div class="empty-state">No pending approvals.</div>`;
+      return;
+    }
+
+    box.innerHTML = pending.map(s => `
+      <div class="owner-approval-card">
+        <div>
+          <strong>${escapeHtml(s.name || "")}</strong>
+          <p>${escapeHtml(s.phone || "")}</p>
+        </div>
+
+        <div class="owner-approval-actions">
+          <button data-approve="${escapeAttr(s.id)}">Approve</button>
+          <button data-reject="${escapeAttr(s.id)}">Reject</button>
+        </div>
+      </div>
+    `).join("");
+
+    box.querySelectorAll("[data-approve]").forEach(btn => {
+      btn.addEventListener("click", () => approveStudent(btn.dataset.approve));
+    });
+
+    box.querySelectorAll("[data-reject]").forEach(btn => {
+      btn.addEventListener("click", () => rejectStudent(btn.dataset.reject));
+    });
+
+  } catch (error) {
+    console.error(error);
+    box.innerHTML = `<div class="empty-state">Unable to load approvals.</div>`;
+  }
+}
+
+
+async function approveStudent(id) {
+  try {
+    await updateDoc(doc(db, "students", id), {
+      status: "approved",
+      permission: "normal",
+      updatedAt: serverTimestamp()
+    });
+
+    showToast("Student approved", "success");
+    loadOwnerApprovals();
+    loadOwnerDashboard();
+
+  } catch (error) {
+    console.error(error);
+    showToast("Approval failed", "error");
+  }
+}
+
+
+async function rejectStudent(id) {
+  if (!confirm("Reject this student?")) return;
+
+  try {
+    await updateDoc(doc(db, "students", id), {
+      status: "rejected",
+      updatedAt: serverTimestamp()
+    });
+
+    showToast("Student rejected", "success");
+    loadOwnerApprovals();
+    loadOwnerDashboard();
+
+  } catch (error) {
+    console.error(error);
+    showToast("Reject failed", "error");
+  }
+}
+
+
+// ---------- OWNER GROUPS ----------
+
+async function loadOwnerGroups() {
+  if (!isOwner) return;
+
+  const box = document.getElementById("ownerGroupsList");
+  if (!box) return;
+
+  box.innerHTML = `<div class="empty-state">Loading groups...</div>`;
+
+  try {
+    const snap = await getDocs(collection(db, "groups"));
+
+    if (snap.empty) {
+      box.innerHTML = `<div class="empty-state">No groups created.</div>`;
+      return;
+    }
+
+    box.innerHTML = snap.docs.map(d => {
+      const g = d.data();
+
+      const members = Array.isArray(g.members)
+        ? g.members.length
+        : 0;
+
+      return `
+        <div class="owner-group-card">
+          <div>
+            <h3>${escapeHtml(g.name || "Group")}</h3>
+            <p>Creator: ${escapeHtml(g.creatorName || g.creatorId || "Unknown")}</p>
+            <small>${members} member(s)</small>
+          </div>
+
+          <button class="owner-action-btn danger"
+            data-delete-group="${escapeAttr(d.id)}">
+            Remove
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    box.querySelectorAll("[data-delete-group]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        deleteOwnerGroup(btn.dataset.deleteGroup);
+      });
+    });
+
+  } catch (error) {
+    console.error(error);
+    box.innerHTML = `<div class="empty-state">Unable to load groups.</div>`;
+  }
+}
+
+
+async function deleteOwnerGroup(id) {
+  if (!confirm("Remove this group?")) return;
+
+  try {
+    await deleteDoc(doc(db, "groups", id));
+    showToast("Group removed", "success");
+    loadOwnerGroups();
+    loadOwnerDashboard();
+  } catch (error) {
+    console.error(error);
+    showToast("Could not remove group", "error");
+  }
+}
+
+
+// ---------- OWNER CONTENT ----------
+
+async function loadOwnerContent() {
+  if (!isOwner) return;
+
+  await loadOwnerHomework();
+  await loadOwnerNotes();
+  await loadOwnerAnnouncements();
+}
+
+
+async function loadOwnerHomework() {
+  const box = document.getElementById("ownerHomeworkList");
+  if (!box) return;
+
+  try {
+    const snap = await getDocs(collection(db, "homework"));
+
+    if (snap.empty) {
+      box.innerHTML = `<div class="empty-state">No homework.</div>`;
+      return;
+    }
+
+    box.innerHTML = snap.docs.map(d => {
+      const h = d.data();
+
+      return `
+        <div class="owner-content-card">
+          <div>
+            <strong>${escapeHtml(h.title || "Homework")}</strong>
+            <small>${escapeHtml(h.subject || "")}</small>
+          </div>
+
+          <button data-delete-homework="${escapeAttr(d.id)}">
+            Delete
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    box.querySelectorAll("[data-delete-homework]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Delete homework?")) return;
+
+        await deleteDoc(doc(db, "homework", btn.dataset.deleteHomework));
+        showToast("Homework deleted", "success");
+        loadOwnerHomework();
+      });
+    });
+
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+
+async function loadOwnerNotes() {
+  const box = document.getElementById("ownerNotesList");
+  if (!box) return;
+
+  try {
+    const snap = await getDocs(collection(db, "notes"));
+
+    if (snap.empty) {
+      box.innerHTML = `<div class="empty-state">No notes.</div>`;
+      return;
+    }
+
+    box.innerHTML = snap.docs.map(d => {
+      const n = d.data();
+
+      return `
+        <div class="owner-content-card">
+          <div>
+            <strong>${escapeHtml(n.title || "Note")}</strong>
+            <small>${escapeHtml(n.subject || "")}</small>
+          </div>
+
+          <button data-delete-note="${escapeAttr(d.id)}">
+            Delete
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    box.querySelectorAll("[data-delete-note]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Delete note?")) return;
+
+        await deleteDoc(doc(db, "notes", btn.dataset.deleteNote));
+        showToast("Note deleted", "success");
+        loadOwnerNotes();
+      });
+    });
+
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+
+async function loadOwnerAnnouncements() {
+  const box = document.getElementById("ownerAnnouncementsList");
+  if (!box) return;
+
+  try {
+    const snap = await getDocs(collection(db, "school"));
+
+    if (snap.empty) {
+      box.innerHTML = `<div class="empty-state">No announcements.</div>`;
+      return;
+    }
+
+    box.innerHTML = snap.docs.map(d => {
+      const a = d.data();
+
+      return `
+        <div class="owner-content-card">
+          <div>
+            <strong>${escapeHtml(a.title || "Announcement")}</strong>
+            <small>${escapeHtml(a.text || "")}</small>
+          </div>
+
+          <button data-delete-announcement="${escapeAttr(d.id)}">
+            Delete
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    box.querySelectorAll("[data-delete-announcement]").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        if (!confirm("Delete announcement?")) return;
+
+        await deleteDoc(
+          doc(db, "school", btn.dataset.deleteAnnouncement)
+        );
+
+        showToast("Announcement deleted", "success");
+        loadOwnerAnnouncements();
+      });
+    });
+
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+
+// ---------- ADD CONTENT ----------
+
+const ownerAddHomeworkBtn =
+  document.getElementById("ownerAddHomeworkBtn");
+
+if (ownerAddHomeworkBtn) {
+  ownerAddHomeworkBtn.addEventListener("click", () => {
+    openAppModal(
+      "Add Homework",
+      `
+      <form id="dynamicHomeworkForm" class="dynamic-form">
+
+        <input id="newHomeworkTitle"
+          placeholder="Homework title" required>
+
+        <input id="newHomeworkSubject"
+          placeholder="Subject" required>
+
+        <input id="newHomeworkChapter"
+          placeholder="Chapter">
+
+        <textarea id="newHomeworkText"
+          placeholder="Homework details" required></textarea>
+
+        <button type="submit">Publish Homework</button>
+
+      </form>
+      `
+    );
+
+    const form = document.getElementById("dynamicHomeworkForm");
+
+    form?.addEventListener("submit", async e => {
+      e.preventDefault();
+
+      try {
+        await addDoc(collection(db, "homework"), {
+          title: document.getElementById("newHomeworkTitle").value.trim(),
+          subject: document.getElementById("newHomeworkSubject").value.trim(),
+          chapter: document.getElementById("newHomeworkChapter").value.trim(),
+          text: document.getElementById("newHomeworkText").value.trim(),
+          createdAt: serverTimestamp(),
+          published: true
+        });
+
+        closeAppModal();
+        showToast("Homework published", "success");
+        loadOwnerHomework();
+        loadHomework();
+        loadOwnerDashboard();
+
+      } catch (error) {
+        console.error(error);
+        showToast("Could not publish homework", "error");
+      }
+    });
+  });
+}
+
+
+const ownerAddNoteBtn =
+  document.getElementById("ownerAddNoteBtn");
+
+if (ownerAddNoteBtn) {
+  ownerAddNoteBtn.addEventListener("click", () => {
+
+    openAppModal(
+      "Add Note",
+      `
+      <form id="dynamicNoteForm" class="dynamic-form">
+
+        <input id="newNoteTitle"
+          placeholder="Note title" required>
+
+        <input id="newNoteSubject"
+          placeholder="Subject" required>
+
+        <input id="newNoteChapter"
+          placeholder="Chapter">
+
+        <textarea id="newNoteText"
+          placeholder="Note content" required></textarea>
+
+        <button type="submit">Publish Note</button>
+
+      </form>
+      `
+    );
+
+    document.getElementById("dynamicNoteForm")
+      ?.addEventListener("submit", async e => {
+
+        e.preventDefault();
+
+        try {
+          await addDoc(collection(db, "notes"), {
+            title: document.getElementById("newNoteTitle").value.trim(),
+            subject: document.getElementById("newNoteSubject").value.trim(),
+            chapter: document.getElementById("newNoteChapter").value.trim(),
+            text: document.getElementById("newNoteText").value.trim(),
+            createdAt: serverTimestamp(),
+            published: true
+          });
+
+          closeAppModal();
+          showToast("Note published", "success");
+          loadOwnerNotes();
+          loadNotes();
+
+        } catch (error) {
+          console.error(error);
+          showToast("Could not publish note", "error");
+        }
+      });
+  });
+}
+
+
+const ownerAddAnnouncementBtn =
+  document.getElementById("ownerAddAnnouncementBtn");
+
+if (ownerAddAnnouncementBtn) {
+  ownerAddAnnouncementBtn.addEventListener("click", () => {
+
+    openAppModal(
+      "School Update",
+      `
+      <form id="dynamicAnnouncementForm" class="dynamic-form">
+
+        <input id="newAnnouncementTitle"
+          placeholder="Announcement title" required>
+
+        <textarea id="newAnnouncementText"
+          placeholder="Announcement" required></textarea>
+
+        <button type="submit">Publish Update</button>
+
+      </form>
+      `
+    );
+
+    document.getElementById("dynamicAnnouncementForm")
+      ?.addEventListener("submit", async e => {
+
+        e.preventDefault();
+
+        try {
+          await addDoc(collection(db, "school"), {
+            title: document.getElementById("newAnnouncementTitle").value.trim(),
+            text: document.getElementById("newAnnouncementText").value.trim(),
+            createdAt: serverTimestamp(),
+            published: true
+          });
+
+          closeAppModal();
+          showToast("School update published", "success");
+
+          loadOwnerAnnouncements();
+          loadSchoolUpdates();
+
+        } catch (error) {
+          console.error(error);
+          showToast("Could not publish update", "error");
+        }
+      });
+  });
+}
+
+
+// ---------- GLOBAL SETTINGS ----------
+
+const saveGlobalSettingsBtn =
+  document.getElementById("saveGlobalSettingsBtn");
+
+if (saveGlobalSettingsBtn) {
+  saveGlobalSettingsBtn.addEventListener("click", saveGlobalSettings);
+}
+
+async function saveGlobalSettings() {
+  if (!isOwner) return;
+
+  const appName =
+    document.getElementById("ownerAppName")?.value.trim() ||
+    "StudyConnect";
+
+  const language =
+    document.getElementById("ownerGlobalLanguage")?.value ||
+    "hi";
+
+  const theme =
+    document.getElementById("ownerGlobalTheme")?.value ||
+    "system";
+
+  const animation =
+    document.getElementById("ownerWelcomeAnimation")?.checked !== false;
+
+  try {
+    await setDoc(
+      doc(db, "appSettings", "global"),
+      {
+        appName,
+        language,
+        theme,
+        welcomeAnimation: animation,
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    globalSettings = {
+      ...globalSettings,
+      appName,
+      language,
+      theme,
+      welcomeAnimation: animation
+    };
+
+    applyGlobalSettings();
+    showToast("Global settings saved", "success");
+
+  } catch (error) {
+    console.error(error);
+    showToast("Could not save settings", "error");
+  }
+}
+
+
+// ---------- FEATURE SETTINGS ----------
+
+const saveFeatureSettingsBtn =
+  document.getElementById("saveFeatureSettingsBtn");
+
+if (saveFeatureSettingsBtn) {
+  saveFeatureSettingsBtn.addEventListener("click", saveFeatureSettings);
+}
+
+async function saveFeatureSettings() {
+  if (!isOwner) return;
+
+  const features = {
+    chat:
+      document.getElementById("featureChat")?.checked ?? true,
+
+    groups:
+      document.getElementById("featureGroups")?.checked ?? true,
+
+    homework:
+      document.getElementById("featureHomework")?.checked ?? true,
+
+    notes:
+      document.getElementById("featureNotes")?.checked ?? true,
+
+    announcements:
+      document.getElementById("featureAnnouncements")?.checked ?? true,
+
+    registration:
+      document.getElementById("featureRegistration")?.checked ?? true,
+
+    maintenance:
+      document.getElementById("featureMaintenance")?.checked ?? false
+  };
+
+  try {
+    await setDoc(
+      doc(db, "appSettings", "features"),
+      {
+        ...features,
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    featureSettings = features;
+    applyFeatureSettings();
+
+    showToast("Feature settings saved", "success");
+
+  } catch (error) {
+    console.error(error);
+    showToast("Could not save feature settings", "error");
+  }
+}
+
+
+// ---------- OWNER PASSWORD ----------
+
+const changeOwnerPasswordBtn =
+  document.getElementById("changeOwnerPasswordBtn");
+
+if (changeOwnerPasswordBtn) {
+  changeOwnerPasswordBtn.addEventListener("click", changeOwnerPassword);
+}
+
+async function changeOwnerPassword() {
+  if (!isOwner) return;
+
+  const p1 =
+    document.getElementById("ownerNewPassword")?.value || "";
+
+  const p2 =
+    document.getElementById("ownerConfirmPassword")?.value || "";
+
+  if (!p1 || p1.length < 4) {
+    showToast("Password must be at least 4 characters", "error");
+    return;
+  }
+
+  if (p1 !== p2) {
+    showToast("Passwords do not match", "error");
+    return;
+  }
+
+  try {
+    const hash = await hashPassword(p1);
+
+    await setDoc(
+      doc(db, "appSettings", "security"),
+      {
+        ownerPasswordHash: hash,
+        updatedAt: serverTimestamp()
+      },
+      { merge: true }
+    );
+
+    document.getElementById("ownerNewPassword").value = "";
+    document.getElementById("ownerConfirmPassword").value = "";
+
+    showToast("Owner password changed", "success");
+
+  } catch (error) {
+    console.error(error);
+    showToast("Could not change password", "error");
+  }
+}
+
+
+// ---------- ACTIVITY LOG ----------
+
+async function loadActivityLog() {
+  if (!isOwner) return;
+
+  const box = document.getElementById("ownerActivityLog");
+  if (!box) return;
+
+  try {
+    const snap = await getDocs(collection(db, "activityLogs"));
+
+    if (snap.empty) {
+      box.innerHTML = `<div class="empty-state">No activity yet.</div>`;
+      return;
+    }
+
+    const logs = snap.docs
+      .map(d => d.data())
+      .sort((a, b) => {
+        const at = getMillis(a.createdAt);
+        const bt = getMillis(b.createdAt);
+        return bt - at;
+      })
+      .slice(0, 100);
+
+    box.innerHTML = logs.map(log => `
+      <div class="activity-log-item">
+        <strong>${escapeHtml(log.action || "Activity")}</strong>
+        <span>${escapeHtml(log.userName || "")}</span>
+        <small>${formatDateTime(log.createdAt)}</small>
+      </div>
+    `).join("");
+
+  } catch (error) {
+    console.error(error);
+    box.innerHTML = `<div class="empty-state">Unable to load activity.</div>`;
+  }
+}
+
+
+async function writeActivity(action, extra = {}) {
+  try {
+    await addDoc(collection(db, "activityLogs"), {
+      action,
+      userId: currentUser?.id || "unknown",
+      userName: currentUser?.name || "Unknown",
+      createdAt: serverTimestamp(),
+      ...extra
+    });
+  } catch (error) {
+    console.warn("Activity log failed:", error);
+  }
+}
+
+
+// ---------- HEADER BUTTONS ----------
+
+const headerNotificationBtn =
+  document.getElementById("headerNotificationBtn");
+
+if (headerNotificationBtn) {
+  headerNotificationBtn.addEventListener("click", () => {
+    openAppModal(
+      "Notifications",
+      `
+      <div class="notification-empty">
+        <div class="big-icon">🔔</div>
+        <h3>No new notifications</h3>
+        <p>You are
