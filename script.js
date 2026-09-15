@@ -3806,4 +3806,273 @@ if (headerNotificationBtn) {
       <div class="notification-empty">
         <div class="big-icon">🔔</div>
         <h3>No new notifications</h3>
-        <p>You are
+        <p>You are all caught up.</p>
+      </div>
+      `
+    );
+  });
+}
+
+
+const headerProfileBtn =
+  document.getElementById("headerProfileBtn");
+
+if (headerProfileBtn) {
+  headerProfileBtn.addEventListener("click", () => {
+    showPage("settings");
+  });
+}
+
+
+// ---------- FEATURE CARDS ----------
+
+document.querySelectorAll(".feature-card").forEach(card => {
+  card.addEventListener("click", () => {
+
+    const page =
+      card.dataset.page ||
+      card.getAttribute("data-target");
+
+    if (page) {
+      showPage(page);
+    }
+  });
+});
+
+
+// ---------- BACK BUTTON SUPPORT ----------
+
+window.addEventListener("popstate", event => {
+  const page = event.state?.page || "home";
+  showPage(page, false);
+});
+
+
+// ---------- KEYBOARD CHAT ----------
+
+document.addEventListener("keydown", event => {
+  const input = document.getElementById("messageInput");
+
+  if (!input) return;
+  if (document.activeElement !== input) return;
+
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+
+    const sendBtn = document.getElementById("sendMessageBtn");
+    if (sendBtn) sendBtn.click();
+  }
+});
+
+
+// ---------- SAFE HELPERS ----------
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
+}
+
+function getInitial(name) {
+  const text = String(name || "?").trim();
+  return text ? text.charAt(0).toUpperCase() : "?";
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function getMillis(timestamp) {
+  if (!timestamp) return 0;
+
+  if (typeof timestamp.toMillis === "function") {
+    return timestamp.toMillis();
+  }
+
+  if (timestamp instanceof Date) {
+    return timestamp.getTime();
+  }
+
+  if (typeof timestamp === "number") {
+    return timestamp;
+  }
+
+  return 0;
+}
+
+function formatDate(timestamp) {
+  const ms = getMillis(timestamp);
+
+  if (!ms) return "—";
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  }).format(new Date(ms));
+}
+
+function formatDateTime(timestamp) {
+  const ms = getMillis(timestamp);
+
+  if (!ms) return "—";
+
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(ms));
+}
+
+
+// ---------- APP MODAL ----------
+
+function openAppModal(title, body) {
+  const modal = document.getElementById("appModal");
+  const titleEl = document.getElementById("appModalTitle");
+  const bodyEl = document.getElementById("appModalBody");
+
+  if (!modal) return;
+
+  if (titleEl) titleEl.textContent = title;
+  if (bodyEl) bodyEl.innerHTML = body;
+
+  modal.classList.add("active");
+}
+
+function closeAppModal() {
+  const modal = document.getElementById("appModal");
+  if (modal) modal.classList.remove("active");
+}
+
+const closeAppModalBtn =
+  document.getElementById("closeAppModalBtn");
+
+if (closeAppModalBtn) {
+  closeAppModalBtn.addEventListener("click", closeAppModal);
+}
+
+const appModal =
+  document.getElementById("appModal");
+
+if (appModal) {
+  appModal.addEventListener("click", e => {
+    if (e.target === appModal) {
+      closeAppModal();
+    }
+  });
+}
+
+
+// ---------- TOAST ----------
+
+function showToast(message, type = "info") {
+  const toast = document.getElementById("toast");
+  const text = document.getElementById("toastMessage");
+  const icon = document.getElementById("toastIcon");
+
+  if (!toast) return;
+
+  if (text) text.textContent = message;
+
+  if (icon) {
+    icon.textContent =
+      type === "success" ? "✓" :
+      type === "error" ? "!" :
+      "i";
+  }
+
+  toast.classList.add("show");
+
+  clearTimeout(window.__toastTimer);
+
+  window.__toastTimer = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 2600);
+}
+
+
+// ---------- ONLINE STATUS ----------
+
+async function setOnlineStatus(value) {
+  if (!currentUser?.id) return;
+
+  try {
+    await updateDoc(
+      doc(db, "students", currentUser.id),
+      {
+        online: value,
+        lastSeen: serverTimestamp()
+      }
+    );
+  } catch (error) {
+    console.warn("Online status:", error);
+  }
+}
+
+window.addEventListener("beforeunload", () => {
+  if (currentUser?.id) {
+    setOnlineStatus(false);
+  }
+});
+
+
+// ---------- STARTUP ----------
+
+(async function startStudyConnect() {
+  try {
+    await loadGlobalSettings();
+    await loadFeatureSettings();
+
+    const savedName =
+      localStorage.getItem("studyName");
+
+    const savedPhone =
+      localStorage.getItem("studyPhone");
+
+    if (savedName && savedPhone) {
+      const studentId = makeProfileId(savedPhone);
+
+      try {
+        const snap =
+          await getDoc(doc(db, "students", studentId));
+
+        if (snap.exists()) {
+          currentUser = {
+            id: studentId,
+            ...snap.data()
+          };
+
+          if (currentUser.status === "approved") {
+            isLoggedIn = true;
+            isOwner = false;
+
+            applyGlobalSettings();
+            applyFeatureSettings();
+            openApp();
+
+            return;
+          }
+        }
+      } catch (error) {
+        console.warn("Auto login:", error);
+      }
+    }
+
+    showLogin();
+
+  } catch (error) {
+    console.error("Startup error:", error);
+    showLogin();
+  }
+})();
