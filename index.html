@@ -1,202 +1,111 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="hi">
 <head>
-  <meta charset="UTF-8" />
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-  />
-
-  <meta name="theme-color" content="#2563eb" />
-
-  <meta
-    name="description"
-    content="StudyConnect - Student Community"
-  />
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="StudyConnect - Student Community">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>StudyConnect</title>
-
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <!-- ============================= -->
-  <!-- OWNER WELCOME ANIMATION -->
-  <!-- ============================= -->
-
+  <!-- OWNER WELCOME -->
   <div id="ownerWelcome" class="owner-welcome hidden">
-
-    <div id="fallingStars" class="falling-stars"></div>
+    <div id="fallingStars"></div>
 
     <div class="owner-welcome-box">
-
       <div class="owner-crown">👑</div>
-
-      <h1 id="ownerWelcomeTitle">
-        Welcome Owner Krishna Ji
-      </h1>
-
-      <p id="ownerWelcomeText">
-        Welcome to StudyConnect Owner Panel
-      </p>
-
+      <h1 id="ownerWelcomeTitle">Welcome Owner Krishna Ji</h1>
+      <p id="ownerWelcomeText">Control Center is opening…</p>
     </div>
-
   </div>
 
 
-  <!-- ============================= -->
-  <!-- LOGIN SCREEN -->
-  <!-- ============================= -->
-
-  <main id="loginScreen" class="login-screen">
+  <!-- LOGIN -->
+  <section id="loginScreen" class="login-screen">
 
     <div class="login-card">
 
-      <div class="app-logo">
-        📚
-      </div>
+      <div class="app-logo">SC</div>
 
-      <h1 id="loginTitle">
-        StudyConnect
-      </h1>
-
-      <p id="loginSubtitle">
-        Student Community
-      </p>
-
+      <h1 id="loginTitle">StudyConnect</h1>
+      <p id="loginSubtitle">Student Community</p>
 
       <form id="loginForm">
 
-        <div class="input-group">
-
-          <label for="loginName">
-            Your Name
-          </label>
-
+        <div id="loginNameWrap" class="field hidden">
+          <label for="loginName">Name</label>
           <input
             id="loginName"
             type="text"
-            placeholder="Enter your name"
             autocomplete="name"
-            required
-          />
-
+          >
         </div>
 
-
-        <div class="input-group">
-
-          <label for="loginPhone">
-            Mobile Number
-          </label>
-
+        <div id="loginPhoneWrap" class="field hidden">
+          <label for="loginPhone">Mobile Number</label>
           <input
             id="loginPhone"
             type="tel"
             inputmode="numeric"
-            placeholder="Enter mobile number"
-            maxlength="10"
             autocomplete="tel"
-            required
-          />
-
+          >
         </div>
 
-
-        <div class="input-group">
-
-          <label for="loginPassword">
-            App Password
-          </label>
-
+        <div class="field">
+          <label for="loginPassword">Password</label>
           <input
             id="loginPassword"
             type="password"
-            placeholder="Enter app password"
             autocomplete="current-password"
             required
-          />
-
+          >
         </div>
 
-
-        <button
-          id="loginBtn"
-          type="submit"
-          class="primary-btn"
-        >
-          Login
+        <button id="loginBtn" class="primary-btn" type="submit">
+          Next →
         </button>
+
+        <p id="loginMessage" class="form-message"></p>
 
       </form>
 
-
-      <div
-        id="loginMessage"
-        class="login-message"
-      ></div>
-
     </div>
 
-  </main>
+  </section>
 
 
+  <!-- MAIN APP -->
+  <div id="app" class="app hidden">
 
-  <!-- ============================= -->
-  <!-- APP -->
-  <!-- ============================= -->
-
-  <div
-    id="app"
-    class="app hidden"
-  >
-
-
-    <!-- ============================= -->
     <!-- TOP HEADER -->
-    <!-- ============================= -->
-
     <header class="top-header">
 
-      <div class="header-left">
+      <button
+        id="mobileMenuBtn"
+        class="icon-btn"
+        type="button"
+        aria-label="Menu"
+      >
+        ☰
+      </button>
 
-        <button
-          id="mobileMenuBtn"
-          class="icon-btn"
-          type="button"
-          aria-label="Menu"
-        >
-          ☰
-        </button>
-
-        <div class="header-logo">
-          📚
-        </div>
-
-        <div>
-
-          <h2 id="appTitle">
-            StudyConnect
-          </h2>
-
-          <span id="onlineStatus">
-            Online
-          </span>
-
-        </div>
-
+      <div class="brand">
+        <strong id="appTitle">StudyConnect</strong>
+        <span id="onlineStatus">● Online</span>
       </div>
 
-
-      <div class="header-right">
+      <div class="header-actions">
 
         <button
           id="headerNotificationBtn"
           class="icon-btn"
           type="button"
+          aria-label="Notifications"
         >
           🔔
         </button>
@@ -205,10 +114,9 @@
           id="headerProfileBtn"
           class="profile-mini"
           type="button"
+          aria-label="Profile"
         >
-          <span id="headerProfileInitial">
-            K
-          </span>
+          <span id="headerProfileInitial">S</span>
         </button>
 
       </div>
@@ -216,42 +124,20 @@
     </header>
 
 
+    <div class="app-shell">
 
-    <!-- ============================= -->
-    <!-- MAIN LAYOUT -->
-    <!-- ============================= -->
-
-    <div class="app-layout">
-
-
-      <!-- ============================= -->
       <!-- SIDEBAR -->
-      <!-- ============================= -->
+      <aside id="sidebar" class="sidebar">
 
-      <aside
-        id="sidebar"
-        class="sidebar"
-      >
+        <div class="profile-card">
 
-        <div class="sidebar-profile">
-
-          <div
-            id="profileAvatar"
-            class="profile-avatar"
-          >
-            K
+          <div id="profileAvatar" class="avatar">
+            S
           </div>
 
-          <div class="profile-info">
-
-            <strong id="profileName">
-              Student
-            </strong>
-
-            <span id="profilePhone">
-              Mobile
-            </span>
-
+          <div>
+            <strong id="profileName">Student</strong>
+            <small id="profilePhone"></small>
           </div>
 
         </div>
@@ -264,82 +150,64 @@
             data-page="home"
             type="button"
           >
-            <span>🏠</span>
-            <span data-i18n="home">
-              Home
-            </span>
+            🏠 <span>Home</span>
           </button>
-
 
           <button
             class="nav-item"
             data-page="chat"
             type="button"
           >
-            <span>💬</span>
-            <span data-i18n="chat">
-              Chat
-            </span>
+            💬 <span>Chat</span>
           </button>
-
 
           <button
             class="nav-item"
             data-page="groups"
             type="button"
           >
-            <span>👥</span>
-            <span data-i18n="groups">
-              Groups
-            </span>
+            👥 <span>Groups</span>
           </button>
-
 
           <button
             class="nav-item"
             data-page="homework"
             type="button"
           >
-            <span>📝</span>
-            <span data-i18n="homework">
-              Homework
-            </span>
+            📝 <span>Homework</span>
           </button>
-
 
           <button
             class="nav-item"
             data-page="school"
             type="button"
           >
-            <span>🏫</span>
-            <span data-i18n="school">
-              School Updates
-            </span>
+            📢 <span>School Updates</span>
           </button>
-
 
           <button
             class="nav-item"
             data-page="notes"
             type="button"
           >
-            <span>📚</span>
-            <span data-i18n="notes">
-              Notes
-            </span>
+            📚 <span>Notes</span>
           </button>
-
 
           <button
             class="nav-item"
             data-page="settings"
             type="button"
           >
-            <span>⚙️</span>
-            <span data-i18n="settings">
-              Settings
-            </span>
+            ⚙️ <span>Settings</span>
+          </button>
+
+          <button
+            id="controlPanelNav"
+            class="nav-item owner-only hidden"
+            data-page="owner"
+            type="button"
+          >
+            👑 <span>Control Panel</span>
           </button>
 
         </nav>
@@ -350,44 +218,26 @@
           class="logout-btn"
           type="button"
         >
-          🚪
-          <span data-i18n="logout">
-            Logout
-          </span>
+          ↪ Logout
         </button>
 
       </aside>
 
 
-
-      <!-- ============================= -->
-      <!-- CONTENT -->
-      <!-- ============================= -->
-
-      <main class="content-area">
+      <!-- MAIN CONTENT -->
+      <main id="mainContent" class="main-content">
 
 
-        <!-- ============================= -->
         <!-- HOME -->
-        <!-- ============================= -->
+        <section id="page-home" class="page active">
 
-        <section
-          id="page-home"
-          class="page active-page"
-        >
-
-          <div class="page-heading">
+          <div class="page-head">
 
             <div>
-
-              <h1 id="homeGreeting">
-                Welcome 👋
-              </h1>
-
+              <h1 id="homeGreeting">Welcome 👋</h1>
               <p id="homeDescription">
-                Welcome to your StudyConnect student community.
+                Your student community space.
               </p>
-
             </div>
 
           </div>
@@ -395,270 +245,162 @@
 
           <div
             id="maintenanceNotice"
-            class="maintenance-notice hidden"
-          >
-            <strong>⚠️ Maintenance Mode</strong>
-
-            <p>
-              The app is temporarily under maintenance.
-            </p>
-
-          </div>
+            class="notice hidden"
+          ></div>
 
 
           <div class="dashboard-grid">
-
 
             <button
               class="feature-card"
               data-page="chat"
               type="button"
             >
-
-              <div class="feature-icon">
-                💬
-              </div>
-
-              <h3>
-                Chat
-              </h3>
-
-              <p>
-                Chat with your friends.
-              </p>
-
+              <span>💬</span>
+              <b>Chat</b>
+              <small>Talk with friends</small>
             </button>
-
 
             <button
               class="feature-card"
               data-page="groups"
               type="button"
             >
-
-              <div class="feature-icon">
-                👥
-              </div>
-
-              <h3>
-                Groups
-              </h3>
-
-              <p>
-                Connect with your study groups.
-              </p>
-
+              <span>👥</span>
+              <b>Groups</b>
+              <small>Study together</small>
             </button>
-
 
             <button
               class="feature-card"
               data-page="homework"
               type="button"
             >
-
-              <div class="feature-icon">
-                📝
-              </div>
-
-              <h3>
-                Homework
-              </h3>
-
-              <p>
-                Check today's homework.
-              </p>
-
+              <span>📝</span>
+              <b>Homework</b>
+              <small>Class work</small>
             </button>
-
 
             <button
               class="feature-card"
               data-page="school"
               type="button"
             >
-
-              <div class="feature-icon">
-                🏫
-              </div>
-
-              <h3>
-                School Updates
-              </h3>
-
-              <p>
-                See important school announcements.
-              </p>
-
+              <span>📢</span>
+              <b>School Updates</b>
+              <small>Latest updates</small>
             </button>
-
 
             <button
               class="feature-card"
               data-page="notes"
               type="button"
             >
-
-              <div class="feature-icon">
-                📚
-              </div>
-
-              <h3>
-                Notes
-              </h3>
-
-              <p>
-                Read and manage study notes.
-              </p>
-
-            </button>
-
-
-            <button
-              class="feature-card"
-              data-page="settings"
-              type="button"
-            >
-
-              <div class="feature-icon">
-                ⚙️
-              </div>
-
-              <h3>
-                Settings
-              </h3>
-
-              <p>
-                Manage your StudyConnect settings.
-              </p>
-
+              <span>📚</span>
+              <b>Notes</b>
+              <small>Save knowledge</small>
             </button>
 
           </div>
 
 
-          <div class="section-card">
+          <div class="content-card">
 
-            <div class="section-card-header">
-
-              <div>
-
-                <h2>
-                  📢 Latest Updates
-                </h2>
-
-                <p>
-                  Important announcements from school.
-                </p>
-
-              </div>
-
+            <div class="section-title">
+              <h2>Announcements</h2>
             </div>
 
-            <div id="homeAnnouncements">
-              <div class="empty-state">
-                No announcements yet.
-              </div>
-            </div>
+            <div
+              id="homeAnnouncements"
+              class="stack-list"
+            ></div>
 
           </div>
 
         </section>
 
 
-
-        <!-- ============================= -->
         <!-- CHAT -->
-        <!-- ============================= -->
+        <section id="page-chat" class="page">
 
-        <section
-          id="page-chat"
-          class="page"
-        >
+          <div class="page-head">
+
+            <div>
+
+              <button
+                class="back-btn"
+                data-back
+                type="button"
+              >
+                ← Back
+              </button>
+
+              <h1>Chat</h1>
+
+              <p>
+                Message your approved friends.
+              </p>
+
+            </div>
+
+          </div>
+
 
           <div class="chat-layout">
 
-
-            <!-- PEOPLE LIST -->
-
-            <div
+            <aside
               id="chatPeoplePanel"
               class="chat-people-panel"
             >
 
-              <div class="chat-list-header">
-
-                <div>
-
-                  <h2>
-                    Chat
-                  </h2>
-
-                  <p>
-                    Your friends
-                  </p>
-
-                </div>
+              <div class="chat-search-row">
 
                 <button
                   id="chatSearchBtn"
                   class="icon-btn"
                   type="button"
                 >
-                  🔍
+                  🔎
                 </button>
 
-              </div>
+                <div
+                  id="chatSearchBox"
+                  class="search-box hidden"
+                >
 
+                  <input
+                    id="chatSearchInput"
+                    type="search"
+                    placeholder="Search students"
+                    autocomplete="off"
+                  >
 
-              <div
-                id="chatSearchBox"
-                class="chat-search-box hidden"
-              >
-
-                <input
-                  id="chatSearchInput"
-                  type="text"
-                  placeholder="Search students..."
-                />
+                </div>
 
               </div>
 
 
               <div
                 id="chatPeopleList"
-                class="chat-people-list"
-              >
+                class="people-list"
+              ></div>
 
-                <div class="empty-state">
-                  No students found.
-                </div>
+            </aside>
 
-              </div>
-
-            </div>
-
-
-
-            <!-- CHAT WINDOW -->
 
             <div
               id="chatWindow"
-              class="chat-window"
+              class="chat-window empty-chat"
             >
 
-              <div class="chat-empty">
+              <div class="empty-state">
 
-                <div class="chat-empty-icon">
-                  💬
-                </div>
+                💬
 
-                <h2>
-                  Select a person
-                </h2>
+                <h3>Select a friend</h3>
 
                 <p>
-                  Select a student to start chatting.
+                  Choose someone from the list.
                 </p>
 
               </div>
@@ -670,26 +412,25 @@
         </section>
 
 
-
-        <!-- ============================= -->
         <!-- GROUPS -->
-        <!-- ============================= -->
+        <section id="page-groups" class="page">
 
-        <section
-          id="page-groups"
-          class="page"
-        >
-
-          <div class="page-heading">
+          <div class="page-head">
 
             <div>
 
-              <h1>
-                👥 Groups
-              </h1>
+              <button
+                class="back-btn"
+                data-back
+                type="button"
+              >
+                ← Back
+              </button>
+
+              <h1>Groups</h1>
 
               <p>
-                Create and manage private study groups.
+                Create private study groups with registered friends.
               </p>
 
             </div>
@@ -699,7 +440,7 @@
               class="primary-btn"
               type="button"
             >
-              + Create Group
+              ＋ Create Group
             </button>
 
           </div>
@@ -707,38 +448,31 @@
 
           <div
             id="groupsList"
-            class="groups-grid"
-          >
-
-            <div class="empty-state">
-              No groups available.
-            </div>
-
-          </div>
+            class="stack-list"
+          ></div>
 
         </section>
 
 
-
-        <!-- ============================= -->
         <!-- HOMEWORK -->
-        <!-- ============================= -->
+        <section id="page-homework" class="page">
 
-        <section
-          id="page-homework"
-          class="page"
-        >
-
-          <div class="page-heading">
+          <div class="page-head">
 
             <div>
 
-              <h1>
-                📝 Homework
-              </h1>
+              <button
+                class="back-btn"
+                data-back
+                type="button"
+              >
+                ← Back
+              </button>
+
+              <h1>Homework</h1>
 
               <p>
-                Check your latest school homework.
+                Published class work from the Owner.
               </p>
 
             </div>
@@ -748,38 +482,31 @@
 
           <div
             id="homeworkList"
-            class="homework-list"
-          >
-
-            <div class="empty-state">
-              No homework available.
-            </div>
-
-          </div>
+            class="stack-list"
+          ></div>
 
         </section>
 
 
+        <!-- SCHOOL UPDATES -->
+        <section id="page-school" class="page">
 
-        <!-- ============================= -->
-        <!-- SCHOOL -->
-        <!-- ============================= -->
-
-        <section
-          id="page-school"
-          class="page"
-        >
-
-          <div class="page-heading">
+          <div class="page-head">
 
             <div>
 
-              <h1>
-                🏫 School Updates
-              </h1>
+              <button
+                class="back-btn"
+                data-back
+                type="button"
+              >
+                ← Back
+              </button>
+
+              <h1>School Updates</h1>
 
               <p>
-                Important notices and school announcements.
+                Important announcements and school information.
               </p>
 
             </div>
@@ -789,38 +516,31 @@
 
           <div
             id="schoolUpdatesList"
-            class="updates-list"
-          >
-
-            <div class="empty-state">
-              No school updates available.
-            </div>
-
-          </div>
+            class="stack-list"
+          ></div>
 
         </section>
 
 
-
-        <!-- ============================= -->
         <!-- NOTES -->
-        <!-- ============================= -->
+        <section id="page-notes" class="page">
 
-        <section
-          id="page-notes"
-          class="page"
-        >
-
-          <div class="page-heading">
+          <div class="page-head">
 
             <div>
 
-              <h1>
-                📚 Notes
-              </h1>
+              <button
+                class="back-btn"
+                data-back
+                type="button"
+              >
+                ← Back
+              </button>
+
+              <h1>Notes</h1>
 
               <p>
-                Study notes shared by the community.
+                Useful notes published for students.
               </p>
 
             </div>
@@ -830,38 +550,31 @@
 
           <div
             id="notesList"
-            class="notes-grid"
-          >
-
-            <div class="empty-state">
-              No notes available.
-            </div>
-
-          </div>
+            class="stack-list"
+          ></div>
 
         </section>
 
 
-
-        <!-- ============================= -->
         <!-- SETTINGS -->
-        <!-- ============================= -->
+        <section id="page-settings" class="page">
 
-        <section
-          id="page-settings"
-          class="page"
-        >
-
-          <div class="page-heading">
+          <div class="page-head">
 
             <div>
 
-              <h1>
-                ⚙️ Settings
-              </h1>
+              <button
+                class="back-btn"
+                data-back
+                type="button"
+              >
+                ← Back
+              </button>
+
+              <h1>Settings</h1>
 
               <p>
-                Manage your StudyConnect account and preferences.
+                Manage your StudyConnect experience.
               </p>
 
             </div>
@@ -871,58 +584,26 @@
 
           <div class="settings-grid">
 
+            <div class="content-card">
 
-            <div class="settings-card">
-
-              <div class="settings-card-icon">
-                👤
-              </div>
-
-              <div>
-
-                <h3>
-                  Profile
-                </h3>
-
-                <p>
-                  Manage your profile information.
-                </p>
-
-              </div>
+              <h2>Profile</h2>
 
               <button
                 id="profileSettingsBtn"
                 class="secondary-btn"
                 type="button"
               >
-                Open
+                Edit Profile Name
               </button>
 
             </div>
 
 
-            <div class="settings-card">
+            <div class="content-card">
 
-              <div class="settings-card-icon">
-                🌐
-              </div>
+              <h2>Language</h2>
 
-              <div>
-
-                <h3>
-                  Language
-                </h3>
-
-                <p>
-                  Choose Hindi or English.
-                </p>
-
-              </div>
-
-              <select
-                id="languageSelect"
-                class="settings-select"
-              >
+              <select id="languageSelect">
 
                 <option value="en">
                   English
@@ -937,28 +618,11 @@
             </div>
 
 
-            <div class="settings-card">
+            <div class="content-card">
 
-              <div class="settings-card-icon">
-                🎨
-              </div>
+              <h2>Theme</h2>
 
-              <div>
-
-                <h3>
-                  Theme
-                </h3>
-
-                <p>
-                  Choose your app appearance.
-                </p>
-
-              </div>
-
-              <select
-                id="themeSelect"
-                class="settings-select"
-              >
+              <select id="themeSelect">
 
                 <option value="system">
                   System
@@ -977,23 +641,9 @@
             </div>
 
 
-            <div class="settings-card">
+            <div class="content-card">
 
-              <div class="settings-card-icon">
-                🔔
-              </div>
-
-              <div>
-
-                <h3>
-                  Notifications
-                </h3>
-
-                <p>
-                  Manage app notifications.
-                </p>
-
-              </div>
+              <h2>Notifications</h2>
 
               <label class="switch">
 
@@ -1001,66 +651,38 @@
                   id="notificationToggle"
                   type="checkbox"
                   checked
-                />
+                >
 
-                <span class="slider"></span>
+                <span></span>
 
               </label>
 
             </div>
 
 
-            <!-- OWNER PANEL BUTTON -->
-
             <div
               id="ownerSettingsCard"
-              class="settings-card owner-card hidden"
+              class="content-card owner-only hidden"
             >
 
-              <div class="settings-card-icon">
-                👑
-              </div>
+              <h2>Owner</h2>
 
-              <div>
-
-                <h3>
-                  Owner Panel
-                </h3>
-
-                <p>
-                  Manage StudyConnect completely.
-                </p>
-
-              </div>
+              <p>
+                Hidden Owner controls are available here.
+              </p>
 
               <button
                 id="openOwnerPanelBtn"
-                class="owner-btn"
+                class="primary-btn"
                 type="button"
               >
-                Open Owner Panel
+                👑 Open Control Panel
               </button>
 
             </div>
 
 
-            <div class="settings-card danger-card">
-
-              <div class="settings-card-icon">
-                🚪
-              </div>
-
-              <div>
-
-                <h3>
-                  Logout
-                </h3>
-
-                <p>
-                  Sign out from this device.
-                </p>
-
-              </div>
+            <div class="content-card">
 
               <button
                 id="settingsLogoutBtn"
@@ -1077,183 +699,38 @@
         </section>
 
 
-
-        <!-- ================================================= -->
-        <!-- OWNER PANEL -->
-        <!-- ================================================= -->
-
+        <!-- OWNER CONTROL PANEL -->
         <section
           id="page-owner"
           class="page owner-page"
         >
 
-
-          <div class="owner-header">
+          <div class="page-head owner-head">
 
             <div>
 
-              <span class="owner-badge">
-                👑 OWNER
-              </span>
+              <button
+                class="back-btn"
+                data-back
+                type="button"
+              >
+                ← Back
+              </button>
 
               <h1>
-                Owner Control Center
+                👑 Owner Control Panel
               </h1>
 
               <p>
-                Complete StudyConnect management panel.
+                Complete StudyConnect management.
               </p>
 
             </div>
 
-            <button
-              id="closeOwnerPanelBtn"
-              class="secondary-btn"
-              type="button"
-            >
-              ← Back
-            </button>
-
           </div>
-
-
-
-          <!-- OWNER DASHBOARD -->
-
-          <div class="owner-stats-grid">
-
-
-            <div class="owner-stat-card">
-
-              <span>
-                👨‍🎓
-              </span>
-
-              <div>
-
-                <strong id="ownerTotalStudents">
-                  0
-                </strong>
-
-                <small>
-                  Total Students
-                </small>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span>
-                🟢
-              </span>
-
-              <div>
-
-                <strong id="ownerOnlineStudents">
-                  0
-                </strong>
-
-                <small>
-                  Online
-                </small>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span>
-                ⏳
-              </span>
-
-              <div>
-
-                <strong id="ownerPendingStudents">
-                  0
-                </strong>
-
-                <small>
-                  Pending
-                </small>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span>
-                💬
-              </span>
-
-              <div>
-
-                <strong id="ownerTotalMessages">
-                  0
-                </strong>
-
-                <small>
-                  Messages
-                </small>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span>
-                👥
-              </span>
-
-              <div>
-
-                <strong id="ownerTotalGroups">
-                  0
-                </strong>
-
-                <small>
-                  Groups
-                </small>
-
-              </div>
-
-            </div>
-
-
-            <div class="owner-stat-card">
-
-              <span>
-                📝
-              </span>
-
-              <div>
-
-                <strong id="ownerTotalHomework">
-                  0
-                </strong>
-
-                <small>
-                  Homework
-                </small>
-
-              </div>
-
-            </div>
-
-          </div>
-
 
 
           <!-- OWNER TABS -->
-
           <div class="owner-tabs">
 
             <button
@@ -1261,7 +738,7 @@
               data-owner-section="dashboard"
               type="button"
             >
-              📊 Dashboard
+              Dashboard
             </button>
 
             <button
@@ -1269,7 +746,7 @@
               data-owner-section="students"
               type="button"
             >
-              👨‍🎓 Students
+              Students
             </button>
 
             <button
@@ -1277,7 +754,7 @@
               data-owner-section="approvals"
               type="button"
             >
-              ⏳ Approvals
+              Approvals
             </button>
 
             <button
@@ -1285,7 +762,7 @@
               data-owner-section="groups"
               type="button"
             >
-              👥 Groups
+              Groups
             </button>
 
             <button
@@ -1293,7 +770,7 @@
               data-owner-section="content"
               type="button"
             >
-              📚 Content
+              Content
             </button>
 
             <button
@@ -1301,7 +778,7 @@
               data-owner-section="appearance"
               type="button"
             >
-              🎨 Appearance
+              Appearance
             </button>
 
             <button
@@ -1309,7 +786,7 @@
               data-owner-section="features"
               type="button"
             >
-              🧩 Features
+              Features
             </button>
 
             <button
@@ -1317,7 +794,7 @@
               data-owner-section="security"
               type="button"
             >
-              🔐 Security
+              Security
             </button>
 
             <button
@@ -1325,39 +802,48 @@
               data-owner-section="activity"
               type="button"
             >
-              📋 Activity
+              Activity
             </button>
 
           </div>
 
 
-
-          <!-- OWNER DASHBOARD SECTION -->
-
+          <!-- DASHBOARD -->
           <div
             id="ownerSection-dashboard"
             class="owner-section active"
           >
 
-            <div class="owner-dashboard-card">
+            <div class="stats-grid">
 
-              <h2>
-                📊 Dashboard
-              </h2>
+              <div class="stat-card">
+                <b id="ownerTotalStudents">0</b>
+                <span>Students</span>
+              </div>
 
-              <p>
-                StudyConnect का पूरा control यहाँ से manage किया जा सकता है।
-              </p>
+              <div class="stat-card">
+                <b id="ownerOnlineStudents">0</b>
+                <span>Online</span>
+              </div>
 
-              <div
-                id="ownerDashboardActivity"
-                class="activity-list"
-              >
+              <div class="stat-card">
+                <b id="ownerPendingStudents">0</b>
+                <span>Pending</span>
+              </div>
 
-                <div class="empty-state">
-                  No recent activity.
-                </div>
+              <div class="stat-card">
+                <b id="ownerTotalMessages">0</b>
+                <span>Messages</span>
+              </div>
 
+              <div class="stat-card">
+                <b id="ownerTotalGroups">0</b>
+                <span>Groups</span>
+              </div>
+
+              <div class="stat-card">
+                <b id="ownerTotalHomework">0</b>
+                <span>Homework</span>
               </div>
 
             </div>
@@ -1365,81 +851,39 @@
           </div>
 
 
-
-          <!-- OWNER STUDENTS SECTION -->
-
+          <!-- STUDENTS -->
           <div
             id="ownerSection-students"
             class="owner-section"
           >
 
-            <div class="owner-two-panel">
+            <div class="owner-two-col">
 
+              <div class="people-list-panel">
 
-              <!-- PEOPLE LIST -->
-
-              <div class="owner-people-panel">
-
-                <div class="owner-panel-heading">
-
-                  <div>
-
-                    <h2>
-                      👨‍🎓 Students
-                    </h2>
-
-                    <p>
-                      All registered people.
-                    </p>
-
-                  </div>
-
-                  <input
-                    id="ownerStudentSearch"
-                    class="owner-search"
-                    type="search"
-                    placeholder="Search name/mobile..."
-                  />
-
-                </div>
-
+                <input
+                  id="ownerStudentSearch"
+                  class="search-input"
+                  type="search"
+                  placeholder="Search students"
+                  autocomplete="off"
+                >
 
                 <div
                   id="ownerPeopleList"
-                  class="owner-people-list"
-                >
-
-                  <div class="empty-state">
-                    No students found.
-                  </div>
-
-                </div>
+                  class="people-list"
+                ></div>
 
               </div>
 
 
-
-              <!-- PERSON DETAILS -->
-
               <div
                 id="ownerPersonDetails"
-                class="owner-person-details"
+                class="content-card owner-detail"
               >
 
-                <div class="owner-detail-empty">
-
-                  <div>
-                    👤
-                  </div>
-
-                  <h2>
-                    Select a student
-                  </h2>
-
-                  <p>
-                    Click a person from the left side to see complete details.
-                  </p>
-
+                <div class="empty-state">
+                  Select a student.
                 </div>
 
               </div>
@@ -1449,781 +893,443 @@
           </div>
 
 
-
-          <!-- APPROVAL SECTION -->
-
+          <!-- APPROVALS -->
           <div
             id="ownerSection-approvals"
             class="owner-section"
           >
 
-            <div class="owner-dashboard-card">
-
-              <h2>
-                ⏳ Approval Requests
-              </h2>
-
-              <p>
-                Students waiting for Owner approval.
-              </p>
-
-              <div
-                id="ownerApprovalList"
-                class="approval-list"
-              >
-
-                <div class="empty-state">
-                  No pending approvals.
-                </div>
-
-              </div>
-
-            </div>
+            <div
+              id="ownerApprovalList"
+              class="stack-list"
+            ></div>
 
           </div>
 
 
-
-          <!-- GROUPS SECTION -->
-
+          <!-- GROUPS -->
           <div
             id="ownerSection-groups"
             class="owner-section"
           >
 
-            <div class="owner-dashboard-card">
-
-              <h2>
-                👥 Group Management
-              </h2>
-
-              <p>
-                View creators, members and manage groups.
-              </p>
-
-              <div
-                id="ownerGroupsList"
-                class="owner-groups-list"
-              >
-
-                <div class="empty-state">
-                  No groups available.
-                </div>
-
-              </div>
-
-            </div>
+            <div
+              id="ownerGroupsList"
+              class="stack-list"
+            ></div>
 
           </div>
 
 
-
-          <!-- CONTENT SECTION -->
-
+          <!-- CONTENT -->
           <div
             id="ownerSection-content"
             class="owner-section"
           >
 
-            <div class="content-management-grid">
+            <div class="content-actions">
 
+              <button
+                id="ownerAddHomeworkBtn"
+                class="primary-btn"
+                type="button"
+              >
+                ＋ Homework
+              </button>
 
-              <div class="owner-dashboard-card">
+              <button
+                id="ownerAddNoteBtn"
+                class="primary-btn"
+                type="button"
+              >
+                ＋ Note
+              </button>
 
-                <h2>
-                  📝 Homework
-                </h2>
-
-                <p>
-                  Add and manage homework.
-                </p>
-
-                <button
-                  id="ownerAddHomeworkBtn"
-                  class="primary-btn"
-                  type="button"
-                >
-                  + Add Homework
-                </button>
-
-                <div
-                  id="ownerHomeworkList"
-                  class="admin-content-list"
-                ></div>
-
-              </div>
-
-
-              <div class="owner-dashboard-card">
-
-                <h2>
-                  📚 Notes
-                </h2>
-
-                <p>
-                  Add and manage study notes.
-                </p>
-
-                <button
-                  id="ownerAddNoteBtn"
-                  class="primary-btn"
-                  type="button"
-                >
-                  + Add Note
-                </button>
-
-                <div
-                  id="ownerNotesList"
-                  class="admin-content-list"
-                ></div>
-
-              </div>
-
-
-              <div class="owner-dashboard-card">
-
-                <h2>
-                  📢 School Updates
-                </h2>
-
-                <p>
-                  Publish important school announcements.
-                </p>
-
-                <button
-                  id="ownerAddAnnouncementBtn"
-                  class="primary-btn"
-                  type="button"
-                >
-                  + Add Announcement
-                </button>
-
-                <div
-                  id="ownerAnnouncementsList"
-                  class="admin-content-list"
-                ></div>
-
-              </div>
+              <button
+                id="ownerAddAnnouncementBtn"
+                class="primary-btn"
+                type="button"
+              >
+                ＋ Announcement
+              </button>
 
             </div>
+
+
+            <h2>Homework</h2>
+
+            <div
+              id="ownerHomeworkList"
+              class="stack-list"
+            ></div>
+
+
+            <h2>Notes</h2>
+
+            <div
+              id="ownerNotesList"
+              class="stack-list"
+            ></div>
+
+
+            <h2>Announcements</h2>
+
+            <div
+              id="ownerAnnouncementsList"
+              class="stack-list"
+            ></div>
 
           </div>
 
 
-
-          <!-- APPEARANCE SECTION -->
-
+          <!-- APPEARANCE -->
           <div
             id="ownerSection-appearance"
             class="owner-section"
           >
 
-            <div class="owner-dashboard-card">
+            <div class="settings-grid">
 
-              <h2>
-                🎨 Appearance & Global Settings
-              </h2>
+              <div class="content-card">
 
-              <p>
-                यहाँ किए गए changes Firebase में save होंगे और सभी users पर लागू होंगे।
-              </p>
+                <h2>App Name</h2>
 
-
-              <div class="admin-form-grid">
-
-
-                <div class="input-group">
-
-                  <label>
-                    App Name
-                  </label>
-
-                  <input
-                    id="ownerAppName"
-                    type="text"
-                    placeholder="StudyConnect"
-                  />
-
-                </div>
-
-
-                <div class="input-group">
-
-                  <label>
-                    Global Language
-                  </label>
-
-                  <select id="ownerGlobalLanguage">
-
-                    <option value="en">
-                      English
-                    </option>
-
-                    <option value="hi">
-                      हिंदी
-                    </option>
-
-                  </select>
-
-                </div>
-
-
-                <div class="input-group">
-
-                  <label>
-                    Theme
-                  </label>
-
-                  <select id="ownerGlobalTheme">
-
-                    <option value="system">
-                      System
-                    </option>
-
-                    <option value="light">
-                      Light
-                    </option>
-
-                    <option value="dark">
-                      Dark
-                    </option>
-
-                  </select>
-
-                </div>
-
-
-                <div class="input-group">
-
-                  <label>
-                    Welcome Animation
-                  </label>
-
-                  <select id="ownerWelcomeAnimation">
-
-                    <option value="on">
-                      On
-                    </option>
-
-                    <option value="off">
-                      Off
-                    </option>
-
-                  </select>
-
-                </div>
+                <input
+                  id="ownerAppName"
+                  class="text-input"
+                  type="text"
+                  value="StudyConnect"
+                >
 
               </div>
 
 
-              <button
-                id="saveGlobalSettingsBtn"
-                class="primary-btn"
-                type="button"
-              >
-                Save Global Settings
-              </button>
+              <div class="content-card">
+
+                <h2>Global Language</h2>
+
+                <select id="ownerGlobalLanguage">
+
+                  <option value="en">
+                    English
+                  </option>
+
+                  <option value="hi">
+                    हिंदी
+                  </option>
+
+                </select>
+
+              </div>
+
+
+              <div class="content-card">
+
+                <h2>Global Theme</h2>
+
+                <select id="ownerGlobalTheme">
+
+                  <option value="system">
+                    System
+                  </option>
+
+                  <option value="light">
+                    Light
+                  </option>
+
+                  <option value="dark">
+                    Dark
+                  </option>
+
+                </select>
+
+              </div>
+
+
+              <div class="content-card">
+
+                <h2>Welcome Animation</h2>
+
+                <label class="switch">
+
+                  <input
+                    id="ownerWelcomeAnimation"
+                    type="checkbox"
+                    checked
+                  >
+
+                  <span></span>
+
+                </label>
+
+              </div>
 
             </div>
+
+
+            <button
+              id="saveGlobalSettingsBtn"
+              class="primary-btn"
+              type="button"
+            >
+              Save Global Settings
+            </button>
 
           </div>
 
 
-
-          <!-- FEATURES SECTION -->
-
+          <!-- FEATURES -->
           <div
             id="ownerSection-features"
             class="owner-section"
           >
 
-            <div class="owner-dashboard-card">
+            <div class="feature-controls">
 
-              <h2>
-                🧩 Feature Controls
-              </h2>
+              <label>
+                Chat
+                <input
+                  id="featureChat"
+                  type="checkbox"
+                  checked
+                >
+              </label>
 
-              <p>
-                अलग-अलग features को सभी users के लिए ON/OFF करें।
-              </p>
+              <label>
+                Groups
+                <input
+                  id="featureGroups"
+                  type="checkbox"
+                  checked
+                >
+              </label>
 
+              <label>
+                Homework
+                <input
+                  id="featureHomework"
+                  type="checkbox"
+                  checked
+                >
+              </label>
 
-              <div class="feature-control-list">
+              <label>
+                Notes
+                <input
+                  id="featureNotes"
+                  type="checkbox"
+                  checked
+                >
+              </label>
 
+              <label>
+                Announcements
+                <input
+                  id="featureAnnouncements"
+                  type="checkbox"
+                  checked
+                >
+              </label>
 
-                <label class="feature-control">
+              <label>
+                Registration
+                <input
+                  id="featureRegistration"
+                  type="checkbox"
+                  checked
+                >
+              </label>
 
-                  <div>
-
-                    <strong>
-                      Chat
-                    </strong>
-
-                    <small>
-                      Student-to-student chat
-                    </small>
-
-                  </div>
-
-                  <input
-                    id="featureChat"
-                    type="checkbox"
-                    checked
-                  />
-
-                </label>
-
-
-                <label class="feature-control">
-
-                  <div>
-
-                    <strong>
-                      Groups
-                    </strong>
-
-                    <small>
-                      Private study groups
-                    </small>
-
-                  </div>
-
-                  <input
-                    id="featureGroups"
-                    type="checkbox"
-                    checked
-                  />
-
-                </label>
-
-
-                <label class="feature-control">
-
-                  <div>
-
-                    <strong>
-                      Homework
-                    </strong>
-
-                    <small>
-                      Homework section
-                    </small>
-
-                  </div>
-
-                  <input
-                    id="featureHomework"
-                    type="checkbox"
-                    checked
-                  />
-
-                </label>
-
-
-                <label class="feature-control">
-
-                  <div>
-
-                    <strong>
-                      Notes
-                    </strong>
-
-                    <small>
-                      Study notes
-                    </small>
-
-                  </div>
-
-                  <input
-                    id="featureNotes"
-                    type="checkbox"
-                    checked
-                  />
-
-                </label>
-
-
-                <label class="feature-control">
-
-                  <div>
-
-                    <strong>
-                      Announcements
-                    </strong>
-
-                    <small>
-                      School updates
-                    </small>
-
-                  </div>
-
-                  <input
-                    id="featureAnnouncements"
-                    type="checkbox"
-                    checked
-                  />
-
-                </label>
-
-
-                <label class="feature-control">
-
-                  <div>
-
-                    <strong>
-                      Registration
-                    </strong>
-
-                    <small>
-                      New student registration
-                    </small>
-
-                  </div>
-
-                  <input
-                    id="featureRegistration"
-                    type="checkbox"
-                    checked
-                  />
-
-                </label>
-
-
-                <label class="feature-control danger-control">
-
-                  <div>
-
-                    <strong>
-                      Maintenance Mode
-                    </strong>
-
-                    <small>
-                      Temporarily restrict the app
-                    </small>
-
-                  </div>
-
-                  <input
-                    id="featureMaintenance"
-                    type="checkbox"
-                  />
-
-                </label>
-
-              </div>
-
-
-              <button
-                id="saveFeatureSettingsBtn"
-                class="primary-btn"
-                type="button"
-              >
-                Save Feature Settings
-              </button>
+              <label>
+                Maintenance
+                <input
+                  id="featureMaintenance"
+                  type="checkbox"
+                >
+              </label>
 
             </div>
+
+
+            <button
+              id="saveFeatureSettingsBtn"
+              class="primary-btn"
+              type="button"
+            >
+              Save Feature Settings
+            </button>
 
           </div>
 
 
-
-          <!-- SECURITY SECTION -->
-
+          <!-- SECURITY -->
           <div
             id="ownerSection-security"
             class="owner-section"
           >
 
-            <div class="owner-dashboard-card">
+            <div class="content-card">
 
-              <h2>
-                🔐 Security
-              </h2>
+              <h2>Owner Password</h2>
 
-              <p>
-                Password और security settings manage करें।
-              </p>
+              <input
+                id="ownerNewPassword"
+                class="text-input"
+                type="password"
+                placeholder="New password"
+                autocomplete="new-password"
+              >
 
-
-              <div class="admin-form-grid">
-
-
-                <div class="input-group">
-
-                  <label>
-                    New App Password
-                  </label>
-
-                  <input
-                    id="ownerNewPassword"
-                    type="password"
-                    placeholder="Enter new password"
-                  />
-
-                </div>
-
-
-                <div class="input-group">
-
-                  <label>
-                    Confirm Password
-                  </label>
-
-                  <input
-                    id="ownerConfirmPassword"
-                    type="password"
-                    placeholder="Confirm password"
-                  />
-
-                </div>
-
-              </div>
-
+              <input
+                id="ownerConfirmPassword"
+                class="text-input"
+                type="password"
+                placeholder="Confirm password"
+                autocomplete="new-password"
+              >
 
               <button
                 id="changeOwnerPasswordBtn"
                 class="primary-btn"
                 type="button"
               >
-                Change App Password
+                Change Owner Password
               </button>
 
-
-              <div class="security-warning">
-
-                ⚠️
-                <span>
-                  Real Firebase security should be enforced using Firebase Authentication and Firestore Security Rules. Front-end JavaScript alone cannot securely protect an Owner account.
-                </span>
-
-              </div>
+              <p class="muted">
+                Passwords are stored as hashes, not plain text.
+              </p>
 
             </div>
 
           </div>
 
 
-
-          <!-- ACTIVITY SECTION -->
-
+          <!-- ACTIVITY -->
           <div
             id="ownerSection-activity"
             class="owner-section"
           >
 
-            <div class="owner-dashboard-card">
-
-              <h2>
-                📋 Activity Log
-              </h2>
-
-              <p>
-                Owner द्वारा किए गए important actions.
-              </p>
-
-
-              <div
-                id="ownerActivityLog"
-                class="activity-list"
-              >
-
-                <div class="empty-state">
-                  No activity yet.
-                </div>
-
-              </div>
-
-            </div>
+            <div
+              id="ownerActivityLog"
+              class="stack-list"
+            ></div>
 
           </div>
-
 
         </section>
 
       </main>
 
+
+      <!-- MOBILE BOTTOM NAV -->
+      <nav class="bottom-nav">
+
+        <button
+          class="bottom-nav-item active"
+          data-page="home"
+          type="button"
+        >
+          🏠
+          <span>Home</span>
+        </button>
+
+        <button
+          class="bottom-nav-item"
+          data-page="chat"
+          type="button"
+        >
+          💬
+          <span>Chat</span>
+        </button>
+
+        <button
+          class="bottom-nav-item"
+          data-page="groups"
+          type="button"
+        >
+          👥
+          <span>Groups</span>
+        </button>
+
+        <button
+          class="bottom-nav-item"
+          data-page="settings"
+          type="button"
+        >
+          ⚙️
+          <span>Settings</span>
+        </button>
+
+      </nav>
+
     </div>
-
-
-
-    <!-- ============================= -->
-    <!-- MOBILE BOTTOM NAVIGATION -->
-    <!-- ============================= -->
-
-    <nav class="bottom-nav">
-
-      <button
-        class="bottom-nav-item active"
-        data-page="home"
-        type="button"
-      >
-        🏠
-        <span>
-          Home
-        </span>
-      </button>
-
-      <button
-        class="bottom-nav-item"
-        data-page="chat"
-        type="button"
-      >
-        💬
-        <span>
-          Chat
-        </span>
-      </button>
-
-      <button
-        class="bottom-nav-item"
-        data-page="groups"
-        type="button"
-      >
-        👥
-        <span>
-          Groups
-        </span>
-      </button>
-
-      <button
-        class="bottom-nav-item"
-        data-page="homework"
-        type="button"
-      >
-        📝
-        <span>
-          Homework
-        </span>
-      </button>
-
-      <button
-        class="bottom-nav-item"
-        data-page="settings"
-        type="button"
-      >
-        ⚙️
-        <span>
-          Settings
-        </span>
-      </button>
-
-    </nav>
 
   </div>
 
 
-
-  <!-- ============================= -->
   <!-- GROUP MODAL -->
-  <!-- ============================= -->
-
   <div
     id="groupModal"
     class="modal hidden"
   >
 
-    <div class="modal-box">
+    <div class="modal-card">
 
-      <div class="modal-header">
+      <button
+        id="closeGroupModalBtn"
+        class="modal-close"
+        type="button"
+        aria-label="Close"
+      >
+        ×
+      </button>
 
-        <div>
-
-          <h2>
-            Create Private Group
-          </h2>
-
-          <p>
-            Add registered students to your group.
-          </p>
-
-        </div>
-
-        <button
-          id="closeGroupModalBtn"
-          class="icon-btn"
-          type="button"
-        >
-          ✕
-        </button>
-
-      </div>
-
+      <h2>Create Private Group</h2>
 
       <form id="groupForm">
 
-        <div class="input-group">
+        <input
+          id="groupNameInput"
+          class="text-input"
+          type="text"
+          placeholder="Group name"
+          required
+        >
 
-          <label>
-            Group Name
-          </label>
-
-          <input
-            id="groupNameInput"
-            type="text"
-            placeholder="Example: Science Group"
-            required
-          />
-
-        </div>
-
-
-        <div class="input-group">
-
-          <label>
-            Search Members by Mobile
-          </label>
-
-          <input
-            id="groupMemberSearch"
-            type="tel"
-            inputmode="numeric"
-            placeholder="Enter mobile number"
-          />
-
-        </div>
-
+        <input
+          id="groupMemberSearch"
+          class="text-input"
+          type="search"
+          placeholder="Search by mobile number"
+          autocomplete="off"
+        >
 
         <div
           id="groupMemberResults"
-          class="member-results"
+          class="people-list"
         ></div>
 
+        <div
+          id="selectedGroupMembers"
+          class="chips"
+        ></div>
 
-        <div>
-
-          <h3>
-            Selected Members
-          </h3>
-
-          <div
-            id="selectedGroupMembers"
-            class="selected-members"
-          ></div>
-
-        </div>
-
-
-        <div class="input-group">
-
-          <label>
-            Group Password
-          </label>
-
-          <input
-            id="groupPasswordInput"
-            type="password"
-            placeholder="Create private group password"
-            required
-          />
-
-        </div>
-
+        <input
+          id="groupPasswordInput"
+          class="text-input"
+          type="password"
+          placeholder="Private group password"
+          autocomplete="new-password"
+          required
+        >
 
         <button
           class="primary-btn"
           type="submit"
         >
-          Create Private Group
+          Create Group
         </button>
 
       </form>
@@ -2233,70 +1339,53 @@
   </div>
 
 
-
-  <!-- ============================= -->
-  <!-- GENERIC MODAL -->
-  <!-- ============================= -->
-
+  <!-- GENERIC APP MODAL -->
   <div
     id="appModal"
     class="modal hidden"
   >
 
-    <div class="modal-box">
+    <div class="modal-card">
 
-      <div class="modal-header">
+      <button
+        id="closeAppModalBtn"
+        class="modal-close"
+        type="button"
+        aria-label="Close"
+      >
+        ×
+      </button>
 
-        <h2 id="appModalTitle">
-          StudyConnect
-        </h2>
+      <h2 id="appModalTitle">
+        StudyConnect
+      </h2>
 
-        <button
-          id="closeAppModalBtn"
-          class="icon-btn"
-          type="button"
-        >
-          ✕
-        </button>
-
-      </div>
-
-
-      <div
-        id="appModalBody"
-        class="modal-body"
-      ></div>
+      <div id="appModalBody"></div>
 
     </div>
 
   </div>
 
 
-
-  <!-- ============================= -->
   <!-- TOAST -->
-  <!-- ============================= -->
-
   <div
     id="toast"
     class="toast"
+    role="status"
+    aria-live="polite"
   >
-    <span id="toastIcon">
-      ✓
-    </span>
 
-    <span id="toastMessage">
-      Done
-    </span>
+    <span id="toastIcon">✓</span>
+    <span id="toastMessage"></span>
+
   </div>
 
 
-
-  <!-- ============================= -->
-  <!-- FIREBASE / JAVASCRIPT -->
-  <!-- ============================= -->
-
-  <script type="module" src="script.js"></script>
+  <!-- JAVASCRIPT -->
+  <script
+    type="module"
+    src="script.js"
+  ></script>
 
 </body>
 </html>
