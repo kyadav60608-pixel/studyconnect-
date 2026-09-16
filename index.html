@@ -2,75 +2,182 @@
 <html lang="hi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover"
+  >
+
   <meta name="theme-color" content="#101827">
-  <meta name="description" content="StudyConnect - Student Community">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
+
+  <meta
+    name="description"
+    content="StudyConnect — Student Community"
+  >
+
   <title>StudyConnect</title>
+
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-  <!-- OWNER WELCOME -->
-  <div id="ownerWelcome" class="owner-welcome hidden">
+  <!-- =====================================================
+       OWNER WELCOME
+       ===================================================== -->
+
+  <div
+    id="ownerWelcome"
+    class="owner-welcome hidden"
+    aria-hidden="true"
+  >
+
     <div id="fallingStars"></div>
 
     <div class="owner-welcome-box">
+
       <div class="owner-crown">👑</div>
-      <h1 id="ownerWelcomeTitle">Welcome Owner Krishna Ji</h1>
-      <p id="ownerWelcomeText">Control Center is opening…</p>
+
+      <h1 id="ownerWelcomeTitle">
+        Welcome Owner Krishna Ji
+      </h1>
+
+      <p id="ownerWelcomeText">
+        Control Center is opening…
+      </p>
+
     </div>
+
   </div>
 
 
-  <!-- LOGIN -->
-  <section id="loginScreen" class="login-screen">
+  <!-- =====================================================
+       LOGIN SCREEN
+       ===================================================== -->
+
+  <section
+    id="loginScreen"
+    class="login-screen"
+  >
 
     <div class="login-card">
 
-      <div class="app-logo">SC</div>
+      <div
+        class="app-logo"
+        aria-label="StudyConnect"
+      >
+        SC
+      </div>
 
-      <h1 id="loginTitle">StudyConnect</h1>
-      <p id="loginSubtitle">Student Community</p>
+      <h1 id="loginTitle">
+        StudyConnect
+      </h1>
 
-      <form id="loginForm">
+      <p id="loginSubtitle">
+        Student Community
+      </p>
 
-        <div id="loginNameWrap" class="field hidden">
-          <label for="loginName">Name</label>
+
+      <form
+        id="loginForm"
+        autocomplete="on"
+      >
+
+        <!-- STEP 1 : NAME -->
+
+        <div
+          id="loginNameWrap"
+          class="field hidden"
+        >
+
+          <label for="loginName">
+            Name
+          </label>
+
           <input
             id="loginName"
             type="text"
+            name="name"
             autocomplete="name"
+            placeholder="Enter your name"
+            maxlength="50"
           >
+
         </div>
 
-        <div id="loginPhoneWrap" class="field hidden">
-          <label for="loginPhone">Mobile Number</label>
+
+        <!-- STEP 2 : MOBILE -->
+
+        <div
+          id="loginPhoneWrap"
+          class="field hidden"
+        >
+
+          <label for="loginPhone">
+            Mobile Number
+          </label>
+
           <input
             id="loginPhone"
             type="tel"
+            name="tel"
             inputmode="numeric"
             autocomplete="tel"
+            placeholder="10-digit mobile number"
+            maxlength="10"
           >
+
         </div>
+
+
+        <!-- PASSWORD -->
 
         <div class="field">
-          <label for="loginPassword">Password</label>
-          <input
-            id="loginPassword"
-            type="password"
-            autocomplete="current-password"
-            required
-          >
+
+          <label for="loginPassword">
+            Password
+          </label>
+
+          <div class="password-wrap">
+
+            <input
+              id="loginPassword"
+              type="password"
+              name="password"
+              autocomplete="current-password"
+              placeholder="Enter password"
+              required
+              maxlength="100"
+            >
+
+            <button
+              id="toggleLoginPassword"
+              type="button"
+              class="password-toggle"
+              aria-label="Show password"
+            >
+              👁
+            </button>
+
+          </div>
+
         </div>
 
-        <button id="loginBtn" class="primary-btn" type="submit">
+
+        <button
+          id="loginBtn"
+          class="primary-btn"
+          type="submit"
+        >
           Next →
         </button>
 
-        <p id="loginMessage" class="form-message"></p>
+
+        <p
+          id="loginMessage"
+          class="form-message"
+          role="alert"
+        ></p>
 
       </form>
 
@@ -79,25 +186,45 @@
   </section>
 
 
-  <!-- MAIN APP -->
-  <div id="app" class="app hidden">
+  <!-- =====================================================
+       MAIN APPLICATION
+       ===================================================== -->
 
-    <!-- TOP HEADER -->
+  <div
+    id="app"
+    class="app hidden"
+  >
+
+
+    <!-- ===================================================
+         TOP HEADER
+         =================================================== -->
+
     <header class="top-header">
 
       <button
         id="mobileMenuBtn"
         class="icon-btn"
         type="button"
-        aria-label="Menu"
+        aria-label="Open menu"
+        aria-expanded="false"
       >
         ☰
       </button>
 
+
       <div class="brand">
-        <strong id="appTitle">StudyConnect</strong>
-        <span id="onlineStatus">● Online</span>
+
+        <strong id="appTitle">
+          StudyConnect
+        </strong>
+
+        <span id="onlineStatus">
+          ● Online
+        </span>
+
       </div>
+
 
       <div class="header-actions">
 
@@ -110,13 +237,18 @@
           🔔
         </button>
 
+
         <button
           id="headerProfileBtn"
           class="profile-mini"
           type="button"
           aria-label="Profile"
         >
-          <span id="headerProfileInitial">S</span>
+
+          <span id="headerProfileInitial">
+            S
+          </span>
+
         </button>
 
       </div>
@@ -124,94 +256,136 @@
     </header>
 
 
+
+    <!-- ===================================================
+         APP SHELL
+         =================================================== -->
+
     <div class="app-shell">
 
-      <!-- SIDEBAR -->
-      <aside id="sidebar" class="sidebar">
+
+      <!-- =================================================
+           SIDEBAR
+           ================================================= -->
+
+      <aside
+        id="sidebar"
+        class="sidebar"
+        aria-label="Main navigation"
+      >
 
         <div class="profile-card">
 
-          <div id="profileAvatar" class="avatar">
+          <div
+            id="profileAvatar"
+            class="avatar"
+          >
             S
           </div>
 
           <div>
-            <strong id="profileName">Student</strong>
+
+            <strong id="profileName">
+              Student
+            </strong>
+
             <small id="profilePhone"></small>
+
           </div>
 
         </div>
 
 
+        <!-- MAIN NAVIGATION -->
+
         <nav class="main-nav">
 
           <button
             class="nav-item active"
+            type="button"
             data-page="home"
-            type="button"
           >
-            🏠 <span>Home</span>
+            🏠
+            <span>Home</span>
           </button>
+
 
           <button
             class="nav-item"
+            type="button"
             data-page="chat"
-            type="button"
           >
-            💬 <span>Chat</span>
+            💬
+            <span>Chat</span>
           </button>
+
 
           <button
             class="nav-item"
+            type="button"
             data-page="groups"
-            type="button"
           >
-            👥 <span>Groups</span>
+            👥
+            <span>Groups</span>
           </button>
+
 
           <button
             class="nav-item"
+            type="button"
             data-page="homework"
-            type="button"
           >
-            📝 <span>Homework</span>
+            📝
+            <span>Homework</span>
           </button>
+
 
           <button
             class="nav-item"
+            type="button"
             data-page="school"
-            type="button"
           >
-            📢 <span>School Updates</span>
+            📢
+            <span>School Updates</span>
           </button>
+
 
           <button
             class="nav-item"
+            type="button"
             data-page="notes"
-            type="button"
           >
-            📚 <span>Notes</span>
+            📚
+            <span>Notes</span>
           </button>
+
 
           <button
             class="nav-item"
-            data-page="settings"
             type="button"
+            data-page="settings"
           >
-            ⚙️ <span>Settings</span>
+            ⚙️
+            <span>Settings</span>
           </button>
+
+
+          <!-- OWNER ONLY -->
 
           <button
             id="controlPanelNav"
             class="nav-item owner-only hidden"
-            data-page="owner"
             type="button"
+            data-page="owner"
           >
-            👑 <span>Control Panel</span>
+            👑
+            <span>Control Panel</span>
           </button>
 
         </nav>
 
+
+        <!-- LOGOUT -->
 
         <button
           id="logoutBtn"
@@ -224,90 +398,155 @@
       </aside>
 
 
-      <!-- MAIN CONTENT -->
-      <main id="mainContent" class="main-content">
+
+      <!-- =================================================
+           MAIN CONTENT
+           ================================================= -->
+
+      <main
+        id="mainContent"
+        class="main-content"
+      >
 
 
-        <!-- HOME -->
-        <section id="page-home" class="page active">
+        <!-- =================================================
+             HOME
+             ================================================= -->
+
+        <section
+          id="page-home"
+          class="page active"
+        >
 
           <div class="page-head">
 
             <div>
-              <h1 id="homeGreeting">Welcome 👋</h1>
+
+              <h1 id="homeGreeting">
+                Welcome 👋
+              </h1>
+
               <p id="homeDescription">
                 Your student community space.
               </p>
+
             </div>
 
           </div>
 
 
+          <!-- MAINTENANCE -->
+
           <div
             id="maintenanceNotice"
             class="notice hidden"
+            role="status"
           ></div>
 
 
+          <!-- FEATURES -->
+
           <div class="dashboard-grid">
 
+
             <button
               class="feature-card"
+              type="button"
               data-page="chat"
-              type="button"
             >
+
               <span>💬</span>
+
               <b>Chat</b>
-              <small>Talk with friends</small>
+
+              <small>
+                Talk with friends
+              </small>
+
             </button>
+
 
             <button
               class="feature-card"
+              type="button"
               data-page="groups"
-              type="button"
             >
+
               <span>👥</span>
+
               <b>Groups</b>
-              <small>Study together</small>
+
+              <small>
+                Study together
+              </small>
+
             </button>
+
 
             <button
               class="feature-card"
+              type="button"
               data-page="homework"
-              type="button"
             >
+
               <span>📝</span>
+
               <b>Homework</b>
-              <small>Class work</small>
+
+              <small>
+                Class work
+              </small>
+
             </button>
+
 
             <button
               class="feature-card"
+              type="button"
               data-page="school"
-              type="button"
             >
+
               <span>📢</span>
+
               <b>School Updates</b>
-              <small>Latest updates</small>
+
+              <small>
+                Latest updates
+              </small>
+
             </button>
+
 
             <button
               class="feature-card"
-              data-page="notes"
               type="button"
+              data-page="notes"
             >
+
               <span>📚</span>
+
               <b>Notes</b>
-              <small>Save knowledge</small>
+
+              <small>
+                Save knowledge
+              </small>
+
             </button>
+
 
           </div>
 
 
+          <!-- ANNOUNCEMENTS -->
+
           <div class="content-card">
 
             <div class="section-title">
-              <h2>Announcements</h2>
+
+              <h2>
+                Announcements
+              </h2>
+
             </div>
 
             <div
@@ -320,8 +559,15 @@
         </section>
 
 
-        <!-- CHAT -->
-        <section id="page-chat" class="page">
+
+        <!-- =================================================
+             CHAT
+             ================================================= -->
+
+        <section
+          id="page-chat"
+          class="page"
+        >
 
           <div class="page-head">
 
@@ -329,13 +575,15 @@
 
               <button
                 class="back-btn"
-                data-back
                 type="button"
+                data-back
               >
                 ← Back
               </button>
 
-              <h1>Chat</h1>
+              <h1>
+                Chat
+              </h1>
 
               <p>
                 Message your approved friends.
@@ -348,6 +596,9 @@
 
           <div class="chat-layout">
 
+
+            <!-- PEOPLE -->
+
             <aside
               id="chatPeoplePanel"
               class="chat-people-panel"
@@ -359,9 +610,11 @@
                   id="chatSearchBtn"
                   class="icon-btn"
                   type="button"
+                  aria-label="Search"
                 >
                   🔎
                 </button>
+
 
                 <div
                   id="chatSearchBox"
@@ -388,6 +641,9 @@
             </aside>
 
 
+
+            <!-- CHAT WINDOW -->
+
             <div
               id="chatWindow"
               class="chat-window empty-chat"
@@ -395,9 +651,13 @@
 
               <div class="empty-state">
 
-                💬
+                <div class="empty-icon">
+                  💬
+                </div>
 
-                <h3>Select a friend</h3>
+                <h3>
+                  Select a friend
+                </h3>
 
                 <p>
                   Choose someone from the list.
@@ -407,13 +667,21 @@
 
             </div>
 
+
           </div>
 
         </section>
 
 
-        <!-- GROUPS -->
-        <section id="page-groups" class="page">
+
+        <!-- =================================================
+             GROUPS
+             ================================================= -->
+
+        <section
+          id="page-groups"
+          class="page"
+        >
 
           <div class="page-head">
 
@@ -421,19 +689,22 @@
 
               <button
                 class="back-btn"
-                data-back
                 type="button"
+                data-back
               >
                 ← Back
               </button>
 
-              <h1>Groups</h1>
+              <h1>
+                Groups
+              </h1>
 
               <p>
                 Create private study groups with registered friends.
               </p>
 
             </div>
+
 
             <button
               id="createGroupBtn"
@@ -454,8 +725,15 @@
         </section>
 
 
-        <!-- HOMEWORK -->
-        <section id="page-homework" class="page">
+
+        <!-- =================================================
+             HOMEWORK
+             ================================================= -->
+
+        <section
+          id="page-homework"
+          class="page"
+        >
 
           <div class="page-head">
 
@@ -463,13 +741,15 @@
 
               <button
                 class="back-btn"
-                data-back
                 type="button"
+                data-back
               >
                 ← Back
               </button>
 
-              <h1>Homework</h1>
+              <h1>
+                Homework
+              </h1>
 
               <p>
                 Published class work from the Owner.
@@ -488,8 +768,15 @@
         </section>
 
 
-        <!-- SCHOOL UPDATES -->
-        <section id="page-school" class="page">
+
+        <!-- =================================================
+             SCHOOL UPDATES
+             ================================================= -->
+
+        <section
+          id="page-school"
+          class="page"
+        >
 
           <div class="page-head">
 
@@ -497,13 +784,15 @@
 
               <button
                 class="back-btn"
-                data-back
                 type="button"
+                data-back
               >
                 ← Back
               </button>
 
-              <h1>School Updates</h1>
+              <h1>
+                School Updates
+              </h1>
 
               <p>
                 Important announcements and school information.
@@ -522,8 +811,15 @@
         </section>
 
 
-        <!-- NOTES -->
-        <section id="page-notes" class="page">
+
+        <!-- =================================================
+             NOTES
+             ================================================= -->
+
+        <section
+          id="page-notes"
+          class="page"
+        >
 
           <div class="page-head">
 
@@ -531,13 +827,15 @@
 
               <button
                 class="back-btn"
-                data-back
                 type="button"
+                data-back
               >
                 ← Back
               </button>
 
-              <h1>Notes</h1>
+              <h1>
+                Notes
+              </h1>
 
               <p>
                 Useful notes published for students.
@@ -556,8 +854,15 @@
         </section>
 
 
-        <!-- SETTINGS -->
-        <section id="page-settings" class="page">
+
+        <!-- =================================================
+             SETTINGS
+             ================================================= -->
+
+        <section
+          id="page-settings"
+          class="page"
+        >
 
           <div class="page-head">
 
@@ -565,13 +870,15 @@
 
               <button
                 class="back-btn"
-                data-back
                 type="button"
+                data-back
               >
                 ← Back
               </button>
 
-              <h1>Settings</h1>
+              <h1>
+                Settings
+              </h1>
 
               <p>
                 Manage your StudyConnect experience.
@@ -584,9 +891,14 @@
 
           <div class="settings-grid">
 
+
+            <!-- PROFILE -->
+
             <div class="content-card">
 
-              <h2>Profile</h2>
+              <h2>
+                Profile
+              </h2>
 
               <button
                 id="profileSettingsBtn"
@@ -599,11 +911,17 @@
             </div>
 
 
+            <!-- LANGUAGE -->
+
             <div class="content-card">
 
-              <h2>Language</h2>
+              <h2>
+                Language
+              </h2>
 
-              <select id="languageSelect">
+              <select
+                id="languageSelect"
+              >
 
                 <option value="en">
                   English
@@ -618,11 +936,17 @@
             </div>
 
 
+            <!-- THEME -->
+
             <div class="content-card">
 
-              <h2>Theme</h2>
+              <h2>
+                Theme
+              </h2>
 
-              <select id="themeSelect">
+              <select
+                id="themeSelect"
+              >
 
                 <option value="system">
                   System
@@ -641,11 +965,18 @@
             </div>
 
 
+            <!-- NOTIFICATIONS -->
+
             <div class="content-card">
 
-              <h2>Notifications</h2>
+              <h2>
+                Notifications
+              </h2>
 
-              <label class="switch">
+              <label
+                class="switch"
+                for="notificationToggle"
+              >
 
                 <input
                   id="notificationToggle"
@@ -660,12 +991,16 @@
             </div>
 
 
+            <!-- OWNER -->
+
             <div
               id="ownerSettingsCard"
               class="content-card owner-only hidden"
             >
 
-              <h2>Owner</h2>
+              <h2>
+                Owner
+              </h2>
 
               <p>
                 Hidden Owner controls are available here.
@@ -682,6 +1017,8 @@
             </div>
 
 
+            <!-- LOGOUT -->
+
             <div class="content-card">
 
               <button
@@ -694,12 +1031,17 @@
 
             </div>
 
+
           </div>
 
         </section>
 
 
-        <!-- OWNER CONTROL PANEL -->
+
+        <!-- =================================================
+             OWNER CONTROL PANEL
+             ================================================= -->
+
         <section
           id="page-owner"
           class="page owner-page"
@@ -711,8 +1053,8 @@
 
               <button
                 class="back-btn"
-                data-back
                 type="button"
+                data-back
               >
                 ← Back
               </button>
@@ -731,76 +1073,80 @@
 
 
           <!-- OWNER TABS -->
-          <div class="owner-tabs">
+
+          <div
+            class="owner-tabs"
+            role="tablist"
+          >
 
             <button
               class="owner-tab active"
-              data-owner-section="dashboard"
               type="button"
+              data-owner-section="dashboard"
             >
               Dashboard
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="students"
               type="button"
+              data-owner-section="students"
             >
               Students
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="approvals"
               type="button"
+              data-owner-section="approvals"
             >
               Approvals
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="groups"
               type="button"
+              data-owner-section="groups"
             >
               Groups
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="content"
               type="button"
+              data-owner-section="content"
             >
               Content
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="appearance"
               type="button"
+              data-owner-section="appearance"
             >
               Appearance
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="features"
               type="button"
+              data-owner-section="features"
             >
               Features
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="security"
               type="button"
+              data-owner-section="security"
             >
               Security
             </button>
 
             <button
               class="owner-tab"
-              data-owner-section="activity"
               type="button"
+              data-owner-section="activity"
             >
               Activity
             </button>
@@ -808,7 +1154,11 @@
           </div>
 
 
-          <!-- DASHBOARD -->
+
+          <!-- =================================================
+               OWNER DASHBOARD
+               ================================================= -->
+
           <div
             id="ownerSection-dashboard"
             class="owner-section active"
@@ -817,33 +1167,80 @@
             <div class="stats-grid">
 
               <div class="stat-card">
-                <b id="ownerTotalStudents">0</b>
-                <span>Students</span>
+
+                <b id="ownerTotalStudents">
+                  0
+                </b>
+
+                <span>
+                  Students
+                </span>
+
               </div>
 
-              <div class="stat-card">
-                <b id="ownerOnlineStudents">0</b>
-                <span>Online</span>
-              </div>
 
               <div class="stat-card">
-                <b id="ownerPendingStudents">0</b>
-                <span>Pending</span>
+
+                <b id="ownerOnlineStudents">
+                  0
+                </b>
+
+                <span>
+                  Online
+                </span>
+
               </div>
 
-              <div class="stat-card">
-                <b id="ownerTotalMessages">0</b>
-                <span>Messages</span>
-              </div>
 
               <div class="stat-card">
-                <b id="ownerTotalGroups">0</b>
-                <span>Groups</span>
+
+                <b id="ownerPendingStudents">
+                  0
+                </b>
+
+                <span>
+                  Pending
+                </span>
+
               </div>
 
+
               <div class="stat-card">
-                <b id="ownerTotalHomework">0</b>
-                <span>Homework</span>
+
+                <b id="ownerTotalMessages">
+                  0
+                </b>
+
+                <span>
+                  Messages
+                </span>
+
+              </div>
+
+
+              <div class="stat-card">
+
+                <b id="ownerTotalGroups">
+                  0
+                </b>
+
+                <span>
+                  Groups
+                </span>
+
+              </div>
+
+
+              <div class="stat-card">
+
+                <b id="ownerTotalHomework">
+                  0
+                </b>
+
+                <span>
+                  Homework
+                </span>
+
               </div>
 
             </div>
@@ -851,13 +1248,19 @@
           </div>
 
 
-          <!-- STUDENTS -->
+
+          <!-- =================================================
+               OWNER STUDENTS
+               ================================================= -->
+
           <div
             id="ownerSection-students"
             class="owner-section"
+            hidden
           >
 
             <div class="owner-two-col">
+
 
               <div class="people-list-panel">
 
@@ -883,20 +1286,34 @@
               >
 
                 <div class="empty-state">
-                  Select a student.
+
+                  <div class="empty-icon">
+                    👤
+                  </div>
+
+                  <h3>
+                    Select a student.
+                  </h3>
+
                 </div>
 
               </div>
+
 
             </div>
 
           </div>
 
 
-          <!-- APPROVALS -->
+
+          <!-- =================================================
+               APPROVALS
+               ================================================= -->
+
           <div
             id="ownerSection-approvals"
             class="owner-section"
+            hidden
           >
 
             <div
@@ -907,10 +1324,15 @@
           </div>
 
 
-          <!-- GROUPS -->
+
+          <!-- =================================================
+               GROUP MANAGEMENT
+               ================================================= -->
+
           <div
             id="ownerSection-groups"
             class="owner-section"
+            hidden
           >
 
             <div
@@ -921,11 +1343,17 @@
           </div>
 
 
-          <!-- CONTENT -->
+
+          <!-- =================================================
+               CONTENT MANAGEMENT
+               ================================================= -->
+
           <div
             id="ownerSection-content"
             class="owner-section"
+            hidden
           >
+
 
             <div class="content-actions">
 
@@ -937,6 +1365,7 @@
                 ＋ Homework
               </button>
 
+
               <button
                 id="ownerAddNoteBtn"
                 class="primary-btn"
@@ -944,6 +1373,7 @@
               >
                 ＋ Note
               </button>
+
 
               <button
                 id="ownerAddAnnouncementBtn"
@@ -956,7 +1386,9 @@
             </div>
 
 
-            <h2>Homework</h2>
+            <h2>
+              Homework
+            </h2>
 
             <div
               id="ownerHomeworkList"
@@ -964,7 +1396,9 @@
             ></div>
 
 
-            <h2>Notes</h2>
+            <h2>
+              Notes
+            </h2>
 
             <div
               id="ownerNotesList"
@@ -972,33 +1406,45 @@
             ></div>
 
 
-            <h2>Announcements</h2>
+            <h2>
+              Announcements
+            </h2>
 
             <div
               id="ownerAnnouncementsList"
               class="stack-list"
             ></div>
 
+
           </div>
 
 
-          <!-- APPEARANCE -->
+
+          <!-- =================================================
+               APPEARANCE
+               ================================================= -->
+
           <div
             id="ownerSection-appearance"
             class="owner-section"
+            hidden
           >
 
             <div class="settings-grid">
 
+
               <div class="content-card">
 
-                <h2>App Name</h2>
+                <h2>
+                  App Name
+                </h2>
 
                 <input
                   id="ownerAppName"
                   class="text-input"
                   type="text"
                   value="StudyConnect"
+                  maxlength="60"
                 >
 
               </div>
@@ -1006,9 +1452,13 @@
 
               <div class="content-card">
 
-                <h2>Global Language</h2>
+                <h2>
+                  Global Language
+                </h2>
 
-                <select id="ownerGlobalLanguage">
+                <select
+                  id="ownerGlobalLanguage"
+                >
 
                   <option value="en">
                     English
@@ -1025,9 +1475,13 @@
 
               <div class="content-card">
 
-                <h2>Global Theme</h2>
+                <h2>
+                  Global Theme
+                </h2>
 
-                <select id="ownerGlobalTheme">
+                <select
+                  id="ownerGlobalTheme"
+                >
 
                   <option value="system">
                     System
@@ -1048,9 +1502,14 @@
 
               <div class="content-card">
 
-                <h2>Welcome Animation</h2>
+                <h2>
+                  Welcome Animation
+                </h2>
 
-                <label class="switch">
+                <label
+                  class="switch"
+                  for="ownerWelcomeAnimation"
+                >
 
                   <input
                     id="ownerWelcomeAnimation"
@@ -1063,6 +1522,7 @@
                 </label>
 
               </div>
+
 
             </div>
 
@@ -1078,16 +1538,23 @@
           </div>
 
 
-          <!-- FEATURES -->
+
+          <!-- =================================================
+               FEATURES
+               ================================================= -->
+
           <div
             id="ownerSection-features"
             class="owner-section"
+            hidden
           >
 
             <div class="feature-controls">
 
+
               <label>
-                Chat
+                <span>Chat</span>
+
                 <input
                   id="featureChat"
                   type="checkbox"
@@ -1095,8 +1562,10 @@
                 >
               </label>
 
+
               <label>
-                Groups
+                <span>Groups</span>
+
                 <input
                   id="featureGroups"
                   type="checkbox"
@@ -1104,8 +1573,10 @@
                 >
               </label>
 
+
               <label>
-                Homework
+                <span>Homework</span>
+
                 <input
                   id="featureHomework"
                   type="checkbox"
@@ -1113,8 +1584,10 @@
                 >
               </label>
 
+
               <label>
-                Notes
+                <span>Notes</span>
+
                 <input
                   id="featureNotes"
                   type="checkbox"
@@ -1122,8 +1595,10 @@
                 >
               </label>
 
+
               <label>
-                Announcements
+                <span>Announcements</span>
+
                 <input
                   id="featureAnnouncements"
                   type="checkbox"
@@ -1131,8 +1606,10 @@
                 >
               </label>
 
+
               <label>
-                Registration
+                <span>Registration</span>
+
                 <input
                   id="featureRegistration"
                   type="checkbox"
@@ -1140,13 +1617,16 @@
                 >
               </label>
 
+
               <label>
-                Maintenance
+                <span>Maintenance</span>
+
                 <input
                   id="featureMaintenance"
                   type="checkbox"
                 >
               </label>
+
 
             </div>
 
@@ -1162,15 +1642,22 @@
           </div>
 
 
-          <!-- SECURITY -->
+
+          <!-- =================================================
+               SECURITY
+               ================================================= -->
+
           <div
             id="ownerSection-security"
             class="owner-section"
+            hidden
           >
 
             <div class="content-card">
 
-              <h2>Owner Password</h2>
+              <h2>
+                Owner Password
+              </h2>
 
               <input
                 id="ownerNewPassword"
@@ -1180,6 +1667,7 @@
                 autocomplete="new-password"
               >
 
+
               <input
                 id="ownerConfirmPassword"
                 class="text-input"
@@ -1188,6 +1676,7 @@
                 autocomplete="new-password"
               >
 
+
               <button
                 id="changeOwnerPasswordBtn"
                 class="primary-btn"
@@ -1195,6 +1684,7 @@
               >
                 Change Owner Password
               </button>
+
 
               <p class="muted">
                 Passwords are stored as hashes, not plain text.
@@ -1205,10 +1695,15 @@
           </div>
 
 
-          <!-- ACTIVITY -->
+
+          <!-- =================================================
+               ACTIVITY
+               ================================================= -->
+
           <div
             id="ownerSection-activity"
             class="owner-section"
+            hidden
           >
 
             <div
@@ -1218,61 +1713,81 @@
 
           </div>
 
+
         </section>
+
 
       </main>
 
-
-      <!-- MOBILE BOTTOM NAV -->
-      <nav class="bottom-nav">
-
-        <button
-          class="bottom-nav-item active"
-          data-page="home"
-          type="button"
-        >
-          🏠
-          <span>Home</span>
-        </button>
-
-        <button
-          class="bottom-nav-item"
-          data-page="chat"
-          type="button"
-        >
-          💬
-          <span>Chat</span>
-        </button>
-
-        <button
-          class="bottom-nav-item"
-          data-page="groups"
-          type="button"
-        >
-          👥
-          <span>Groups</span>
-        </button>
-
-        <button
-          class="bottom-nav-item"
-          data-page="settings"
-          type="button"
-        >
-          ⚙️
-          <span>Settings</span>
-        </button>
-
-      </nav>
-
     </div>
+
+
+
+    <!-- ===================================================
+         MOBILE BOTTOM NAVIGATION
+         =================================================== -->
+
+    <nav
+      class="bottom-nav"
+      aria-label="Mobile navigation"
+    >
+
+      <button
+        class="bottom-nav-item active"
+        type="button"
+        data-page="home"
+      >
+        🏠
+        <span>Home</span>
+      </button>
+
+
+      <button
+        class="bottom-nav-item"
+        type="button"
+        data-page="chat"
+      >
+        💬
+        <span>Chat</span>
+      </button>
+
+
+      <button
+        class="bottom-nav-item"
+        type="button"
+        data-page="groups"
+      >
+        👥
+        <span>Groups</span>
+      </button>
+
+
+      <button
+        class="bottom-nav-item"
+        type="button"
+        data-page="settings"
+      >
+        ⚙️
+        <span>Settings</span>
+      </button>
+
+    </nav>
+
 
   </div>
 
 
-  <!-- GROUP MODAL -->
+
+  <!-- =====================================================
+       GROUP CREATE MODAL
+       ===================================================== -->
+
   <div
     id="groupModal"
     class="modal hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="groupModalTitle"
   >
 
     <div class="modal-card">
@@ -1286,35 +1801,51 @@
         ×
       </button>
 
-      <h2>Create Private Group</h2>
 
-      <form id="groupForm">
+      <h2 id="groupModalTitle">
+        Create Private Group
+      </h2>
+
+
+      <form
+        id="groupForm"
+        autocomplete="off"
+      >
+
 
         <input
           id="groupNameInput"
           class="text-input"
           type="text"
           placeholder="Group name"
+          maxlength="50"
           required
         >
+
 
         <input
           id="groupMemberSearch"
           class="text-input"
-          type="search"
+          type="tel"
+          inputmode="numeric"
           placeholder="Search by mobile number"
+          maxlength="10"
           autocomplete="off"
         >
+
 
         <div
           id="groupMemberResults"
           class="people-list"
         ></div>
 
+
         <div
           id="selectedGroupMembers"
           class="chips"
+          aria-live="polite"
         ></div>
+
 
         <input
           id="groupPasswordInput"
@@ -1322,8 +1853,10 @@
           type="password"
           placeholder="Private group password"
           autocomplete="new-password"
+          maxlength="100"
           required
         >
+
 
         <button
           class="primary-btn"
@@ -1332,6 +1865,7 @@
           Create Group
         </button>
 
+
       </form>
 
     </div>
@@ -1339,10 +1873,17 @@
   </div>
 
 
-  <!-- GENERIC APP MODAL -->
+
+  <!-- =====================================================
+       GENERIC APP MODAL
+       ===================================================== -->
+
   <div
     id="appModal"
     class="modal hidden"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="appModalTitle"
   >
 
     <div class="modal-card">
@@ -1356,9 +1897,11 @@
         ×
       </button>
 
+
       <h2 id="appModalTitle">
         StudyConnect
       </h2>
+
 
       <div id="appModalBody"></div>
 
@@ -1367,7 +1910,11 @@
   </div>
 
 
-  <!-- TOAST -->
+
+  <!-- =====================================================
+       TOAST
+       ===================================================== -->
+
   <div
     id="toast"
     class="toast"
@@ -1375,13 +1922,20 @@
     aria-live="polite"
   >
 
-    <span id="toastIcon">✓</span>
+    <span id="toastIcon">
+      ✓
+    </span>
+
     <span id="toastMessage"></span>
 
   </div>
 
 
-  <!-- JAVASCRIPT -->
+
+  <!-- =====================================================
+       JAVASCRIPT
+       ===================================================== -->
+
   <script
     type="module"
     src="script.js"
