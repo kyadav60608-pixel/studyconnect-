@@ -2553,63 +2553,52 @@ async function loadOwnerHomework() {
 }
 
 async function loadOwnerNotes() {
-  const container =
-    $("ownerNotesList");
+  const container = $("ownerNotesList");
 
   if (!container) return;
 
   try {
-    const snap =
-      await getDocs(
-        collection(db, "notes")
-      );
-
-    container.innerHTML =
-      snap.docs.map(d => {
-        const x = d.data();
-
-        return `
-          <article class="content-card">
-
-            <h3>
-              ${escapeHTML(x.title || "Note")}
-            </h3>
-
-            <p>
-              ${escapeHTML(
-                x.text || x.description || ""
-              )}
-            </p>
-
-            <button
-              class="danger-btn delete-note-btn"
-              data-id="${escapeHTML(d.id)}"
-            >
-              Delete
-            </button>
-
-          </article>
-        `;
-      }).join("") ||
-      `<div class="empty-state">
-        No notes.
-      </div>`;
-
-    qsa(".delete-note-btn").forEach(
-      button => {
-        button.addEventListener(
-          "click",
-          () =>
-            deleteOwnerContent(
-              "notes",
-              button.dataset.id
-            )
-        );
-      }
+    const snap = await getDocs(
+      collection(db, "notes")
     );
 
+    if (snap.empty) {
+      container.innerHTML =
+        '<div class="empty-state">No notes yet.</div>';
+      return;
+    }
+
+    container.innerHTML = "";
+
+    snap.docs.forEach((docSnap) => {
+      const x = docSnap.data();
+
+      const article = document.createElement("article");
+      article.className = "content-card";
+
+      const title = document.createElement("h3");
+      title.textContent = x.title || "Note";
+
+      const subject = document.createElement("p");
+      subject.textContent =
+        "Subject: " + (x.subject || "General");
+
+      const content = document.createElement("p");
+      content.textContent =
+        x.content || x.description || "";
+
+      article.appendChild(title);
+      article.appendChild(subject);
+      article.appendChild(content);
+
+      container.appendChild(article);
+    });
+
   } catch (error) {
-    console.error(error);
+    console.error("loadOwnerNotes error:", error);
+
+    container.innerHTML =
+      '<div class="empty-state">Unable to load notes.</div>';
   }
 }
 
