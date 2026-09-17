@@ -3283,3 +3283,2819 @@ window.addEventListener(
   "DOMContentLoaded",
   init
 );
+/* =========================================================
+   STUDYCONNECT — JAVASCRIPT
+   PART 2 / 2
+   ========================================================= */
+
+
+/* =========================================================
+   OWNER PANEL
+   ========================================================= */
+
+async function loadOwnerPanel() {
+  if (!currentStudent?.isOwner) {
+    return;
+  }
+
+  await Promise.all([
+    loadOwnerStats(),
+    loadOwnerStudents(),
+    loadOwnerApprovals(),
+    loadOwnerGroups(),
+    loadOwnerContent(),
+    loadOwnerActivity()
+  ]);
+}
+
+
+/* =========================================================
+   OWNER STATS
+   ========================================================= */
+
+async function loadOwnerStats() {
+  try {
+    const [
+      studentsSnap,
+      messagesSnap,
+      groupsSnap,
+      homeworkSnap
+    ] = await Promise.all([
+      getDocs(collection(db, "students")),
+      getDocs(collection(db, "messages")),
+      getDocs(collection(db, "groups")),
+      getDocs(collection(db, "homework"))
+    ]);
+
+    const students =
+      studentsSnap.docs.map(d => d.data());
+
+    const online =
+      students.filter(
+        s => s.online === true
+      ).length;
+
+    const pending =
+      students.filter(
+        s =>
+          s.status === "pending"
+      ).length;
+
+    text(
+      $("ownerTotalStudents"),
+      students.length
+    );
+
+    text(
+      $("ownerOnlineStudents"),
+      online
+    );
+
+    text(
+      $("ownerPendingStudents"),
+      pending
+    );
+
+    text(
+      $("ownerTotalMessages"),
+      messagesSnap.size
+    );
+
+    text(
+      $("ownerTotalGroups"),
+      groupsSnap.size
+    );
+
+    text(
+      $("ownerTotalHomework"),
+      homeworkSnap.size
+    );
+
+  } catch (error) {
+    console.error(
+      "Owner stats:",
+      error
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER STUDENTS
+   ========================================================= */
+
+async function loadOwnerStudents() {
+  const container =
+    $("ownerPeopleList");
+
+  if (!container) return;
+
+  try {
+    const snap =
+      await getDocs(
+        collection(db, "students")
+      );
+
+    studentsCache =
+      snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+    renderOwnerPeople(
+      studentsCache
+    );
+
+  } catch (error) {
+    console.error(
+      "Owner students:",
+      error
+    );
+
+    container.innerHTML = `
+      <div class="empty-state">
+        Students load नहीं हुए।
+      </div>
+    `;
+  }
+}
+
+
+function renderOwnerPeople(list) {
+  const container =
+    $("ownerPeopleList");
+
+  if (!container) return;
+
+  if (!list.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        👤
+        <h3>No students</h3>
+      </div>
+    `;
+
+    return;
+  }
+
+  container.innerHTML =
+    list.map(student => {
+
+      const permission =
+        effectivePermission(student);
+
+      return `
+        <button
+          type="button"
+          class="person-item owner-person"
+          data-id="${escapeHTML(
+            student.id
+          )}"
+        >
+
+          <span class="avatar">
+            ${escapeHTML(
+              (student.name || "S")
+                .charAt(0)
+                .toUpperCase()
+            )}
+          </span>
+
+          <span class="person-info">
+
+            <strong>
+              ${escapeHTML(
+                student.name ||
+                "Student"
+              )}
+            </strong>
+
+            <small>
+              ${escapeHTML(
+                student.phone ||
+                ""
+              )}
+            </small>
+
+            <small>
+              ${
+                permission === "allow" ||
+                permission === "full"
+                  ? "🟢 Allow"
+                  : permission === "normal"
+                    ? "🟡 Normal"
+                    : "🔴 Restricted"
+              }
+            </small>
+
+          </span>
+
+        </button>
+      `;
+    }).join("");
+
+  qsa(
+    ".owner-person"
+  ).forEach(button => {
+    button.addEventListener(
+      "click",
+      () => {
+        showOwnerPerson(
+          button.dataset.id
+        );
+      }
+    );
+  });
+}
+
+
+/* =========================================================
+   OWNER STUDENT SEARCH
+   ========================================================= */
+
+function setupOwnerSearch() {
+  $("ownerStudentSearch")
+    ?.addEventListener(
+      "input",
+      event => {
+
+        const value =
+          event.target.value
+            .trim()
+            .toLowerCase();
+
+        const filtered =
+          studentsCache.filter(
+            student =>
+              String(
+                student.name || ""
+              )
+                .toLowerCase()
+                .includes(value) ||
+              String(
+                student.phone || ""
+              ).includes(value)
+          );
+
+        renderOwnerPeople(
+          filtered
+        );
+      }
+    );
+}
+
+
+/* =========================================================
+   OWNER STUDENT DETAILS
+   ========================================================= */
+
+function showOwnerPerson(id) {
+  const container =
+    $("ownerPersonDetails");
+
+  if (!container) return;
+
+  const student =
+    studentsCache.find(
+      x => x.id === id
+    );
+
+  if (!student) {
+    container.innerHTML = `
+      <div class="empty-state">
+        Student not found.
+      </div>
+    `;
+
+    return;
+  }
+
+  const permission =
+    effectivePermission(student);
+
+  const joined =
+    formatDate(
+      student.createdAt
+    ) || "Unknown";
+
+  container.innerHTML = `
+    <div class="owner-profile-card">
+
+      <div class="owner-big-avatar">
+        ${escapeHTML(
+          (student.name || "S")
+            .charAt(0)
+            .toUpperCase()
+        )}
+      </div>
+
+      <h2>
+        ${escapeHTML(
+          student.name ||
+          "Student"
+        )}
+      </h2>
+
+      <p>
+        📱 ${escapeHTML(
+          student.phone ||
+          ""
+        )}
+      </p>
+
+      <div class="owner-detail-grid">
+
+        <div>
+          <small>Status</small>
+          <strong>
+            ${escapeHTML(
+              student.status ||
+              "unknown"
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <small>Permission</small>
+          <strong>
+            ${escapeHTML(
+              permission
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <small>Joined</small>
+          <strong>
+            ${escapeHTML(
+              joined
+            )}
+          </strong>
+        </div>
+
+        <div>
+          <small>Online</small>
+          <strong>
+            ${
+              student.online === true
+                ? "🟢 Online"
+                : "⚪ Offline"
+            }
+          </strong>
+        </div>
+
+        <div>
+          <small>Followers</small>
+          <strong>
+            ${
+              Array.isArray(
+                student.followers
+              )
+                ? student.followers.length
+                : 0
+            }
+          </strong>
+        </div>
+
+        <div>
+          <small>Following</small>
+          <strong>
+            ${
+              Array.isArray(
+                student.following
+              )
+                ? student.following.length
+                : 0
+            }
+          </strong>
+        </div>
+
+      </div>
+
+      <div class="owner-actions">
+
+        <button
+          type="button"
+          class="primary-btn"
+          data-owner-action="allow"
+        >
+          Allow 24h
+        </button>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          data-owner-action="normal"
+        >
+          Normal 24h
+        </button>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          data-owner-action="restricted"
+        >
+          Don't Allow
+        </button>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          data-owner-action="block"
+        >
+          Block
+        </button>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          data-owner-action="unblock"
+        >
+          Unblock
+        </button>
+
+        <button
+          type="button"
+          class="danger-btn"
+          data-owner-action="remove"
+        >
+          Remove
+        </button>
+
+      </div>
+
+    </div>
+  `;
+
+  qsa(
+    "[data-owner-action]"
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const action =
+          button.dataset.ownerAction;
+
+        updateOwnerStudent(
+          student,
+          action
+        );
+      }
+    );
+  });
+}
+
+
+/* =========================================================
+   OWNER STUDENT UPDATE
+   ========================================================= */
+
+async function updateOwnerStudent(
+  student,
+  action
+) {
+  try {
+
+    const ref =
+      doc(
+        db,
+        "students",
+        student.id
+      );
+
+    const now =
+      Date.now();
+
+    let patch = {};
+
+    if (action === "allow") {
+      patch = {
+        status: "approved",
+        permission: "allow",
+        permissionGrantedAt: now,
+        permissionExpiresAt:
+          now +
+          24 * 60 * 60 * 1000
+      };
+    }
+
+    if (action === "normal") {
+      patch = {
+        status: "approved",
+        permission: "normal",
+        permissionGrantedAt: now,
+        permissionExpiresAt:
+          now +
+          24 * 60 * 60 * 1000
+      };
+    }
+
+    if (action === "restricted") {
+      patch = {
+        status: "approved",
+        permission: "restricted",
+        permissionGrantedAt: now,
+        permissionExpiresAt:
+          now +
+          24 * 60 * 60 * 1000
+      };
+    }
+
+    if (action === "block") {
+      patch = {
+        status: "blocked",
+        permission: "restricted"
+      };
+    }
+
+    if (action === "unblock") {
+      patch = {
+        status: "approved",
+        permission: "restricted",
+        permissionGrantedAt: now,
+        permissionExpiresAt:
+          now +
+          24 * 60 * 60 * 1000
+      };
+    }
+
+    if (action === "remove") {
+
+      const confirmed =
+        confirm(
+          `Remove ${student.name || "student"}?`
+        );
+
+      if (!confirmed) {
+        return;
+      }
+
+      await deleteDoc(ref);
+
+      toast(
+        "Student removed.",
+        "✓"
+      );
+
+      await loadOwnerPanel();
+
+      return;
+    }
+
+    await updateDoc(
+      ref,
+      patch
+    );
+
+    Object.assign(
+      student,
+      patch
+    );
+
+    toast(
+      "Student permission updated.",
+      "✓"
+    );
+
+    await logActivity(
+      `${student.name || "Student"} → ${action}`
+    );
+
+    await loadOwnerPanel();
+
+    showOwnerPerson(
+      student.id
+    );
+
+  } catch (error) {
+    console.error(
+      "Owner student update:",
+      error
+    );
+
+    toast(
+      "Update नहीं हुआ।",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   APPROVALS
+   ========================================================= */
+
+async function loadOwnerApprovals() {
+  const container =
+    $("ownerApprovalList");
+
+  if (!container) return;
+
+  try {
+
+    const snap =
+      await getDocs(
+        collection(db, "students")
+      );
+
+    const pending =
+      snap.docs
+        .map(d => ({
+          id: d.id,
+          ...d.data()
+        }))
+        .filter(
+          student =>
+            student.status ===
+            "pending"
+        );
+
+    if (!pending.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          ✅
+          <h3>No pending approvals</h3>
+        </div>
+      `;
+
+      return;
+    }
+
+    container.innerHTML =
+      pending.map(
+        student => `
+          <article class="approval-card">
+
+            <div class="avatar">
+              ${escapeHTML(
+                (student.name || "S")
+                  .charAt(0)
+                  .toUpperCase()
+              )}
+            </div>
+
+            <div>
+              <h3>
+                ${escapeHTML(
+                  student.name ||
+                  "Student"
+                )}
+              </h3>
+
+              <p>
+                📱 ${escapeHTML(
+                  student.phone ||
+                  ""
+                )}
+              </p>
+            </div>
+
+            <div class="owner-actions">
+
+              <button
+                type="button"
+                class="primary-btn approve-btn"
+                data-id="${escapeHTML(
+                  student.id
+                )}"
+              >
+                Approve 24h
+              </button>
+
+              <button
+                type="button"
+                class="danger-btn reject-btn"
+                data-id="${escapeHTML(
+                  student.id
+                )}"
+              >
+                Reject
+              </button>
+
+            </div>
+
+          </article>
+        `
+      ).join("");
+
+    qsa(".approve-btn")
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          () =>
+            approveStudent(
+              button.dataset.id
+            )
+        );
+
+      });
+
+    qsa(".reject-btn")
+      .forEach(button => {
+
+        button.addEventListener(
+          "click",
+          () =>
+            rejectStudent(
+              button.dataset.id
+            )
+        );
+
+      });
+
+  } catch (error) {
+    console.error(
+      "Approvals:",
+      error
+    );
+  }
+}
+
+
+async function approveStudent(id) {
+  const now =
+    Date.now();
+
+  try {
+
+    await updateDoc(
+      doc(
+        db,
+        "students",
+        id
+      ),
+      {
+        status: "approved",
+        permission: "normal",
+        permissionGrantedAt: now,
+        permissionExpiresAt:
+          now +
+          24 * 60 * 60 * 1000
+      }
+    );
+
+    toast(
+      "Student approved for 24 hours.",
+      "✓"
+    );
+
+    await logActivity(
+      `Student ${id} approved`
+    );
+
+    await loadOwnerPanel();
+
+  } catch (error) {
+    console.error(
+      "Approve:",
+      error
+    );
+
+    toast(
+      "Approval failed.",
+      "!"
+    );
+  }
+}
+
+
+async function rejectStudent(id) {
+  try {
+
+    await updateDoc(
+      doc(
+        db,
+        "students",
+        id
+      ),
+      {
+        status: "rejected",
+        permission: "restricted",
+        permissionGrantedAt: null,
+        permissionExpiresAt: null
+      }
+    );
+
+    toast(
+      "Student rejected.",
+      "✓"
+    );
+
+    await logActivity(
+      `Student ${id} rejected`
+    );
+
+    await loadOwnerPanel();
+
+  } catch (error) {
+    console.error(
+      "Reject:",
+      error
+    );
+
+    toast(
+      "Reject failed.",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER GROUPS
+   ========================================================= */
+
+async function loadOwnerGroups() {
+  const container =
+    $("ownerGroupsList");
+
+  if (!container) return;
+
+  try {
+
+    const snap =
+      await getDocs(
+        collection(db, "groups")
+      );
+
+    if (snap.empty) {
+      container.innerHTML = `
+        <div class="empty-state">
+          👥
+          <h3>No groups</h3>
+        </div>
+      `;
+
+      return;
+    }
+
+    const groups =
+      snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+    container.innerHTML =
+      groups.map(group => `
+        <article class="content-card">
+
+          <h3>
+            👥 ${escapeHTML(
+              group.name ||
+              "Group"
+            )}
+          </h3>
+
+          <p>
+            Creator:
+            ${escapeHTML(
+              group.createdByName ||
+              "Unknown"
+            )}
+          </p>
+
+          <p>
+            Members:
+            ${
+              Array.isArray(
+                group.memberIds
+              )
+                ? group.memberIds.length
+                : 0
+            }
+          </p>
+
+          <button
+            type="button"
+            class="danger-btn owner-delete-group"
+            data-id="${escapeHTML(
+              group.id
+            )}"
+          >
+            Disable Group
+          </button>
+
+        </article>
+      `).join("");
+
+    qsa(
+      ".owner-delete-group"
+    ).forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          disableGroup(
+            button.dataset.id
+          )
+      );
+
+    });
+
+  } catch (error) {
+    console.error(
+      "Owner groups:",
+      error
+    );
+  }
+}
+
+
+async function disableGroup(id) {
+  try {
+
+    await updateDoc(
+      doc(
+        db,
+        "groups",
+        id
+      ),
+      {
+        active: false
+      }
+    );
+
+    toast(
+      "Group disabled.",
+      "✓"
+    );
+
+    await logActivity(
+      `Group ${id} disabled`
+    );
+
+    await loadOwnerGroups();
+
+  } catch (error) {
+    console.error(
+      "Disable group:",
+      error
+    );
+
+    toast(
+      "Group update failed.",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER CONTENT
+   ========================================================= */
+
+async function loadOwnerContent() {
+  await Promise.all([
+    loadOwnerHomework(),
+    loadOwnerNotes(),
+    loadOwnerAnnouncements()
+  ]);
+}
+
+
+/* =========================================================
+   OWNER HOMEWORK
+   ========================================================= */
+
+async function loadOwnerHomework() {
+  const container =
+    $("ownerHomeworkList");
+
+  if (!container) return;
+
+  try {
+
+    const snap =
+      await getDocs(
+        collection(
+          db,
+          "homework"
+        )
+      );
+
+    const items =
+      snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+    if (!items.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          📝
+          <h3>No homework yet</h3>
+        </div>
+      `;
+
+      return;
+    }
+
+    container.innerHTML =
+      items.map(item => `
+        <article class="content-card">
+
+          <span class="content-badge">
+            ${escapeHTML(
+              item.subject ||
+              "Homework"
+            )}
+          </span>
+
+          <h3>
+            ${escapeHTML(
+              item.title ||
+              "Homework"
+            )}
+          </h3>
+
+          ${
+            item.date
+              ? `
+                <p>
+                  📅 ${escapeHTML(
+                    item.date
+                  )}
+                </p>
+              `
+              : ""
+          }
+
+          ${
+            item.chapter
+              ? `
+                <p>
+                  Chapter:
+                  ${escapeHTML(
+                    item.chapter
+                  )}
+                </p>
+              `
+              : ""
+          }
+
+          <p>
+            ${escapeHTML(
+              item.description ||
+              item.text ||
+              ""
+            )}
+          </p>
+
+          <button
+            type="button"
+            class="danger-btn owner-delete-homework"
+            data-id="${escapeHTML(
+              item.id
+            )}"
+          >
+            Delete
+          </button>
+
+        </article>
+      `).join("");
+
+    qsa(
+      ".owner-delete-homework"
+    ).forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          deleteOwnerContent(
+            "homework",
+            button.dataset.id
+          )
+      );
+
+    });
+
+  } catch (error) {
+    console.error(
+      "Owner homework:",
+      error
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER NOTES
+   ========================================================= */
+
+async function loadOwnerNotes() {
+  const container =
+    $("ownerNotesList");
+
+  if (!container) return;
+
+  try {
+
+    const snap =
+      await getDocs(
+        collection(
+          db,
+          "notes"
+        )
+      );
+
+    if (snap.empty) {
+      container.innerHTML = `
+        <div class="empty-state">
+          📚
+          <h3>No notes yet</h3>
+        </div>
+      `;
+
+      return;
+    }
+
+    container.innerHTML = "";
+
+    snap.docs.forEach(
+      docSnap => {
+
+        const x =
+          docSnap.data();
+
+        const article =
+          document.createElement(
+            "article"
+          );
+
+        article.className =
+          "content-card";
+
+        article.innerHTML = `
+          <span class="content-badge">
+            ${escapeHTML(
+              x.subject ||
+              "General"
+            )}
+          </span>
+
+          <h3>
+            ${escapeHTML(
+              x.title ||
+              "Note"
+            )}
+          </h3>
+
+          ${
+            x.chapter
+              ? `
+                <p>
+                  Chapter:
+                  ${escapeHTML(
+                    x.chapter
+                  )}
+                </p>
+              `
+              : ""
+          }
+
+          <p>
+            ${escapeHTML(
+              x.content ||
+              x.description ||
+              x.text ||
+              ""
+            )}
+          </p>
+
+          <button
+            type="button"
+            class="danger-btn owner-delete-note"
+            data-id="${escapeHTML(
+              docSnap.id
+            )}"
+          >
+            Delete
+          </button>
+        `;
+
+        container.appendChild(
+          article
+        );
+      }
+    );
+
+    qsa(
+      ".owner-delete-note"
+    ).forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          deleteOwnerContent(
+            "notes",
+            button.dataset.id
+          )
+      );
+
+    });
+
+  } catch (error) {
+
+    console.error(
+      "loadOwnerNotes error:",
+      error
+    );
+
+    container.innerHTML = `
+      <div class="empty-state">
+        Unable to load notes.
+      </div>
+    `;
+  }
+}
+
+
+/* =========================================================
+   OWNER ANNOUNCEMENTS
+   ========================================================= */
+
+async function loadOwnerAnnouncements() {
+  const container =
+    $("ownerAnnouncementsList");
+
+  if (!container) return;
+
+  try {
+
+    const snap =
+      await getDocs(
+        collection(
+          db,
+          "school"
+        )
+      );
+
+    const items =
+      snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+    if (!items.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          📢
+          <h3>No announcements</h3>
+        </div>
+      `;
+
+      return;
+    }
+
+    container.innerHTML =
+      items.map(item => `
+        <article class="content-card">
+
+          <span class="content-badge">
+            📢 School
+          </span>
+
+          <h3>
+            ${escapeHTML(
+              item.title ||
+              "Announcement"
+            )}
+          </h3>
+
+          <p>
+            ${escapeHTML(
+              item.text ||
+              item.description ||
+              ""
+            )}
+          </p>
+
+          <button
+            type="button"
+            class="danger-btn owner-delete-announcement"
+            data-id="${escapeHTML(
+              item.id
+            )}"
+          >
+            Delete
+          </button>
+
+        </article>
+      `).join("");
+
+    qsa(
+      ".owner-delete-announcement"
+    ).forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          deleteOwnerContent(
+            "school",
+            button.dataset.id
+          )
+      );
+
+    });
+
+  } catch (error) {
+    console.error(
+      "Owner announcements:",
+      error
+    );
+  }
+}
+
+
+/* =========================================================
+   DELETE OWNER CONTENT
+   ========================================================= */
+
+async function deleteOwnerContent(
+  type,
+  id
+) {
+  const names = {
+    homework: "homework",
+    notes: "note",
+    school: "announcement"
+  };
+
+  if (
+    !confirm(
+      `Delete this ${names[type] || "content"}?`
+    )
+  ) {
+    return;
+  }
+
+  try {
+
+    await deleteDoc(
+      doc(
+        db,
+        type,
+        id
+      )
+    );
+
+    toast(
+      "Deleted successfully.",
+      "✓"
+    );
+
+    await logActivity(
+      `Deleted ${type}: ${id}`
+    );
+
+    await loadOwnerContent();
+
+    await loadHomework();
+    await loadNotes();
+    await loadSchool();
+
+  } catch (error) {
+    console.error(
+      "Delete content:",
+      error
+    );
+
+    toast(
+      "Delete failed.",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   ADD HOMEWORK
+   ========================================================= */
+
+function openAddHomework() {
+  openModal(
+    "Add Homework",
+    `
+      <form
+        id="addHomeworkForm"
+        class="app-form"
+      >
+
+        <label>
+          Date
+          <input
+            id="hwDate"
+            type="date"
+            required
+          >
+        </label>
+
+        <label>
+          Subject
+          <select
+            id="hwSubject"
+            required
+          >
+            <option value="">
+              Select Subject
+            </option>
+
+            <option>Hindi</option>
+            <option>English</option>
+            <option>Maths</option>
+            <option>Science</option>
+            <option>Social Science</option>
+            <option>GK</option>
+            <option>Computer</option>
+            <option>Art</option>
+            <option>Other</option>
+          </select>
+        </label>
+
+        <label>
+          Chapter
+          <input
+            id="hwChapter"
+            type="text"
+            placeholder="Chapter name"
+          >
+        </label>
+
+        <label>
+          Homework Title
+          <input
+            id="hwTitle"
+            type="text"
+            placeholder="Today's Homework"
+            required
+          >
+        </label>
+
+        <label>
+          Homework
+          <textarea
+            id="hwDescription"
+            rows="6"
+            placeholder="Write homework..."
+            required
+          ></textarea>
+        </label>
+
+        <button
+          type="submit"
+          class="primary-btn"
+        >
+          Publish Homework
+        </button>
+
+      </form>
+    `
+  );
+
+  $("addHomeworkForm")
+    ?.addEventListener(
+      "submit",
+      submitHomework
+    );
+}
+
+
+async function submitHomework(event) {
+  event.preventDefault();
+
+  try {
+
+    await addDoc(
+      collection(
+        db,
+        "homework"
+      ),
+      {
+        date:
+          $("hwDate")?.value ||
+          "",
+
+        subject:
+          $("hwSubject")?.value ||
+          "Other",
+
+        chapter:
+          $("hwChapter")?.value.trim() ||
+          "",
+
+        title:
+          $("hwTitle")?.value.trim() ||
+          "Homework",
+
+        description:
+          $("hwDescription")?.value.trim() ||
+          "",
+
+        published: true,
+
+        createdAt:
+          serverTimestamp(),
+
+        createdBy:
+          currentStudent.id
+      }
+    );
+
+    closeModal();
+
+    toast(
+      "Homework published.",
+      "✓"
+    );
+
+    await logActivity(
+      "New homework published"
+    );
+
+    await loadOwnerHomework();
+
+  } catch (error) {
+    console.error(
+      "Add homework:",
+      error
+    );
+
+    toast(
+      "Homework publish नहीं हुआ।",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   ADD NOTE
+   ========================================================= */
+
+function openAddNote() {
+  openModal(
+    "Add Note",
+    `
+      <form
+        id="addNoteForm"
+        class="app-form"
+      >
+
+        <label>
+          Subject
+          <select
+            id="noteSubject"
+            required
+          >
+            <option value="">
+              Select Subject
+            </option>
+
+            <option>Hindi</option>
+            <option>English</option>
+            <option>Maths</option>
+            <option>Science</option>
+            <option>Social Science</option>
+            <option>GK</option>
+            <option>Computer</option>
+            <option>Art</option>
+            <option>Other</option>
+          </select>
+        </label>
+
+        <label>
+          Chapter
+          <input
+            id="noteChapter"
+            type="text"
+            placeholder="Chapter"
+          >
+        </label>
+
+        <label>
+          Note Title
+          <input
+            id="noteTitle"
+            type="text"
+            placeholder="Note title"
+            required
+          >
+        </label>
+
+        <label>
+          Note
+          <textarea
+            id="noteContent"
+            rows="8"
+            placeholder="Write your note..."
+            required
+          ></textarea>
+        </label>
+
+        <button
+          type="submit"
+          class="primary-btn"
+        >
+          Publish Note
+        </button>
+
+      </form>
+    `
+  );
+
+  $("addNoteForm")
+    ?.addEventListener(
+      "submit",
+      submitNote
+    );
+}
+
+
+async function submitNote(event) {
+  event.preventDefault();
+
+  try {
+
+    await addDoc(
+      collection(
+        db,
+        "notes"
+      ),
+      {
+        subject:
+          $("noteSubject")?.value ||
+          "Other",
+
+        chapter:
+          $("noteChapter")?.value.trim() ||
+          "",
+
+        title:
+          $("noteTitle")?.value.trim() ||
+          "Note",
+
+        content:
+          $("noteContent")?.value.trim() ||
+          "",
+
+        published: true,
+
+        createdAt:
+          serverTimestamp(),
+
+        createdBy:
+          currentStudent.id
+      }
+    );
+
+    closeModal();
+
+    toast(
+      "Note published.",
+      "✓"
+    );
+
+    await logActivity(
+      "New note published"
+    );
+
+    await loadOwnerNotes();
+
+  } catch (error) {
+    console.error(
+      "Add note:",
+      error
+    );
+
+    toast(
+      "Note publish नहीं हुआ।",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   ADD ANNOUNCEMENT
+   ========================================================= */
+
+function openAddAnnouncement() {
+  openModal(
+    "School Update",
+    `
+      <form
+        id="addAnnouncementForm"
+        class="app-form"
+      >
+
+        <label>
+          Title
+          <input
+            id="announcementTitle"
+            type="text"
+            placeholder="Important school update"
+            required
+          >
+        </label>
+
+        <label>
+          Update
+          <textarea
+            id="announcementText"
+            rows="8"
+            placeholder="Write school update..."
+            required
+          ></textarea>
+        </label>
+
+        <button
+          type="submit"
+          class="primary-btn"
+        >
+          Publish Update
+        </button>
+
+      </form>
+    `
+  );
+
+  $("addAnnouncementForm")
+    ?.addEventListener(
+      "submit",
+      submitAnnouncement
+    );
+}
+
+
+async function submitAnnouncement(event) {
+  event.preventDefault();
+
+  try {
+
+    await addDoc(
+      collection(
+        db,
+        "school"
+      ),
+      {
+        title:
+          $("announcementTitle")
+            ?.value.trim() ||
+          "School Update",
+
+        text:
+          $("announcementText")
+            ?.value.trim() ||
+          "",
+
+        published: true,
+
+        createdAt:
+          serverTimestamp(),
+
+        createdBy:
+          currentStudent.id
+      }
+    );
+
+    closeModal();
+
+    toast(
+      "School update published.",
+      "✓"
+    );
+
+    await logActivity(
+      "New school update published"
+    );
+
+    await loadOwnerAnnouncements();
+
+  } catch (error) {
+    console.error(
+      "Announcement:",
+      error
+    );
+
+    toast(
+      "Update publish नहीं हुआ।",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER TABS
+   ========================================================= */
+
+function setupOwnerTabs() {
+  qsa(
+    ".owner-tab[data-owner-section]"
+  ).forEach(tab => {
+
+    tab.addEventListener(
+      "click",
+      () => {
+
+        const section =
+          tab.dataset.ownerSection;
+
+        qsa(
+          ".owner-tab[data-owner-section]"
+        ).forEach(item => {
+          item.classList.toggle(
+            "active",
+            item === tab
+          );
+        });
+
+        qsa(
+          ".owner-section"
+        ).forEach(item => {
+          item.classList.toggle(
+            "active",
+            item.id ===
+              `ownerSection-${section}`
+          );
+
+          if (
+            item.id ===
+              `ownerSection-${section}`
+          ) {
+            item.removeAttribute(
+              "hidden"
+            );
+          } else {
+            item.setAttribute(
+              "hidden",
+              ""
+            );
+          }
+        });
+
+      }
+    );
+  });
+}
+
+
+/* =========================================================
+   GLOBAL APPEARANCE SETTINGS
+   ========================================================= */
+
+function loadOwnerAppearance() {
+  if (!currentStudent?.isOwner) {
+    return;
+  }
+
+  if ($("ownerAppName")) {
+    $("ownerAppName").value =
+      globalSettings.appName ||
+      "StudyConnect";
+  }
+
+  if ($("ownerGlobalLanguage")) {
+    $("ownerGlobalLanguage").value =
+      globalSettings.language ||
+      "en";
+  }
+
+  if ($("ownerGlobalTheme")) {
+    $("ownerGlobalTheme").value =
+      globalSettings.theme ||
+      "system";
+  }
+
+  if ($("ownerWelcomeAnimation")) {
+    $("ownerWelcomeAnimation").checked =
+      globalSettings.welcomeAnimation !==
+      false;
+  }
+}
+
+
+async function saveGlobalSettings() {
+  if (!currentStudent?.isOwner) {
+    return;
+  }
+
+  const appName =
+    $("ownerAppName")
+      ?.value.trim() ||
+    "StudyConnect";
+
+  const language =
+    $("ownerGlobalLanguage")
+      ?.value ||
+    "en";
+
+  const theme =
+    $("ownerGlobalTheme")
+      ?.value ||
+    "system";
+
+  const welcomeAnimation =
+    $("ownerWelcomeAnimation")
+      ?.checked !== false;
+
+  try {
+
+    const newSettings = {
+      ...globalSettings,
+
+      appName,
+      language,
+      theme,
+      welcomeAnimation,
+
+      updatedAt:
+        serverTimestamp(),
+
+      updatedBy:
+        OWNER_NAME
+    };
+
+    await setDoc(
+      doc(
+        db,
+        "appSettings",
+        "main"
+      ),
+      newSettings,
+      {
+        merge: true
+      }
+    );
+
+    globalSettings = {
+      ...globalSettings,
+      ...newSettings
+    };
+
+    applySettings();
+
+    toast(
+      "Global settings saved.",
+      "✓"
+    );
+
+    await logActivity(
+      "Global settings updated"
+    );
+
+  } catch (error) {
+    console.error(
+      "Global settings:",
+      error
+    );
+
+    toast(
+      "Settings save नहीं हुईं।",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   FEATURE SETTINGS
+   ========================================================= */
+
+function loadFeatureSettings() {
+  const features =
+    globalSettings.features ||
+    DEFAULT_SETTINGS.features;
+
+  const map = {
+    featureChat: "chat",
+    featureGroups: "groups",
+    featureHomework: "homework",
+    featureNotes: "notes",
+    featureAnnouncements:
+      "announcements",
+    featureRegistration:
+      "registration",
+    featureMaintenance:
+      "maintenance"
+  };
+
+  Object.entries(map)
+    .forEach(
+      ([id, key]) => {
+
+        const checkbox =
+          $(id);
+
+        if (checkbox) {
+          checkbox.checked =
+            features[key] !== false;
+        }
+
+      }
+    );
+}
+
+
+async function saveFeatureSettings() {
+  if (!currentStudent?.isOwner) {
+    return;
+  }
+
+  const map = {
+    featureChat: "chat",
+    featureGroups: "groups",
+    featureHomework: "homework",
+    featureNotes: "notes",
+    featureAnnouncements:
+      "announcements",
+    featureRegistration:
+      "registration",
+    featureMaintenance:
+      "maintenance"
+  };
+
+  const features = {
+    ...globalSettings.features
+  };
+
+  Object.entries(map)
+    .forEach(
+      ([id, key]) => {
+
+        const checkbox =
+          $(id);
+
+        if (checkbox) {
+          features[key] =
+            checkbox.checked;
+        }
+
+      }
+    );
+
+  try {
+
+    await setDoc(
+      doc(
+        db,
+        "appSettings",
+        "main"
+      ),
+      {
+        features,
+        updatedAt:
+          serverTimestamp(),
+        updatedBy:
+          OWNER_NAME
+      },
+      {
+        merge: true
+      }
+    );
+
+    globalSettings.features =
+      features;
+
+    applyFeatureVisibility();
+    applyUserAccess();
+
+    toast(
+      "Feature settings saved.",
+      "✓"
+    );
+
+    await logActivity(
+      "Feature settings updated"
+    );
+
+  } catch (error) {
+    console.error(
+      "Feature settings:",
+      error
+    );
+
+    toast(
+      "Feature settings save नहीं हुईं।",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER PASSWORD
+   ========================================================= */
+
+async function changeOwnerPassword() {
+  if (!currentStudent?.isOwner) {
+    return;
+  }
+
+  const newPassword =
+    $("ownerNewPassword")
+      ?.value.trim();
+
+  const confirmPassword =
+    $("ownerConfirmPassword")
+      ?.value.trim();
+
+  if (!newPassword) {
+    toast(
+      "New password डालो।",
+      "!"
+    );
+
+    return;
+  }
+
+  if (
+    newPassword !==
+    confirmPassword
+  ) {
+    toast(
+      "Passwords match नहीं कर रहे।",
+      "!"
+    );
+
+    return;
+  }
+
+  if (newPassword.length < 4) {
+    toast(
+      "Password कम से कम 4 characters का रखो।",
+      "!"
+    );
+
+    return;
+  }
+
+  try {
+
+    const passwordHash =
+      await hashPassword(
+        newPassword
+      );
+
+    await setDoc(
+      doc(
+        db,
+        "appSettings",
+        "main"
+      ),
+      {
+        ownerPasswordHash:
+          passwordHash,
+
+        updatedAt:
+          serverTimestamp(),
+
+        updatedBy:
+          OWNER_NAME
+      },
+      {
+        merge: true
+      }
+    );
+
+    $("ownerNewPassword").value =
+      "";
+
+    $("ownerConfirmPassword").value =
+      "";
+
+    toast(
+      "Owner password changed.",
+      "✓"
+    );
+
+    await logActivity(
+      "Owner password changed"
+    );
+
+  } catch (error) {
+    console.error(
+      "Owner password:",
+      error
+    );
+
+    toast(
+      "Password change नहीं हुआ।",
+      "!"
+    );
+  }
+}
+
+
+/* =========================================================
+   ACTIVITY LOG
+   ========================================================= */
+
+async function logActivity(action) {
+  if (!action) return;
+
+  try {
+
+    await addDoc(
+      collection(
+        db,
+        "activityLogs"
+      ),
+      {
+        action,
+
+        actor:
+          currentStudent?.name ||
+          OWNER_NAME,
+
+        actorId:
+          currentStudent?.id ||
+          "owner",
+
+        createdAt:
+          serverTimestamp()
+      }
+    );
+
+  } catch (error) {
+    console.error(
+      "Activity log:",
+      error
+    );
+  }
+}
+
+
+async function loadOwnerActivity() {
+  const container =
+    $("ownerActivityLog");
+
+  if (!container) return;
+
+  try {
+
+    const snap =
+      await getDocs(
+        collection(
+          db,
+          "activityLogs"
+        )
+      );
+
+    const items =
+      snap.docs.map(d => ({
+        id: d.id,
+        ...d.data()
+      }));
+
+    items.sort(
+      (a, b) =>
+        getMillis(
+          b.createdAt
+        ) -
+        getMillis(
+          a.createdAt
+        )
+    );
+
+    if (!items.length) {
+      container.innerHTML = `
+        <div class="empty-state">
+          Activity log empty.
+        </div>
+      `;
+
+      return;
+    }
+
+    container.innerHTML =
+      items.slice(0, 100)
+        .map(item => `
+          <article class="activity-item">
+
+            <strong>
+              ${escapeHTML(
+                item.action ||
+                "Activity"
+              )}
+            </strong>
+
+            <small>
+              ${escapeHTML(
+                item.actor ||
+                "Unknown"
+              )}
+              ·
+              ${escapeHTML(
+                formatDate(
+                  item.createdAt
+                )
+              )}
+              ${escapeHTML(
+                formatTime(
+                  item.createdAt
+                )
+              )}
+            </small>
+
+          </article>
+        `).join("");
+
+  } catch (error) {
+    console.error(
+      "Activity:",
+      error
+    );
+  }
+}
+
+
+/* =========================================================
+   SETTINGS PAGE
+   ========================================================= */
+
+function setupSettings() {
+  $("languageSelect")
+    ?.addEventListener(
+      "change",
+      event => {
+
+        if (
+          currentStudent?.isOwner
+        ) {
+          globalSettings.language =
+            event.target.value;
+
+          applyLanguage(
+            event.target.value
+          );
+        }
+
+      }
+    );
+
+  $("themeSelect")
+    ?.addEventListener(
+      "change",
+      event => {
+
+        applyTheme(
+          event.target.value
+        );
+
+        if (
+          currentStudent?.isOwner
+        ) {
+          globalSettings.theme =
+            event.target.value;
+        }
+
+      }
+    );
+
+  $("notificationToggle")
+    ?.addEventListener(
+      "change",
+      event => {
+
+        localStorage.setItem(
+          "studyNotifications",
+          event.target.checked
+            ? "1"
+            : "0"
+        );
+
+        toast(
+          event.target.checked
+            ? "Notifications enabled."
+            : "Notifications disabled.",
+          "✓"
+        );
+
+      }
+    );
+
+  $("openOwnerPanelBtn")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        if (
+          currentStudent?.isOwner
+        ) {
+          openPage("owner");
+        }
+
+      }
+    );
+
+  $("settingsLogoutBtn")
+    ?.addEventListener(
+      "click",
+      logout
+    );
+}
+
+
+/* =========================================================
+   PASSWORD EYE
+   ========================================================= */
+
+function setupPasswordToggle() {
+  const input =
+    $("loginPassword");
+
+  const button =
+    $("toggleLoginPassword");
+
+  if (!input || !button) {
+    return;
+  }
+
+  button.addEventListener(
+    "click",
+    () => {
+
+      const isPassword =
+        input.type ===
+        "password";
+
+      input.type =
+        isPassword
+          ? "text"
+          : "password";
+
+      button.textContent =
+        isPassword
+          ? "🙈"
+          : "👁";
+    }
+  );
+}
+
+
+/* =========================================================
+   LOGOUT
+   ========================================================= */
+
+async function logout() {
+  try {
+
+    if (
+      currentStudent?.id &&
+      !currentStudent.isOwner
+    ) {
+      await setStudentOnline(
+        currentStudent.id,
+        false
+      );
+    }
+
+  } catch (error) {
+    console.log(
+      "Logout online update skipped."
+    );
+  }
+
+  if (
+    unsubscribeMessages
+  ) {
+    unsubscribeMessages();
+    unsubscribeMessages =
+      null;
+  }
+
+  currentStudent = null;
+  currentChatUser = null;
+  currentPage = "home";
+
+  localStorage.removeItem(
+    "studyName"
+  );
+
+  localStorage.removeItem(
+    "studyPhone"
+  );
+
+  hide($("app"));
+  hide($("ownerWelcome"));
+
+  show($("loginScreen"));
+
+  if ($("loginForm")) {
+    $("loginForm").reset();
+  }
+
+  loginStep = 1;
+  setLoginStep(1);
+
+  text(
+    $("loginMessage"),
+    ""
+  );
+}
+
+
+/* =========================================================
+   CLOSE GENERIC MODAL
+   ========================================================= */
+
+function setupModal() {
+  $("closeAppModalBtn")
+    ?.addEventListener(
+      "click",
+      closeModal
+    );
+
+  $("appModal")
+    ?.addEventListener(
+      "click",
+      event => {
+
+        if (
+          event.target ===
+          $("appModal")
+        ) {
+          closeModal();
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   OWNER BUTTONS
+   ========================================================= */
+
+function setupOwnerButtons() {
+  $("ownerAddHomeworkBtn")
+    ?.addEventListener(
+      "click",
+      openAddHomework
+    );
+
+  $("ownerAddNoteBtn")
+    ?.addEventListener(
+      "click",
+      openAddNote
+    );
+
+  $("ownerAddAnnouncementBtn")
+    ?.addEventListener(
+      "click",
+      openAddAnnouncement
+    );
+
+  $("saveGlobalSettingsBtn")
+    ?.addEventListener(
+      "click",
+      saveGlobalSettings
+    );
+
+  $("saveFeatureSettingsBtn")
+    ?.addEventListener(
+      "click",
+      saveFeatureSettings
+    );
+
+  $("changeOwnerPasswordBtn")
+    ?.addEventListener(
+      "click",
+      changeOwnerPassword
+    );
+}
+
+
+/* =========================================================
+   OWNER PAGE OPEN
+   ========================================================= */
+
+function setupOwnerAccess() {
+  qsa(
+    '[data-page="owner"]'
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      event => {
+
+        event.preventDefault();
+
+        if (
+          currentStudent?.isOwner
+        ) {
+          openPage("owner");
+        }
+
+      }
+    );
+
+  });
+}
+
+
+/* =========================================================
+   AUTO LOGIN NAME
+   ========================================================= */
+
+function restoreSavedUser() {
+  const savedName =
+    localStorage.getItem(
+      "studyName"
+    );
+
+  const savedPhone =
+    localStorage.getItem(
+      "studyPhone"
+    );
+
+  /*
+    After first successful login,
+    name is remembered.
+    Mobile number is remembered
+    internally but is not required
+    again from the user.
+  */
+
+  if (
+    savedName &&
+    $("loginName")
+  ) {
+    $("loginName").value =
+      savedName;
+  }
+
+  if (
+    savedPhone &&
+    $("loginPhone")
+  ) {
+    $("loginPhone").value =
+      savedPhone;
+  }
+}
+
+
+/* =========================================================
+   RE-LOGIN USING SAVED NAME
+   ========================================================= */
+
+async function trySavedLogin() {
+  const savedName =
+    localStorage.getItem(
+      "studyName"
+    );
+
+  const savedPhone =
+    localStorage.getItem(
+      "studyPhone"
+    );
+
+  if (
+    !savedName ||
+    !savedPhone
+  ) {
+    return false;
+  }
+
+  /*
+    This function only restores
+    the saved fields. Password is
+    still required for security.
+  */
+
+  if ($("loginName")) {
+    $("loginName").value =
+      savedName;
+  }
+
+  if ($("loginPhone")) {
+    $("loginPhone").value =
+      savedPhone;
+  }
+
+  return true;
+}
+
+
+/* =========================================================
+   INIT
+   ========================================================= */
+
+async function init() {
+
+  setupLogin();
+  setupNavigation();
+  setupMenu();
+
+  setupChatSearch();
+  setupGroupModal();
+
+  setupSettings();
+  setupModal();
+
+  setupPasswordToggle();
+
+  setupOwnerTabs();
+  setupOwnerSearch();
+
+  setupOwnerButtons();
+  setupOwnerAccess();
+
+  restoreSavedUser();
+  await trySavedLogin();
+
+  const authOK =
+    await startFirebase();
+
+  if (!authOK) {
+    return;
+  }
+
+  await loadSettings();
+
+  setLoginStep(1);
+
+  /*
+    If user was already logged in
+    in this browser session, restore
+    only the UI identity.
+  */
+
+  const savedName =
+    localStorage.getItem(
+      "studyName"
+    );
+
+  const savedPhone =
+    localStorage.getItem(
+      "studyPhone"
+    );
+
+  if (
+    savedName === OWNER_NAME
+  ) {
+
+    currentStudent = {
+      id: "owner",
+      name: OWNER_NAME,
+      phone: "",
+      permission: "owner",
+      status: "approved",
+      isOwner: true
+    };
+
+    openApp();
+
+    setTimeout(
+      ownerWelcomeAnimation,
+      250
+    );
+  }
+
+  window.addEventListener(
+    "beforeunload",
+    () => {
+
+      if (
+        currentStudent &&
+        !currentStudent.isOwner
+      ) {
+        setStudentOnline(
+          currentStudent.id,
+          false
+        );
+      }
+
+    }
+  );
+}
+
+
+/* =========================================================
+   START APP
+   ========================================================= */
+
+if (
+  document.readyState ===
+  "loading"
+) {
+
+  document.addEventListener(
+    "DOMContentLoaded",
+    init
+  );
+
+} else {
+
+  init();
+
+}
+
+
+/* =========================================================
+   END OF STUDYCONNECT
+   ========================================================= */
