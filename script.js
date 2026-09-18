@@ -1,5 +1,15 @@
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+/* =========================================================
+   STUDYCONNECT — SCRIPT.JS
+   PART 1 / 2
+   Firebase + Login + Permissions + Navigation
+   Personal Chat + Private Groups
+========================================================= */
+
+import {
+  initializeApp
+} from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
+
 import {
   getFirestore,
   collection,
@@ -15,7 +25,8 @@ import {
   orderBy,
   onSnapshot,
   serverTimestamp,
-  limit
+  limit,
+  arrayUnion
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 import {
@@ -23,141 +34,37 @@ import {
   signInAnonymously
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 
-/* =========================
+
+/* =========================================================
    FIREBASE
-========================= */
+========================================================= */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCquRX2YB59FObuIyiSw3Wc3aUCdPWypag",
+  apiKey: "AIzaSyYOUR_FIREBASE_API_KEY",
   authDomain: "studyconnect-99006.firebaseapp.com",
   projectId: "studyconnect-99006",
   storageBucket: "studyconnect-99006.firebasestorage.app",
-  messagingSenderId: "15964627995",
-  appId: "1:15964627995:web:0e8a8cd14c175247ed04be",
-  measurementId: "G-SYJYMREJJL"
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
 };
 
 const firebaseApp = initializeApp(firebaseConfig);
 const db = getFirestore(firebaseApp);
 const auth = getAuth(firebaseApp);
 
-/* =========================
-   APP
-========================= */
+
+/* =========================================================
+   APP CONSTANTS
+========================================================= */
 
 const OWNER_NAME = "Krishna Yadav";
+const OWNER_SHORT_NAME = "Krishna Ji";
+
 const OWNER_PASSWORD = "12341";
 const STUDENT_PASSWORD = "123";
 
-let currentUser = null;
-let currentStudent = null;
-let currentPage = "home";
-let previousPage = "home";
-let currentChatUser = null;
-let globalSettings = {};
-let studentsCache = [];
-let groupsCache = [];
-let unsubscribeMessages = null;
-
-const $ = id => document.getElementById(id);
-
-const qs = selector => document.querySelector(selector);
-
-const qsa = selector => [...document.querySelectorAll(selector)];
-
-function show(el) {
-  if (el) el.classList.remove("hidden");
-}
-
-function hide(el) {
-  if (el) el.classList.add("hidden");
-}
-
-function text(el, value) {
-  if (el) el.textContent = value ?? "";
-}
-
-function escapeHTML(value = "") {
-  return String(value)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-/* =========================
-   TOAST
-========================= */
-
-function toast(message, icon = "✓") {
-  text($("toastMessage"), message);
-  text($("toastIcon"), icon);
-
-  const t = $("toast");
-  if (!t) return;
-
-  t.classList.add("show");
-
-  clearTimeout(window.__toastTimer);
-
-  window.__toastTimer = setTimeout(() => {
-    t.classList.remove("show");
-  }, 2500);
-}
-
-/* =========================
-   MODAL
-========================= */
-
-function openModal(title, body) {
-  text($("appModalTitle"), title);
-
-  if ($("appModalBody")) {
-    $("appModalBody").innerHTML = body;
-  }
-
-  show($("appModal"));
-}
-
-function closeModal() {
-  hide($("appModal"));
-}
-
-/* =========================
-   HASH
-========================= */
-
-async function hashPassword(password) {
-  const data = new TextEncoder().encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-
-  return [...new Uint8Array(hashBuffer)]
-    .map(x => x.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-/* =========================
-   FIREBASE AUTH
-========================= */
-
-async function startFirebase() {
-  try {
-    if (!auth.currentUser) {
-      await signInAnonymously(auth);
-    }
-
-    return true;
-  } catch (error) {
-    console.error(error);
-    toast("Firebase connection failed", "!");
-    return false;
-  }
-}
-
-/* =========================
-   DEFAULT SETTINGS
-========================= */
+const CHAT_LIMIT = 2;
+const PERMISSION_HOURS = 24;
 
 const DEFAULT_SETTINGS = {
   appName: "StudyConnect",
@@ -176,918 +83,3227 @@ const DEFAULT_SETTINGS = {
   }
 };
 
-async function loadSettings() {
-  try {
-    const snap = await getDoc(doc(db, "appSettings", "main"));
 
-    if (snap.exists()) {
-      globalSettings = {
-        ...DEFAULT_SETTINGS,
-        ...snap.data(),
-        features: {
-          ...DEFAULT_SETTINGS.features,
-          ...(snap.data().features || {})
-        }
-      };
-    } else {
-      globalSettings = structuredClone(DEFAULT_SETTINGS);
-    }
+/* =========================================================
+   GLOBAL STATE
+========================================================= */
 
-    applySettings();
-  } catch (error) {
-    console.error(error);
-    globalSettings = structuredClone(DEFAULT_SETTINGS);
-    applySettings();
-  }
-}
+let currentStudent = null;
+let currentChatUser = null;
+let currentGroup = null;
 
-/* =========================
-   SETTINGS UI
-========================= */
+let currentPage = "home";
+let previousPage = "home";
 
-function applySettings() {
-  const name = globalSettings.appName || "StudyConnect";
-
-  text($("appTitle"), name);
-  text($("loginTitle"), name);
-
-  document.title = name;
-
-  applyTheme(globalSettings.theme || "system");
-  applyFeatureVisibility();
-  applyLanguage(globalSettings.language || "en");
-}
-
-function applyTheme(theme) {
-  document.body.classList.remove("dark");
-
-  if (theme === "dark") {
-    document.body.classList.add("dark");
-  }
-
-  if (theme === "system") {
-    if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      document.body.classList.add("dark");
-    }
-  }
-
-  if ($("themeSelect")) {
-    $("themeSelect").value = theme;
-  }
-}
-
-function applyFeatureVisibility() {
-  const f = globalSettings.features || DEFAULT_SETTINGS.features;
-
-  qsa('[data-page="chat"]').forEach(el => {
-    el.classList.toggle("feature-disabled", f.chat === false);
-  });
-
-  qsa('[data-page="groups"]').forEach(el => {
-    el.classList.toggle("feature-disabled", f.groups === false);
-  });
-
-  qsa('[data-page="homework"]').forEach(el => {
-    el.classList.toggle("feature-disabled", f.homework === false);
-  });
-
-  qsa('[data-page="notes"]').forEach(el => {
-    el.classList.toggle("feature-disabled", f.notes === false);
-  });
-
-  qsa('[data-page="school"]').forEach(el => {
-    el.classList.toggle(
-      "feature-disabled",
-      f.announcements === false
-    );
-  });
-
-  if ($("createGroupBtn")) {
-    $("createGroupBtn").disabled = f.groups === false;
-  }
-}
-
-const translations = {
-  en: {
-    home: "Home",
-    chat: "Chat",
-    groups: "Groups",
-    homework: "Homework",
-    school: "School Updates",
-    notes: "Notes",
-    settings: "Settings",
-    logout: "Logout",
-    welcome: "Welcome",
-    studentCommunity: "Student Community"
-  },
-
-  hi: {
-    home: "होम",
-    chat: "चैट",
-    groups: "ग्रुप",
-    homework: "होमवर्क",
-    school: "स्कूल अपडेट",
-    notes: "नोट्स",
-    settings: "सेटिंग्स",
-    logout: "लॉगआउट",
-    welcome: "स्वागत है",
-    studentCommunity: "विद्यार्थी समुदाय"
+let globalSettings = {
+  ...DEFAULT_SETTINGS,
+  features: {
+    ...DEFAULT_SETTINGS.features
   }
 };
 
-function applyLanguage(lang) {
-  const t = translations[lang] || translations.en;
+let studentsCache = [];
+let groupsCache = [];
 
-  const map = {
-    home: t.home,
-    chat: t.chat,
-    groups: t.groups,
-    homework: t.homework,
-    school: t.school,
-    notes: t.notes,
-    settings: t.settings
-  };
+let unsubscribeMessages = null;
+let unsubscribeGroupMessages = null;
+let unsubscribeOnline = null;
 
-  qsa("[data-page]").forEach(btn => {
-    const page = btn.dataset.page;
-    const span = btn.querySelector("span");
-
-    if (span && map[page]) {
-      span.textContent = map[page];
-    }
-  });
-
-  if ($("loginSubtitle")) {
-    $("loginSubtitle").textContent = t.studentCommunity;
-  }
-
-  if ($("logoutBtn")) {
-    $("logoutBtn").textContent = "↪ " + t.logout;
-  }
-
-  if ($("languageSelect")) {
-    $("languageSelect").value = lang;
-  }
-}
-
-/* =========================
-   OWNER WELCOME
-========================= */
-
-function ownerWelcome() {
-  if (globalSettings.welcomeAnimation === false) {
-    openPage("owner");
-    return;
-  }
-
-  const screen = $("ownerWelcome");
-
-  if (!screen) {
-    openPage("owner");
-    return;
-  }
-
-  show(screen);
-
-  text(
-    $("ownerWelcomeTitle"),
-    "Welcome Owner Krishna Ji"
-  );
-
-  text(
-    $("ownerWelcomeText"),
-    "Control Center is opening…"
-  );
-
-  const stars = $("fallingStars");
-
-  if (stars) {
-    stars.innerHTML = "";
-
-    for (let i = 0; i < 35; i++) {
-      const star = document.createElement("span");
-
-      star.textContent = "✦";
-
-      star.style.left = Math.random() * 100 + "%";
-      star.style.animationDelay =
-        Math.random() * 1.5 + "s";
-
-      stars.appendChild(star);
-    }
-  }
-
-  setTimeout(() => {
-    hide(screen);
-    openPage("owner");
-  }, 2200);
-}
-
-/* =========================
-   LOGIN
-========================= */
+let selectedGroupMembers = [];
 
 let loginStep = 1;
 
-function setupLogin() {
-  const nameWrap = $("loginNameWrap");
-  const phoneWrap = $("loginPhoneWrap");
-  const nameInput = $("loginName");
-  const phoneInput = $("loginPhone");
+let firebaseReady = false;
 
-  hide(nameWrap);
-  hide(phoneWrap);
 
-  nameInput.required = false;
-  phoneInput.required = false;
+/* =========================================================
+   DOM HELPERS
+========================================================= */
 
-  $("loginForm")?.addEventListener("submit", handleLogin);
+const $ = (id) => document.getElementById(id);
 
-  nameInput?.addEventListener("input", () => {
-    const isOwner =
-      nameInput.value.trim().toLowerCase() ===
-      OWNER_NAME.toLowerCase();
+const qs = (selector, parent = document) =>
+  parent.querySelector(selector);
 
-    phoneInput.required = !isOwner;
+const qsa = (selector, parent = document) =>
+  [...parent.querySelectorAll(selector)];
 
-    if (isOwner) {
-      phoneWrap?.classList.add("owner-phone-optional");
+function show(element) {
+  if (!element) return;
+  element.classList.remove("hidden");
+  element.style.display = "";
+}
+
+function hide(element) {
+  if (!element) return;
+  element.classList.add("hidden");
+  element.style.display = "none";
+}
+
+function text(element, value) {
+  if (!element) return;
+  element.textContent = value ?? "";
+}
+
+function escapeHTML(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+let toastTimer = null;
+
+function showToast(message, type = "success") {
+  const toast = $("toast");
+
+  if (!toast) {
+    alert(message);
+    return;
+  }
+
+  const icon = $("toastIcon");
+
+  text(toast, "");
+  toast.innerHTML = "";
+
+  const iconEl = document.createElement("span");
+  iconEl.id = "toastIcon";
+
+  if (type === "error") {
+    iconEl.textContent = "✕";
+  } else if (type === "warning") {
+    iconEl.textContent = "!";
+  } else {
+    iconEl.textContent = "✓";
+  }
+
+  const messageEl = document.createElement("span");
+  messageEl.textContent = message;
+
+  toast.append(iconEl, messageEl);
+
+  show(toast);
+
+  clearTimeout(toastTimer);
+
+  toastTimer = setTimeout(() => {
+    hide(toast);
+  }, 3000);
+}
+
+
+/* =========================================================
+   MODAL
+========================================================= */
+
+function openModal(title, message, options = {}) {
+  const overlay = $("appModal");
+
+  if (!overlay) {
+    alert(`${title}\n\n${message}`);
+    return;
+  }
+
+  const titleEl = $("appModalTitle");
+  const bodyEl = $("appModalBody");
+
+  if (titleEl) text(titleEl, title);
+
+  if (bodyEl) {
+    bodyEl.innerHTML = message;
+  }
+
+  show(overlay);
+
+  if (options.onOpen) {
+    options.onOpen();
+  }
+}
+
+function closeModal() {
+  hide($("appModal"));
+}
+
+
+/* =========================================================
+   PASSWORD HASH
+========================================================= */
+
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+
+  const data = encoder.encode(password);
+
+  const hashBuffer = await crypto.subtle.digest(
+    "SHA-256",
+    data
+  );
+
+  return [...new Uint8Array(hashBuffer)]
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+
+/* =========================================================
+   FIREBASE START
+========================================================= */
+
+async function startFirebase() {
+  try {
+    await signInAnonymously(auth);
+
+    firebaseReady = true;
+
+    console.log("StudyConnect Firebase connected.");
+    return true;
+
+  } catch (error) {
+
+    console.error("Firebase connection error:", error);
+
+    firebaseReady = false;
+
+    showToast(
+      "Firebase connection नहीं हो पाया। Internet और Firebase settings check करें।",
+      "error"
+    );
+
+    return false;
+  }
+}
+
+
+/* =========================================================
+   SETTINGS
+========================================================= */
+
+async function loadSettings() {
+  try {
+
+    const ref = doc(db, "appSettings", "main");
+
+    const snapshot = await getDoc(ref);
+
+    if (snapshot.exists()) {
+
+      const data = snapshot.data();
+
+      globalSettings = {
+        ...DEFAULT_SETTINGS,
+        ...data,
+
+        features: {
+          ...DEFAULT_SETTINGS.features,
+          ...(data.features || {})
+        }
+      };
+
+    } else {
+
+      globalSettings = {
+        ...DEFAULT_SETTINGS,
+        features: {
+          ...DEFAULT_SETTINGS.features
+        }
+      };
+
     }
+
+    applySettings();
+
+  } catch (error) {
+
+    console.error("Settings load error:", error);
+
+    globalSettings = {
+      ...DEFAULT_SETTINGS,
+      features: {
+        ...DEFAULT_SETTINGS.features
+      }
+    };
+
+    applySettings();
+  }
+}
+
+
+/* =========================================================
+   APPLY SETTINGS
+========================================================= */
+
+function applySettings() {
+
+  const appName =
+    globalSettings.appName || "StudyConnect";
+
+  document.title = appName;
+
+  const titleElements = qsa("[data-app-name]");
+
+  titleElements.forEach(element => {
+    text(element, appName);
   });
 
-  $("loginPassword")?.addEventListener("keydown", e => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      $("loginForm")?.requestSubmit();
+  applyTheme();
+  applyLanguage();
+  applyFeatureVisibility();
+}
+
+
+/* =========================================================
+   THEME
+========================================================= */
+
+function applyTheme() {
+
+  const theme = globalSettings.theme || "system";
+
+  let dark = false;
+
+  if (theme === "dark") {
+    dark = true;
+  }
+
+  if (theme === "system") {
+    dark = window.matchMedia &&
+      window.matchMedia("(prefers-color-scheme: dark)").matches;
+  }
+
+  document.body.classList.toggle("dark", dark);
+}
+
+
+/* =========================================================
+   TRANSLATIONS
+========================================================= */
+
+const translations = {
+
+  en: {
+    chat: "💬 Chat / चैट",
+    groups: "👥 Groups / ग्रुप",
+    homework: "📝 Homework / होमवर्क",
+    school: "📢 School Updates / स्कूल अपडेट्स",
+    notes: "📚 Notes / नोट्स",
+    settings: "⚙️ Settings / सेटिंग्स",
+    home: "🏠 Home / होम",
+    owner: "👑 Owner Panel / ओनर पैनल",
+    logout: "🚪 Logout / लॉगआउट",
+
+    englishGrammar: "English Grammar",
+    hindiGrammar: "Hindi Grammar",
+    activityPeriod: "Activity Period",
+    sst: "SST"
+  },
+
+  hi: {
+    chat: "💬 चैट / Chat",
+    groups: "👥 ग्रुप / Groups",
+    homework: "📝 होमवर्क / Homework",
+    school: "📢 स्कूल अपडेट्स / School Updates",
+    notes: "📚 नोट्स / Notes",
+    settings: "⚙️ सेटिंग्स / Settings",
+    home: "🏠 होम / Home",
+    owner: "👑 ओनर पैनल / Owner Panel",
+    logout: "🚪 लॉगआउट / Logout",
+
+    englishGrammar: "English Grammar",
+    hindiGrammar: "Hindi Grammar",
+    activityPeriod: "Activity Period",
+    sst: "SST"
+  }
+};
+
+
+function applyLanguage() {
+
+  const language =
+    globalSettings.language === "hi"
+      ? "hi"
+      : "en";
+
+  const dictionary =
+    translations[language];
+
+  qsa("[data-i18n]").forEach(element => {
+
+    const key = element.dataset.i18n;
+
+    if (dictionary[key]) {
+      text(element, dictionary[key]);
     }
+
+  });
+
+  qsa("[data-i18n-placeholder]").forEach(element => {
+
+    const key = element.dataset.i18nPlaceholder;
+
+    if (dictionary[key]) {
+      element.placeholder = dictionary[key];
+    }
+
   });
 }
 
-async function handleLogin(event) {
-  event.preventDefault();
-  event.stopPropagation();
 
-  const password = $("loginPassword")?.value.trim() || "";
+/* =========================================================
+   FEATURE VISIBILITY
+========================================================= */
 
-  if (!password) {
-    text($("loginMessage"), "Password डालो।");
-    return;
-  }
+function applyFeatureVisibility() {
 
-  /* FIRST CLICK = show name/mobile */
+  const features = globalSettings.features || {};
 
-  if (loginStep === 1) {
-    loginStep = 2;
+  const mapping = {
+    chat: ["chat"],
+    groups: ["groups"],
+    homework: ["homework"],
+    notes: ["notes"],
+    announcements: ["school"],
+    registration: ["registration"]
+  };
 
-    show($("loginNameWrap"));
-    show($("loginPhoneWrap"));
+  Object.entries(mapping).forEach(([feature, pages]) => {
 
-    $("loginName").required = true;
+    const enabled = features[feature] !== false;
 
-    if ($("loginBtn")) {
-      $("loginBtn").textContent = "Login →";
-    }
+    pages.forEach(page => {
 
-    text(
-      $("loginMessage"),
-      "अब अपना नाम डालो।"
+      qsa(`[data-page="${page}"]`).forEach(element => {
+
+        element.classList.toggle(
+          "feature-disabled",
+          !enabled
+        );
+
+      });
+
+    });
+
+  });
+
+  qsa('[data-feature="chat"]').forEach(el => {
+    el.classList.toggle(
+      "feature-disabled",
+      features.chat === false
     );
+  });
 
-    return;
+  qsa('[data-feature="groups"]').forEach(el => {
+    el.classList.toggle(
+      "feature-disabled",
+      features.groups === false
+    );
+  });
+}
+
+
+/* =========================================================
+   PERMISSION HELPERS
+========================================================= */
+
+function getPermissionExpiryMillis(student) {
+
+  if (!student?.permissionExpiresAt) {
+    return 0;
   }
 
-  const name =
-    $("loginName")?.value.trim() || "";
+  return getMillis(student.permissionExpiresAt);
+}
 
-  const phone =
-    ($("loginPhone")?.value || "")
-      .replace(/\D/g, "");
 
-  const isOwner =
-    name.toLowerCase() ===
-    OWNER_NAME.toLowerCase();
+function permissionExpired(student) {
 
-  /* OWNER */
+  const expiry = getPermissionExpiryMillis(student);
 
-  if (isOwner) {
-    if (password !== OWNER_PASSWORD) {
-      text(
-        $("loginMessage"),
-        "Owner password गलत है।"
+  if (!expiry) {
+    return false;
+  }
+
+  return Date.now() >= expiry;
+}
+
+
+function effectivePermission(student) {
+
+  if (!student) {
+    return "restricted";
+  }
+
+  if (student.isOwner === true) {
+    return "owner";
+  }
+
+  if (
+    student.status === "blocked" ||
+    student.status === "rejected"
+  ) {
+    return "restricted";
+  }
+
+  if (permissionExpired(student)) {
+    return "restricted";
+  }
+
+  return student.permission || "restricted";
+}
+
+
+function canUse(feature) {
+
+  if (!currentStudent) {
+    return false;
+  }
+
+  const permission =
+    effectivePermission(currentStudent);
+
+  if (permission === "owner") {
+    return true;
+  }
+
+  if (globalSettings.features?.maintenance) {
+
+    return [
+      "home",
+      "school",
+      "homework"
+    ].includes(feature);
+
+  }
+
+  if (permission === "restricted") {
+
+    return [
+      "home",
+      "school",
+      "homework",
+      "settings"
+    ].includes(feature);
+
+  }
+
+  if (permission === "normal") {
+
+    return [
+      "home",
+      "school",
+      "homework",
+      "chat",
+      "settings"
+    ].includes(feature);
+
+  }
+
+  if (
+    permission === "allow" ||
+    permission === "full"
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+
+/* =========================================================
+   APPLY USER ACCESS
+========================================================= */
+
+function applyUserAccess() {
+
+  if (!currentStudent) return;
+
+  const permission =
+    effectivePermission(currentStudent);
+
+  qsa("[data-page]").forEach(element => {
+
+    const page = element.dataset.page;
+
+    if (page === "owner") {
+      element.classList.toggle(
+        "feature-disabled",
+        permission !== "owner"
       );
+
       return;
     }
 
-    currentStudent = {
-      id: "owner",
-      name: OWNER_NAME,
-      phone: "",
-      permission: "owner",
-      status: "approved",
-      isOwner: true
-    };
+    if (
+      page === "settings" ||
+      page === "home"
+    ) {
+      return;
+    }
 
-    localStorage.setItem(
-      "studyName",
-      OWNER_NAME
+    const allowed = canUse(page);
+
+    element.classList.toggle(
+      "feature-disabled",
+      !allowed
     );
 
-    localStorage.setItem(
-      "studyPhone",
-      ""
+  });
+
+  qsa("[data-owner-only]").forEach(element => {
+
+    element.classList.toggle(
+      "feature-disabled",
+      permission !== "owner"
     );
 
-    openApp();
+  });
+}
 
-    ownerWelcome();
 
+/* =========================================================
+   OWNER WELCOME ANIMATION
+========================================================= */
+
+function ownerWelcomeAnimation() {
+
+  const overlay = $("ownerWelcome");
+
+  if (!overlay) {
+    openPage("owner");
     return;
   }
 
-  /* STUDENT */
+  show(overlay);
 
-  if (!name) {
-    text($("loginMessage"), "Name डालो।");
-    return;
-  }
+  const title =
+    $("ownerWelcomeTitle");
 
-  if (!/^\d{10}$/.test(phone)) {
+  const message =
+    $("ownerWelcomeText");
+
+  if (title) {
     text(
-      $("loginMessage"),
-      "10 digit mobile number डालो।"
+      title,
+      `Welcome Owner ${OWNER_SHORT_NAME}`
     );
-    return;
+  }
+
+  if (message) {
+    text(
+      message,
+      "Control Center is opening..."
+    );
+  }
+
+  const stars =
+    $("fallingStars");
+
+  if (stars) {
+
+    stars.innerHTML = "";
+
+    for (let i = 0; i < 35; i++) {
+
+      const star =
+        document.createElement("span");
+
+      star.textContent = "✦";
+
+      star.style.position = "absolute";
+      star.style.left =
+        `${Math.random() * 100}%`;
+
+      star.style.top =
+        `${Math.random() * 100}%`;
+
+      star.style.opacity =
+        `${0.25 + Math.random() * 0.75}`;
+
+      star.style.fontSize =
+        `${8 + Math.random() * 14}px`;
+
+      star.style.animation =
+        `starFall ${2 + Math.random() * 3}s linear infinite`;
+
+      star.style.animationDelay =
+        `${Math.random() * 2}s`;
+
+      stars.appendChild(star);
+    }
+
   }
 
   try {
-    const q = query(
-      collection(db, "students"),
-      where("phone", "==", phone),
-      limit(1)
+
+    const AudioContext =
+      window.AudioContext ||
+      window.webkitAudioContext;
+
+    if (AudioContext) {
+
+      const audio =
+        new AudioContext();
+
+      const oscillator =
+        audio.createOscillator();
+
+      const gain =
+        audio.createGain();
+
+      oscillator.frequency.value = 660;
+
+      gain.gain.value = 0.025;
+
+      oscillator.connect(gain);
+      gain.connect(audio.destination);
+
+      oscillator.start();
+
+      oscillator.frequency.exponentialRampToValueAtTime(
+        880,
+        audio.currentTime + 0.7
+      );
+
+      oscillator.stop(
+        audio.currentTime + 0.8
+      );
+
+    }
+
+  } catch (error) {
+    console.log("Welcome sound unavailable.");
+  }
+
+  setTimeout(() => {
+
+    hide(overlay);
+
+    openPage("owner");
+
+  }, 2200);
+}
+
+
+/* =========================================================
+   LOGIN
+========================================================= */
+
+function setupLogin() {
+
+  const form = $("loginForm");
+
+  if (!form) return;
+
+  form.addEventListener(
+    "submit",
+    handleLogin
+  );
+
+  const password =
+    $("loginPassword");
+
+  if (password) {
+
+    password.addEventListener(
+      "keydown",
+      event => {
+
+        if (event.key === "Enter") {
+          event.preventDefault();
+          form.requestSubmit();
+        }
+
+      }
     );
 
-    const result = await getDocs(q);
+  }
+}
 
-    if (result.empty) {
-      text(
-        $("loginMessage"),
-        "Student account नहीं मिला।"
-      );
-      return;
+
+function setLoginStep(step) {
+
+  loginStep = step;
+
+  const nameWrap =
+    $("loginNameWrap");
+
+  const phoneWrap =
+    $("loginPhoneWrap");
+
+  const button =
+    $("loginBtn");
+
+  if (step === 1) {
+
+    hide(nameWrap);
+    hide(phoneWrap);
+
+    if (button) {
+      text(button, "Next →");
     }
 
-    const studentDoc = result.docs[0];
-    const student = studentDoc.data();
+  } else {
 
-    if (student.status === "blocked") {
-      text(
-        $("loginMessage"),
-        "यह account blocked है।"
-      );
-      return;
+    show(nameWrap);
+    show(phoneWrap);
+
+    if (button) {
+      text(button, "Login →");
     }
 
-    if (student.status !== "approved") {
-      text(
-        $("loginMessage"),
-        "पहले Owner से approval चाहिए।"
-      );
-      return;
-    }
+  }
+}
 
-    if (student.passwordHash) {
-      const enteredHash =
-        await hashPassword(password);
 
-      if (enteredHash !== student.passwordHash) {
-        text(
-          $("loginMessage"),
-          "Password गलत है।"
+async function handleLogin(event) {
+
+  event.preventDefault();
+
+  const password =
+    $("loginPassword")?.value.trim();
+
+  const message =
+    $("loginMessage");
+
+  if (!password) {
+
+    text(
+      message,
+      "Password डालें।"
+    );
+
+    return;
+  }
+
+
+  /* -------------------------
+     STEP 1
+  ------------------------- */
+
+  if (loginStep === 1) {
+
+    const enteredHash =
+      await hashPassword(password);
+
+    let savedOwnerHash = "";
+
+    try {
+
+      const settingsSnap =
+        await getDoc(
+          doc(db, "appSettings", "main")
         );
-        return;
+
+      if (settingsSnap.exists()) {
+
+        savedOwnerHash =
+          settingsSnap.data()
+            ?.ownerPasswordHash || "";
+
       }
-    } else if (password !== STUDENT_PASSWORD) {
-      text(
-        $("loginMessage"),
-        "Password गलत है।"
+
+    } catch (error) {
+
+      console.error(
+        "Owner password check error:",
+        error
       );
+
+    }
+
+
+    if (
+      password === OWNER_PASSWORD ||
+      (
+        savedOwnerHash &&
+        enteredHash === savedOwnerHash
+      )
+    ) {
+
+      currentStudent = {
+        id: "owner",
+        name: OWNER_NAME,
+        phone: "",
+        status: "approved",
+        permission: "owner",
+        isOwner: true
+      };
+
+      localStorage.setItem(
+        "studyName",
+        OWNER_NAME
+      );
+
+      localStorage.setItem(
+        "studyPhone",
+        "owner"
+      );
+
+      openApp();
+
+      if (
+        globalSettings.welcomeAnimation !== false
+      ) {
+
+        ownerWelcomeAnimation();
+
+      } else {
+
+        openPage("owner");
+
+      }
+
       return;
     }
 
-    currentStudent = {
-      id: studentDoc.id,
-      ...student,
-      isOwner: false
-    };
+
+    if (password === STUDENT_PASSWORD) {
+
+      setLoginStep(2);
+
+      text(
+        message,
+        ""
+      );
+
+      const nameInput =
+        $("loginName");
+
+      if (nameInput) {
+        setTimeout(
+          () => nameInput.focus(),
+          50
+        );
+      }
+
+      return;
+    }
+
+
+    text(
+      message,
+      "Wrong password."
+    );
+
+    return;
+  }
+
+
+  /* -------------------------
+     STEP 2
+  ------------------------- */
+
+  const name =
+    $("loginName")?.value.trim();
+
+  const phone =
+    $("loginPhone")?.value.trim();
+
+
+  if (!name) {
+
+    text(
+      message,
+      "अपना नाम डालें।"
+    );
+
+    return;
+  }
+
+
+  if (!/^\d{10}$/.test(phone)) {
+
+    text(
+      message,
+      "10 digit mobile number डालें।"
+    );
+
+    return;
+  }
+
+
+  await loginStudent(
+    name,
+    phone
+  );
+}
+
+
+/* =========================================================
+   STUDENT LOGIN
+========================================================= */
+
+async function loginStudent(name, phone) {
+
+  const message =
+    $("loginMessage");
+
+  try {
+
+    const q =
+      query(
+        collection(db, "students"),
+        where("phone", "==", phone),
+        limit(1)
+      );
+
+    const snapshot =
+      await getDocs(q);
+
+    if (snapshot.empty) {
+
+      text(
+        message,
+        "यह mobile number registered नहीं है।"
+      );
+
+      return;
+    }
+
+    const studentDoc =
+      snapshot.docs[0];
+
+    const student =
+      {
+        id: studentDoc.id,
+        ...studentDoc.data()
+      };
+
+
+    if (
+      String(student.name || "")
+        .trim()
+        .toLowerCase() !==
+      name.trim().toLowerCase()
+    ) {
+
+      text(
+        message,
+        "Name और registered name match नहीं कर रहे।"
+      );
+
+      return;
+    }
+
+
+    if (
+      student.status === "blocked" ||
+      student.status === "rejected"
+    ) {
+
+      text(
+        message,
+        "आपका account blocked/rejected है।"
+      );
+
+      return;
+    }
+
+
+    if (
+      student.status === "pending"
+    ) {
+
+      text(
+        message,
+        "Owner approval pending है।"
+      );
+
+      return;
+    }
+
+
+    currentStudent = student;
 
     localStorage.setItem(
       "studyName",
-      student.name || name
+      student.name
     );
 
     localStorage.setItem(
       "studyPhone",
-      student.phone || phone
+      student.phone
     );
+
+
+    await setStudentOnline(
+      student.id,
+      true
+    );
+
 
     openApp();
 
   } catch (error) {
-    console.error(error);
+
+    console.error(
+      "Student login error:",
+      error
+    );
 
     text(
-      $("loginMessage"),
-      "Login में समस्या आई।"
+      message,
+      "Login में समस्या हुई। फिर कोशिश करें।"
     );
   }
 }
 
-/* =========================
+
+/* =========================================================
    OPEN APP
-========================= */
+========================================================= */
 
 function openApp() {
+
   hide($("loginScreen"));
   show($("app"));
 
   updateProfile();
-
-  if (currentStudent?.isOwner) {
-    show($("controlPanelNav"));
-    show($("ownerSettingsCard"));
-  } else {
-    hide($("controlPanelNav"));
-    hide($("ownerSettingsCard"));
-  }
+  applyUserAccess();
 
   openPage("home");
 
   loadHome();
 }
 
-/* =========================
+
+/* =========================================================
    PROFILE
-========================= */
+========================================================= */
 
 function updateProfile() {
+
   if (!currentStudent) return;
 
   const name =
-    currentStudent.name || "Student";
+    currentStudent.name ||
+    OWNER_NAME;
 
-  const phone =
-    currentStudent.phone || "";
+  const avatar =
+    name
+      .trim()
+      .charAt(0)
+      .toUpperCase();
 
-  text($("profileName"), name);
-  text($("profilePhone"), phone);
-
-  text(
-    $("profileAvatar"),
-    name.charAt(0).toUpperCase()
+  qsa("[data-user-name]").forEach(
+    element => text(element, name)
   );
 
-  text(
-    $("headerProfileInitial"),
-    name.charAt(0).toUpperCase()
+  qsa("[data-user-avatar]").forEach(
+    element => text(element, avatar)
   );
 
-  text(
-    $("homeGreeting"),
-    `Welcome, ${name} 👋`
+  qsa("[data-user-phone]").forEach(
+    element =>
+      text(
+        element,
+        currentStudent.phone || "Owner"
+      )
   );
-}
 
-/* =========================
-   PERMISSION
-========================= */
+  const ownerBadge =
+    $("ownerBadge");
 
-function canUse(permission) {
-  if (currentStudent?.isOwner) return true;
+  if (ownerBadge) {
 
-  const level =
-    currentStudent?.permission || "normal";
+    ownerBadge.classList.toggle(
+      "hidden",
+      effectivePermission(currentStudent) !== "owner"
+    );
 
-  if (level === "allow") return true;
-
-  if (level === "normal") {
-    return [
-      "home",
-      "chat",
-      "homework",
-      "school"
-    ].includes(permission);
   }
-
-  return [
-    "home",
-    "homework",
-    "school"
-  ].includes(permission);
 }
 
-/* =========================
-   PAGE NAVIGATION
-========================= */
 
-function openPage(page) {
-  if (!page) return;
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+function setupNavigation() {
+
+  qsa("[data-page]").forEach(button => {
+
+    button.addEventListener(
+      "click",
+      event => {
+
+        const page =
+          event.currentTarget.dataset.page;
+
+        if (!page) return;
+
+        openPage(page);
+
+      }
+    );
+
+  });
+
+  qsa(".bottom-nav-item[data-page]")
+    .forEach(button => {
+
+      button.addEventListener(
+        "click",
+        event => {
+
+          const page =
+            event.currentTarget.dataset.page;
+
+          if (page) {
+            openPage(page);
+          }
+
+        }
+      );
+
+    });
+}
+
+
+async function openPage(page) {
+
+  if (!currentStudent) return;
+
+  const permission =
+    effectivePermission(currentStudent);
+
 
   if (
-    page !== "home" &&
-    !canUse(page) &&
-    !currentStudent?.isOwner
+    page === "owner" &&
+    permission !== "owner"
   ) {
-    toast("इस feature की permission नहीं है।", "!");
+
+    showToast(
+      "Owner Panel सिर्फ Owner के लिए है।",
+      "error"
+    );
+
     return;
   }
+
+
+  if (
+    page !== "owner" &&
+    !canUse(page)
+  ) {
+
+    showToast(
+      "इस feature की permission अभी नहीं है।",
+      "warning"
+    );
+
+    return;
+  }
+
 
   previousPage = currentPage;
   currentPage = page;
 
+
   qsa(".page").forEach(section => {
+
     section.classList.toggle(
       "active",
-      section.id === `page-${page}`
+      section.id === `${page}Page`
     );
+
   });
 
-  qsa(".nav-item, .bottom-nav-item").forEach(btn => {
-    btn.classList.toggle(
-      "active",
-      btn.dataset.page === page
-    );
+
+  qsa(
+    `[data-page="${page}"]`
+  ).forEach(element => {
+
+    element.classList.add("active");
+
   });
 
-  if (page === "chat") {
-    loadChatPeople();
-  }
 
-  if (page === "groups") {
-    loadGroups();
-  }
+  qsa("[data-page]").forEach(element => {
 
-  if (page === "homework") {
-    loadHomework();
-  }
-
-  if (page === "school") {
-    loadSchool();
-  }
-
-  if (page === "notes") {
-    loadNotes();
-  }
-
-  if (page === "owner") {
-    if (!currentStudent?.isOwner) {
-      openPage("home");
-      return;
+    if (
+      element.dataset.page !== page
+    ) {
+      element.classList.remove("active");
     }
 
-    loadOwnerPanel();
+  });
+
+
+  /* Mobile menu close */
+  document.body.classList.remove(
+    "menu-open"
+  );
+
+
+  switch (page) {
+
+    case "home":
+      await loadHome();
+      break;
+
+    case "chat":
+      await loadChatPeople();
+      break;
+
+    case "groups":
+      await loadGroups();
+      break;
+
+    case "homework":
+      await loadHomework();
+      break;
+
+    case "school":
+      await loadSchool();
+      break;
+
+    case "notes":
+      await loadNotes();
+      break;
+
+    case "owner":
+      await loadOwnerPanel();
+      break;
+
+    case "settings":
+      loadSettingsPage();
+      break;
+
   }
-
-  hide($("sidebar"));
 }
 
-/* =========================
-   NAV BUTTONS
-========================= */
 
-function setupNavigation() {
-  qsa("[data-page]").forEach(button => {
-    button.addEventListener("click", e => {
-      e.preventDefault();
-
-      const page =
-        button.dataset.page;
-
-      openPage(page);
-    });
-  });
-
-  qsa("[data-back]").forEach(button => {
-    button.addEventListener("click", e => {
-      e.preventDefault();
-
-      openPage(
-        previousPage && previousPage !== currentPage
-          ? previousPage
-          : "home"
-      );
-    });
-  });
-}
-
-/* =========================
+/* =========================================================
    MOBILE MENU
-========================= */
+========================================================= */
 
 function setupMenu() {
-  $("mobileMenuBtn")?.addEventListener(
+
+  const toggle =
+    $("menuToggle");
+
+  if (!toggle) return;
+
+  toggle.addEventListener(
     "click",
     () => {
-      $("sidebar")?.classList.toggle("open");
+
+      document.body.classList.toggle(
+        "menu-open"
+      );
+
+    }
+  );
+
+  document.addEventListener(
+    "click",
+    event => {
+
+      if (
+        !document.body.classList.contains(
+          "menu-open"
+        )
+      ) {
+        return;
+      }
+
+      const sidebar =
+        $("sidebar");
+
+      if (
+        sidebar &&
+        !sidebar.contains(event.target) &&
+        !toggle.contains(event.target)
+      ) {
+
+        document.body.classList.remove(
+          "menu-open"
+        );
+
+      }
+
     }
   );
 }
 
-/* =========================
+
+/* =========================================================
    HOME
-========================= */
+========================================================= */
 
 async function loadHome() {
+
+  const container =
+    $("homeAnnouncements");
+
+  if (!container) return;
+
+  container.innerHTML =
+    `<div class="loading-card">
+      Loading school updates...
+    </div>`;
+
   try {
-    const q = query(
-      collection(db, "school"),
-      orderBy("createdAt", "desc"),
-      limit(5)
-    );
 
-    const snap = await getDocs(q);
+    const q =
+      query(
+        collection(db, "school"),
+        orderBy("createdAt", "desc"),
+        limit(5)
+      );
 
-    const container =
-      $("homeAnnouncements");
+    const snapshot =
+      await getDocs(q);
 
-    if (!container) return;
+    const items =
+      snapshot.docs
+        .map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }))
+        .filter(item =>
+          item.published !== false
+        );
 
-    if (snap.empty) {
+
+    if (!items.length) {
+
       container.innerHTML =
-        `<div class="empty-state">
-          No announcements yet.
+        `<div class="empty-card">
+          अभी कोई school update नहीं है।
         </div>`;
+
       return;
     }
 
+
     container.innerHTML =
-      snap.docs.map(d => {
-        const x = d.data();
+      items.map(item => {
 
         return `
-          <article class="content-card">
-            <h3>${escapeHTML(x.title || "Announcement")}</h3>
-            <p>${escapeHTML(x.text || "")}</p>
+          <article class="announcement-card">
+
+            <h3>
+              ${escapeHTML(item.title || "School Update")}
+            </h3>
+
+            <p>
+              ${escapeHTML(item.text || item.description || "")}
+            </p>
+
           </article>
         `;
+
       }).join("");
 
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================
-   CHAT PEOPLE
-========================= */
-
-async function loadChatPeople() {
-  const container = $("chatPeopleList");
-
-  if (!container) return;
-
-  try {
-    const snap =
-      await getDocs(collection(db, "students"));
-
-    studentsCache = snap.docs
-      .map(d => ({
-        id: d.id,
-        ...d.data()
-      }))
-      .filter(x =>
-        x.id !== currentStudent?.id &&
-        x.status === "approved"
-      );
-
-    renderChatPeople(studentsCache);
 
   } catch (error) {
-    console.error(error);
+
+    console.error(
+      "Home loading error:",
+      error
+    );
 
     container.innerHTML =
-      `<div class="empty-state">
-        Students load नहीं हुए।
+      `<div class="empty-card">
+        School updates अभी load नहीं हो सके।
       </div>`;
   }
 }
 
-function renderChatPeople(list) {
-  const container =
-    $("chatPeopleList");
 
-  if (!container) return;
+/* =========================================================
+   ONLINE STATUS
+========================================================= */
 
-  if (!list.length) {
-    container.innerHTML =
-      `<div class="empty-state">
-        No approved students.
-      </div>`;
+async function setStudentOnline(
+  studentId,
+  online
+) {
+
+  if (!studentId || studentId === "owner") {
     return;
   }
 
-  container.innerHTML =
-    list.map(person => `
-      <button
-        class="person-item"
-        data-chat-user="${escapeHTML(person.id)}"
-      >
-        <span class="avatar">
-          ${escapeHTML(
-            (person.name || "S")
-              .charAt(0)
-              .toUpperCase()
-          )}
-        </span>
+  try {
 
-        <span class="person-info">
-          <strong>
-            ${escapeHTML(person.name || "Student")}
-          </strong>
-
-          <small>
-            ${escapeHTML(person.phone || "")}
-          </small>
-        </span>
-      </button>
-    `).join("");
-
-  qsa("[data-chat-user]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      const id = btn.dataset.chatUser;
-
-      const person =
-        studentsCache.find(x => x.id === id);
-
-      if (person) {
-        openChat(person);
+    await updateDoc(
+      doc(db, "students", studentId),
+      {
+        online,
+        lastSeen: serverTimestamp()
       }
-    });
-  });
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Online status error:",
+      error
+    );
+
+  }
 }
-/* =========================
-   CHAT
-========================= */
 
-function openChat(person) {
-  currentChatUser = person;
 
-  const windowEl = $("chatWindow");
-  if (!windowEl) return;
+/* =========================================================
+   CHAT — STUDENT LIST
+========================================================= */
 
-  windowEl.classList.remove("empty-chat");
+async function loadChatPeople() {
 
-  windowEl.innerHTML = `
-    <div class="chat-header">
-      <button class="back-btn chat-back">←</button>
+  const container =
+    $("chatPeople");
 
-      <div class="avatar">
-        ${escapeHTML(
-          (person.name || "S").charAt(0).toUpperCase()
-        )}
-      </div>
+  if (!container) return;
 
-      <div class="chat-header-info">
-        <strong>${escapeHTML(person.name || "Student")}</strong>
-        <small>● Online</small>
-      </div>
-    </div>
+  container.innerHTML =
+    `<div class="loading-card">
+      Students loading...
+    </div>`;
 
-    <div id="chatMessages" class="chat-messages">
-      <div class="empty-state">Loading messages...</div>
-    </div>
+  try {
 
-    <div class="chat-composer">
-      <button id="emojiBtn" class="icon-btn" type="button">
-        😊
-      </button>
+    const snapshot =
+      await getDocs(
+        collection(db, "students")
+      );
 
-      <input
-        id="messageInput"
-        type="text"
-        placeholder="Type a message..."
-        autocomplete="off"
-      >
+    studentsCache =
+      snapshot.docs.map(
+        docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        })
+      );
 
-      <button
-        id="sendMessageBtn"
-        class="send-btn"
-        type="button"
-      >
-        ➤
-      </button>
-    </div>
-  `;
 
-  windowEl
-    .querySelector(".chat-back")
-    ?.addEventListener("click", () => {
-      currentChatUser = null;
+    const people =
+      studentsCache.filter(student => {
 
-      windowEl.innerHTML = `
-        <div class="empty-state">
-          💬
-          <h3>Select a friend</h3>
-          <p>Choose someone from the list.</p>
-        </div>
+        if (
+          student.id === currentStudent?.id
+        ) {
+          return false;
+        }
+
+        if (
+          student.status !== "approved"
+        ) {
+          return false;
+        }
+
+        if (
+          student.status === "blocked" ||
+          student.status === "rejected"
+        ) {
+          return false;
+        }
+
+        return true;
+
+      });
+
+
+    renderChatPeople(people);
+
+  } catch (error) {
+
+    console.error(
+      "Chat people error:",
+      error
+    );
+
+    container.innerHTML =
+      `<div class="empty-card">
+        Students load नहीं हो सके।
+      </div>`;
+  }
+}
+
+
+/* =========================================================
+   RENDER CHAT PEOPLE
+========================================================= */
+
+function renderChatPeople(people) {
+
+  const container =
+    $("chatPeople");
+
+  if (!container) return;
+
+  if (!people.length) {
+
+    container.innerHTML =
+      `<div class="empty-card">
+        अभी कोई दूसरा approved student नहीं है।
+      </div>`;
+
+    return;
+  }
+
+
+  container.innerHTML =
+    people.map(person => {
+
+      const name =
+        person.name || "Student";
+
+      const initial =
+        name.charAt(0).toUpperCase();
+
+      const online =
+        person.online === true;
+
+      return `
+        <button
+          type="button"
+          class="chat-person"
+          data-chat-person="${escapeHTML(person.id)}"
+        >
+
+          <div class="chat-person-avatar">
+            ${escapeHTML(initial)}
+          </div>
+
+          <div class="person-meta">
+
+            <strong>
+              ${escapeHTML(name)}
+            </strong>
+
+            <span>
+              ${online ? "🟢 Online" : "Offline"}
+            </span>
+
+          </div>
+
+        </button>
       `;
 
-      windowEl.classList.add("empty-chat");
-    });
+    }).join("");
 
-  $("sendMessageBtn")?.addEventListener(
-    "click",
-    sendMessage
-  );
 
-  $("messageInput")?.addEventListener(
-    "keydown",
-    e => {
-      if (e.key === "Enter" && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+  qsa(
+    "[data-chat-person]",
+    container
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const person =
+          people.find(
+            item =>
+              item.id ===
+              button.dataset.chatPerson
+          );
+
+        if (person) {
+          openChat(person);
+        }
+
       }
-    }
-  );
+    );
 
-  $("emojiBtn")?.addEventListener(
-    "click",
+  });
+}
+
+
+/* =========================================================
+   CHAT SEARCH
+========================================================= */
+
+function setupChatSearch() {
+
+  const input =
+    $("chatSearch");
+
+  if (!input) return;
+
+  input.addEventListener(
+    "input",
     () => {
-      const input = $("messageInput");
 
-      if (!input) return;
+      const term =
+        input.value
+          .trim()
+          .toLowerCase();
 
-      input.value += " 😊";
-      input.focus();
+      const filtered =
+        studentsCache.filter(student => {
+
+          if (
+            student.id === currentStudent?.id
+          ) {
+            return false;
+          }
+
+          if (
+            student.status !== "approved"
+          ) {
+            return false;
+          }
+
+          const name =
+            String(
+              student.name || ""
+            ).toLowerCase();
+
+          const phone =
+            String(
+              student.phone || ""
+            );
+
+          return (
+            name.includes(term) ||
+            phone.includes(term)
+          );
+
+        });
+
+      renderChatPeople(filtered);
+
     }
   );
-
-  subscribeMessages(person);
 }
 
-function makeChatId(a, b) {
-  return [a, b].sort().join("_");
-}
 
-function subscribeMessages(person) {
-  if (unsubscribeMessages) {
-    unsubscribeMessages();
-    unsubscribeMessages = null;
+/* =========================================================
+   CHAT PERMISSION
+========================================================= */
+
+function canCreateGroup() {
+
+  if (!currentStudent) {
+    return false;
   }
 
-  if (!currentStudent || !person) return;
-
-  const chatId = makeChatId(
-    currentStudent.id,
-    person.id
+  return (
+    effectivePermission(currentStudent) === "owner" ||
+    effectivePermission(currentStudent) === "allow" ||
+    effectivePermission(currentStudent) === "full"
   );
+}
 
-  const q = query(
-    collection(db, "messages"),
-    where("chatId", "==", chatId),
-    orderBy("createdAt", "asc")
-  );
 
-  unsubscribeMessages = onSnapshot(
-    q,
-    snapshot => {
-      const messages =
-        snapshot.docs.map(d => ({
-          id: d.id,
-          ...d.data()
-        }));
+/* =========================================================
+   PRIVATE GROUPS
+========================================================= */
 
-      renderMessages(messages);
+async function loadGroups() {
 
-      markMessagesSeen(messages);
-    },
-    error => {
-      console.error(error);
+  const container =
+    $("groupsList");
 
-      const box = $("chatMessages");
+  if (!container) return;
 
-      if (box) {
-        box.innerHTML = `
-          <div class="empty-state">
-            Messages load नहीं हुए।
+  container.innerHTML =
+    `<div class="loading-card">
+      Groups loading...
+    </div>`;
+
+  try {
+
+    const snapshot =
+      await getDocs(
+        collection(db, "groups")
+      );
+
+    groupsCache =
+      snapshot.docs.map(
+        docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        })
+      );
+
+
+    const myGroups =
+      groupsCache.filter(group => {
+
+        if (group.active === false) {
+          return false;
+        }
+
+        return (
+          Array.isArray(group.memberIds) &&
+          group.memberIds.includes(
+            currentStudent.id
+          )
+        );
+
+      });
+
+
+    renderGroups(myGroups);
+
+  } catch (error) {
+
+    console.error(
+      "Groups loading error:",
+      error
+    );
+
+    container.innerHTML =
+      `<div class="empty-card">
+        Groups load नहीं हो सके।
+      </div>`;
+  }
+}
+
+
+/* =========================================================
+   RENDER GROUPS
+========================================================= */
+
+function renderGroups(groups) {
+
+  const container =
+    $("groupsList");
+
+  if (!container) return;
+
+  if (!groups.length) {
+
+    container.innerHTML =
+      `<div class="empty-card">
+        अभी कोई private group नहीं है।
+      </div>`;
+
+    return;
+  }
+
+
+  container.innerHTML =
+    groups.map(group => {
+
+      const memberCount =
+        Array.isArray(group.memberIds)
+          ? group.memberIds.length
+          : 0;
+
+      return `
+        <article
+          class="group-card"
+          data-group-id="${escapeHTML(group.id)}"
+        >
+
+          <div class="group-card-header">
+
+            <div class="group-card-icon">
+              👥
+            </div>
+
+            <div>
+
+              <h3>
+                ${escapeHTML(group.name || "Private Group")}
+              </h3>
+
+              <p>
+                ${memberCount} members
+              </p>
+
+            </div>
+
+          </div>
+
+          <button
+            type="button"
+            class="primary-btn open-group-btn"
+            data-open-group="${escapeHTML(group.id)}"
+          >
+            💬 Open Group
+          </button>
+
+        </article>
+      `;
+
+    }).join("");
+
+
+  qsa(
+    "[data-open-group]",
+    container
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const group =
+          groups.find(
+            item =>
+              item.id ===
+              button.dataset.openGroup
+          );
+
+        if (group) {
+          openGroup(group);
+        }
+
+      }
+    );
+
+  });
+}
+
+
+/* =========================================================
+   GROUP MODAL
+========================================================= */
+
+function setupGroupModal() {
+
+  const openButton =
+    $("createGroupBtn");
+
+  if (openButton) {
+
+    openButton.addEventListener(
+      "click",
+      openGroupModal
+    );
+
+  }
+
+  const closeButton =
+    $("closeGroupModal");
+
+  if (closeButton) {
+
+    closeButton.addEventListener(
+      "click",
+      closeGroupModal
+    );
+
+  }
+
+  const form =
+    $("groupForm");
+
+  if (form) {
+
+    form.addEventListener(
+      "submit",
+      createGroup
+    );
+
+  }
+
+  const search =
+    $("groupMemberSearch");
+
+  if (search) {
+
+    search.addEventListener(
+      "input",
+      searchGroupMembers
+    );
+
+  }
+}
+
+
+function openGroupModal() {
+
+  if (!canCreateGroup()) {
+
+    showToast(
+      "Group बनाने की permission नहीं है।",
+      "warning"
+    );
+
+    return;
+  }
+
+  selectedGroupMembers = [];
+
+  const name =
+    $("groupName");
+
+  const password =
+    $("groupPassword");
+
+  if (name) name.value = "";
+  if (password) password.value = "";
+
+  renderSelectedMembers();
+
+  show($("groupModal"));
+
+  const search =
+    $("groupMemberSearch");
+
+  if (search) {
+    search.value = "";
+  }
+
+  const results =
+    $("groupMemberResults");
+
+  if (results) {
+    results.innerHTML = "";
+  }
+}
+
+
+function closeGroupModal() {
+
+  hide($("groupModal"));
+
+  selectedGroupMembers = [];
+
+}
+
+
+/* =========================================================
+   GROUP MEMBER SEARCH
+========================================================= */
+
+async function ensureStudentsCache() {
+
+  if (studentsCache.length) {
+    return;
+  }
+
+  const snapshot =
+    await getDocs(
+      collection(db, "students")
+    );
+
+  studentsCache =
+    snapshot.docs.map(
+      docSnap => ({
+        id: docSnap.id,
+        ...docSnap.data()
+      })
+    );
+}
+
+
+async function searchGroupMembers() {
+
+  const input =
+    $("groupMemberSearch");
+
+  const results =
+    $("groupMemberResults");
+
+  if (!input || !results) return;
+
+  const term =
+    input.value
+      .trim()
+      .toLowerCase();
+
+
+  if (!term) {
+
+    results.innerHTML = "";
+    return;
+
+  }
+
+
+  try {
+
+    await ensureStudentsCache();
+
+    const people =
+      studentsCache.filter(student => {
+
+        if (
+          student.id ===
+          currentStudent?.id
+        ) {
+          return false;
+        }
+
+        if (
+          student.status !== "approved"
+        ) {
+          return false;
+        }
+
+        const name =
+          String(
+            student.name || ""
+          ).toLowerCase();
+
+        const phone =
+          String(
+            student.phone || ""
+          );
+
+        return (
+          name.includes(term) ||
+          phone.includes(term)
+        );
+
+      });
+
+
+    if (!people.length) {
+
+      results.innerHTML =
+        `<div class="empty-card">
+          कोई registered/approved student नहीं मिला।
+        </div>`;
+
+      return;
+    }
+
+
+    results.innerHTML =
+      people.map(person => {
+
+        const alreadySelected =
+          selectedGroupMembers.some(
+            member =>
+              member.id === person.id
+          );
+
+        return `
+          <div class="member-result">
+
+            <div>
+
+              <strong>
+                ${escapeHTML(person.name || "Student")}
+              </strong>
+
+              <small>
+                ${escapeHTML(person.phone || "")}
+              </small>
+
+            </div>
+
+            <button
+              type="button"
+              class="secondary-btn"
+              data-add-member="${escapeHTML(person.id)}"
+              ${alreadySelected ? "disabled" : ""}
+            >
+              ${alreadySelected ? "✓ Added" : "+ Add"}
+            </button>
+
           </div>
         `;
+
+      }).join("");
+
+
+    qsa(
+      "[data-add-member]",
+      results
+    ).forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () => {
+
+          const person =
+            people.find(
+              item =>
+                item.id ===
+                button.dataset.addMember
+            );
+
+          if (person) {
+            addSelectedMember(person);
+          }
+
+        }
+      );
+
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Group member search error:",
+      error
+    );
+
+    results.innerHTML =
+      `<div class="empty-card">
+        Student search में समस्या हुई।
+      </div>`;
+  }
+}
+
+
+/* =========================================================
+   ADD GROUP MEMBER
+========================================================= */
+
+function addSelectedMember(person) {
+
+  if (
+    selectedGroupMembers.some(
+      member =>
+        member.id === person.id
+    )
+  ) {
+    return;
+  }
+
+  selectedGroupMembers.push(person);
+
+  renderSelectedMembers();
+
+  searchGroupMembers();
+}
+
+
+/* =========================================================
+   SELECTED MEMBERS
+========================================================= */
+
+function renderSelectedMembers() {
+
+  const container =
+    $("selectedMembers");
+
+  if (!container) return;
+
+  if (!selectedGroupMembers.length) {
+
+    container.innerHTML =
+      `<span class="empty-members">
+        अभी कोई member select नहीं है।
+      </span>`;
+
+    return;
+  }
+
+
+  container.innerHTML =
+    selectedGroupMembers.map(member => {
+
+      return `
+        <span class="selected-member">
+
+          ${escapeHTML(member.name || "Student")}
+
+          <button
+            type="button"
+            data-remove-member="${escapeHTML(member.id)}"
+            aria-label="Remove member"
+          >
+            ×
+          </button>
+
+        </span>
+      `;
+
+    }).join("");
+
+
+  qsa(
+    "[data-remove-member]",
+    container
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        selectedGroupMembers =
+          selectedGroupMembers.filter(
+            member =>
+              member.id !==
+              button.dataset.removeMember
+          );
+
+        renderSelectedMembers();
+
+        searchGroupMembers();
+
       }
-    }
+    );
+
+  });
+}
+
+
+/* =========================================================
+   CREATE GROUP
+========================================================= */
+
+async function createGroup(event) {
+
+  event.preventDefault();
+
+  if (!currentStudent) {
+    return;
+  }
+
+
+  if (!canCreateGroup()) {
+
+    showToast(
+      "Group बनाने की permission नहीं है।",
+      "warning"
+    );
+
+    return;
+  }
+
+
+  const name =
+    $("groupName")?.value.trim();
+
+  const password =
+    $("groupPassword")?.value.trim();
+
+
+  if (!name) {
+
+    showToast(
+      "Group name डालें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  if (!password || password.length < 4) {
+
+    showToast(
+      "Group password कम से कम 4 characters का रखें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  if (!selectedGroupMembers.length) {
+
+    showToast(
+      "कम से कम एक member select करें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  try {
+
+    const passwordHash =
+      await hashPassword(password);
+
+
+    const memberIds = [
+      currentStudent.id,
+      ...selectedGroupMembers.map(
+        member => member.id
+      )
+    ];
+
+
+    const memberNames = [
+      currentStudent.name,
+      ...selectedGroupMembers.map(
+        member => member.name
+      )
+    ];
+
+
+    const groupRef =
+      await addDoc(
+        collection(db, "groups"),
+        {
+
+          name,
+
+          creatorId:
+            currentStudent.id,
+
+          creatorName:
+            currentStudent.name,
+
+          memberIds,
+
+          memberNames,
+
+          passwordHash,
+
+          active: true,
+
+          createdAt:
+            serverTimestamp()
+
+        }
+      );
+
+
+    showToast(
+      "Private group successfully बन गया।"
+    );
+
+
+    closeGroupModal();
+
+    await loadGroups();
+
+    const createdGroup =
+      {
+        id: groupRef.id,
+        name,
+        creatorId: currentStudent.id,
+        creatorName: currentStudent.name,
+        memberIds,
+        memberNames,
+        passwordHash,
+        active: true
+      };
+
+
+    setTimeout(() => {
+      openGroup(createdGroup);
+    }, 250);
+
+
+  } catch (error) {
+
+    console.error(
+      "Create group error:",
+      error
+    );
+
+    showToast(
+      "Group create नहीं हो पाया।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   OPEN GROUP
+========================================================= */
+
+function openGroup(group) {
+
+  if (!currentStudent) return;
+
+  if (
+    !Array.isArray(group.memberIds) ||
+    !group.memberIds.includes(
+      currentStudent.id
+    )
+  ) {
+
+    showToast(
+      "आप इस group के member नहीं हैं।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  if (group.active === false) {
+
+    showToast(
+      "यह group Owner द्वारा disabled है।",
+      "warning"
+    );
+
+    return;
+  }
+
+
+  currentGroup = group;
+
+
+  /*
+    Password protection:
+    Creator और members को group खोलते समय
+    password verify कराया जाएगा।
+  */
+
+  const savedAccess =
+    sessionStorage.getItem(
+      `studyconnect_group_${group.id}`
+    );
+
+
+  if (savedAccess === "true") {
+
+    openGroupChatWindow(group);
+    return;
+
+  }
+
+
+  const password =
+    prompt(
+      `🔐 ${group.name}\n\nGroup password डालें:`
+    );
+
+
+  if (password === null) {
+    currentGroup = null;
+    return;
+  }
+
+
+  verifyGroupPassword(
+    group,
+    password
   );
 }
 
-function formatTime(timestamp) {
-  if (!timestamp) return "";
 
-  let date;
+/* =========================================================
+   VERIFY GROUP PASSWORD
+========================================================= */
 
-  if (timestamp.toDate) {
-    date = timestamp.toDate();
-  } else {
-    date = new Date(timestamp);
+async function verifyGroupPassword(
+  group,
+  password
+) {
+
+  try {
+
+    const hash =
+      await hashPassword(password);
+
+
+    if (
+      hash !== group.passwordHash
+    ) {
+
+      showToast(
+        "Wrong group password.",
+        "error"
+      );
+
+      currentGroup = null;
+      return;
+    }
+
+
+    sessionStorage.setItem(
+      `studyconnect_group_${group.id}`,
+      "true"
+    );
+
+
+    openGroupChatWindow(group);
+
+  } catch (error) {
+
+    console.error(
+      "Group password error:",
+      error
+    );
+
+    showToast(
+      "Group verification में समस्या हुई।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   GROUP CHAT WINDOW
+========================================================= */
+
+function openGroupChatWindow(group) {
+
+  const modal =
+    $("groupChatModal");
+
+  if (!modal) {
+
+    showToast(
+      `Group "${group.name}" खुल गया।`,
+      "success"
+    );
+
+    return;
   }
 
-  if (Number.isNaN(date.getTime())) return "";
+
+  const title =
+    $("groupChatTitle");
+
+  const subtitle =
+    $("groupChatSubtitle");
+
+
+  if (title) {
+    text(
+      title,
+      group.name
+    );
+  }
+
+
+  if (subtitle) {
+
+    text(
+      subtitle,
+      `${group.memberIds?.length || 0} members`
+    );
+
+  }
+
+
+  show(modal);
+
+  subscribeGroupMessages(group);
+}
+
+
+/* =========================================================
+   CLOSE GROUP CHAT
+========================================================= */
+
+function closeGroupChat() {
+
+  if (unsubscribeGroupMessages) {
+
+    unsubscribeGroupMessages();
+
+    unsubscribeGroupMessages = null;
+
+  }
+
+  currentGroup = null;
+
+  hide($("groupChatModal"));
+}
+
+
+/* =========================================================
+   GROUP CHAT ID
+========================================================= */
+
+function makeGroupChatId(groupId) {
+
+  return `group_${groupId}`;
+}
+
+
+/* =========================================================
+   GROUP REALTIME MESSAGES
+========================================================= */
+
+function subscribeGroupMessages(group) {
+
+  if (unsubscribeGroupMessages) {
+
+    unsubscribeGroupMessages();
+
+    unsubscribeGroupMessages = null;
+
+  }
+
+
+  const chatId =
+    makeGroupChatId(group.id);
+
+
+  const messagesRef =
+    collection(
+      db,
+      "groupMessages"
+    );
+
+
+  const q =
+    query(
+      messagesRef,
+      where(
+        "groupId",
+        "==",
+        group.id
+      ),
+      orderBy(
+        "createdAt",
+        "asc"
+      )
+    );
+
+
+  unsubscribeGroupMessages =
+    onSnapshot(
+      q,
+      snapshot => {
+
+        const messages =
+          snapshot.docs.map(
+            docSnap => ({
+              id: docSnap.id,
+              ...docSnap.data()
+            })
+          );
+
+
+        renderGroupMessages(messages);
+
+      },
+
+      error => {
+
+        console.error(
+          "Group realtime error:",
+          error
+        );
+
+        showToast(
+          "Group messages realtime load नहीं हो पाया।",
+          "error"
+        );
+
+      }
+    );
+}
+
+
+/* =========================================================
+   RENDER GROUP MESSAGES
+========================================================= */
+
+function renderGroupMessages(messages) {
+
+  const container =
+    $("groupChatMessages");
+
+  if (!container) return;
+
+
+  if (!messages.length) {
+
+    container.innerHTML =
+      `<div class="empty-chat">
+
+        <div class="empty-chat-icon">
+          👥
+        </div>
+
+        <h3>
+          Group Chat शुरू करें
+        </h3>
+
+        <p>
+          पहला message भेजें।
+        </p>
+
+      </div>`;
+
+    return;
+  }
+
+
+  let lastDate = "";
+
+  const html = [];
+
+
+  messages.forEach(message => {
+
+    const date =
+      formatDate(
+        message.createdAt
+      );
+
+
+    if (date !== lastDate) {
+
+      html.push(`
+        <div class="date-separator">
+          ${escapeHTML(date)}
+        </div>
+      `);
+
+      lastDate = date;
+    }
+
+
+    const own =
+      message.senderId ===
+      currentStudent?.id;
+
+
+    html.push(`
+      <div
+        class="chat-message ${
+          own
+            ? "message-sent"
+            : "message-received"
+        }"
+      >
+
+        <div class="message-bubble">
+
+          ${
+            !own
+              ? `
+                <div style="
+                  font-size:.68rem;
+                  font-weight:800;
+                  color:var(--primary);
+                  margin-bottom:3px;
+                ">
+                  ${escapeHTML(
+                    message.senderName || "Student"
+                  )}
+                </div>
+              `
+              : ""
+          }
+
+          <div class="message-text">
+            ${escapeHTML(message.text || "")}
+          </div>
+
+          <div class="message-meta">
+
+            <span>
+              ${escapeHTML(
+                formatTime(message.createdAt)
+              )}
+            </span>
+
+            ${
+              own
+                ? `
+                  <span class="message-ticks seen">
+                    ✓✓
+                  </span>
+                `
+                : ""
+            }
+
+          </div>
+
+        </div>
+
+      </div>
+    `);
+
+  });
+
+
+  container.innerHTML =
+    html.join("");
+
+
+  container.scrollTop =
+    container.scrollHeight;
+}
+
+
+/* =========================================================
+   PERSONAL CHAT
+========================================================= */
+
+function makeChatId(a, b) {
+
+  return [
+    String(a),
+    String(b)
+  ]
+    .sort()
+    .join("_");
+}
+
+
+function openChat(person) {
+
+  if (!currentStudent) return;
+
+
+  if (!canUse("chat")) {
+
+    showToast(
+      "Chat की permission अभी नहीं है।",
+      "warning"
+    );
+
+    return;
+  }
+
+
+  currentChatUser = person;
+
+
+  const layout =
+    $("chatLayout");
+
+  if (layout) {
+    layout.classList.add("chat-open");
+  }
+
+
+  const title =
+    $("chatPersonName");
+
+  const subtitle =
+    $("chatPersonStatus");
+
+  const avatar =
+    $("chatPersonAvatar");
+
+
+  if (title) {
+    text(
+      title,
+      person.name || "Student"
+    );
+  }
+
+
+  if (subtitle) {
+
+    text(
+      subtitle,
+      person.online
+        ? "🟢 Online"
+        : "Offline"
+    );
+
+  }
+
+
+  if (avatar) {
+
+    text(
+      avatar,
+      (
+        person.name ||
+        "S"
+      ).charAt(0).toUpperCase()
+    );
+
+  }
+
+
+  subscribeMessages(person);
+
+  markMessagesSeen(person);
+}
+
+
+/* =========================================================
+   CLOSE PERSONAL CHAT
+========================================================= */
+
+function closeChat() {
+
+  if (unsubscribeMessages) {
+
+    unsubscribeMessages();
+
+    unsubscribeMessages = null;
+
+  }
+
+  currentChatUser = null;
+
+  const layout =
+    $("chatLayout");
+
+  if (layout) {
+    layout.classList.remove("chat-open");
+  }
+}
+
+
+/* =========================================================
+   PERSONAL CHAT REALTIME
+========================================================= */
+
+function subscribeMessages(person) {
+
+  if (unsubscribeMessages) {
+
+    unsubscribeMessages();
+
+    unsubscribeMessages = null;
+
+  }
+
+
+  const chatId =
+    makeChatId(
+      currentStudent.id,
+      person.id
+    );
+
+
+  const q =
+    query(
+      collection(db, "messages"),
+      where(
+        "chatId",
+        "==",
+        chatId
+      ),
+      orderBy(
+        "createdAt",
+        "asc"
+      )
+    );
+
+
+  unsubscribeMessages =
+    onSnapshot(
+      q,
+      snapshot => {
+
+        const messages =
+          snapshot.docs.map(
+            docSnap => ({
+              id: docSnap.id,
+              ...docSnap.data()
+            })
+          );
+
+
+        renderMessages(messages);
+
+        markMessagesDelivered(person);
+
+      },
+
+      error => {
+
+        console.error(
+          "Messages realtime error:",
+          error
+        );
+
+        showToast(
+          "Chat realtime connection में समस्या हुई।",
+          "error"
+        );
+
+      }
+    );
+}
+
+
+/* =========================================================
+   RENDER PERSONAL MESSAGES
+========================================================= */
+
+function renderMessages(messages) {
+
+  const container =
+    $("chatMessages");
+
+  if (!container) return;
+
+
+  if (!messages.length) {
+
+    container.innerHTML =
+      `<div class="empty-chat">
+
+        <div class="empty-chat-icon">
+          💬
+        </div>
+
+        <h3>
+          Chat शुरू करें
+        </h3>
+
+        <p>
+          पहला message भेजें।
+        </p>
+
+      </div>`;
+
+    return;
+  }
+
+
+  let lastDate = "";
+
+  const html = [];
+
+
+  messages.forEach(message => {
+
+    const date =
+      formatDate(
+        message.createdAt
+      );
+
+
+    if (date !== lastDate) {
+
+      html.push(`
+        <div class="date-separator">
+          ${escapeHTML(date)}
+        </div>
+      `);
+
+      lastDate = date;
+    }
+
+
+    const own =
+      message.senderId ===
+      currentStudent?.id;
+
+
+    let ticks = "";
+
+    if (own) {
+
+      if (message.seen === true) {
+
+        ticks = `
+          <span class="message-ticks seen">
+            ✓✓
+          </span>
+        `;
+
+      } else if (
+        message.delivered === true
+      ) {
+
+        ticks = `
+          <span class="message-ticks">
+            ✓✓
+          </span>
+        `;
+
+      } else {
+
+        ticks = `
+          <span class="message-ticks">
+            ✓
+          </span>
+        `;
+
+      }
+
+    }
+
+
+    html.push(`
+      <div
+        class="chat-message ${
+          own
+            ? "message-sent"
+            : "message-received"
+        }"
+      >
+
+        <div class="message-bubble">
+
+          <div class="message-text">
+            ${escapeHTML(message.text || "")}
+          </div>
+
+          <div class="message-meta">
+
+            <span>
+              ${escapeHTML(
+                formatTime(message.createdAt)
+              )}
+            </span>
+
+            ${ticks}
+
+          </div>
+
+        </div>
+
+      </div>
+    `);
+
+  });
+
+
+  container.innerHTML =
+    html.join("");
+
+
+  container.scrollTop =
+    container.scrollHeight;
+}
+
+
+/* =========================================================
+   TIMESTAMP HELPERS
+========================================================= */
+
+function getMillis(timestamp) {
+
+  if (!timestamp) {
+    return Date.now();
+  }
+
+  if (
+    typeof timestamp.toMillis ===
+    "function"
+  ) {
+    return timestamp.toMillis();
+  }
+
+  if (
+    timestamp.seconds !== undefined
+  ) {
+    return (
+      timestamp.seconds * 1000 +
+      Math.floor(
+        (timestamp.nanoseconds || 0) / 1000000
+      )
+    );
+  }
+
+  if (
+    timestamp instanceof Date
+  ) {
+    return timestamp.getTime();
+  }
+
+  const parsed =
+    new Date(timestamp).getTime();
+
+  return Number.isNaN(parsed)
+    ? Date.now()
+    : parsed;
+}
+
+
+function convertTimestamp(timestamp) {
+
+  return new Date(
+    getMillis(timestamp)
+  );
+}
+
+
+function formatTime(timestamp) {
+
+  const date =
+    convertTimestamp(timestamp);
 
   return date.toLocaleTimeString(
     "en-IN",
@@ -1098,2322 +3314,1795 @@ function formatTime(timestamp) {
   );
 }
 
+
 function formatDate(timestamp) {
-  if (!timestamp) return "";
 
-  let date;
+  const date =
+    convertTimestamp(timestamp);
 
-  if (timestamp.toDate) {
-    date = timestamp.toDate();
-  } else {
-    date = new Date(timestamp);
+  const now =
+    new Date();
+
+  const sameDay =
+    date.toDateString() ===
+    now.toDateString();
+
+
+  if (sameDay) {
+    return "Today / आज";
   }
 
-  if (Number.isNaN(date.getTime())) return "";
+
+  const yesterday =
+    new Date(now);
+
+  yesterday.setDate(
+    yesterday.getDate() - 1
+  );
+
+
+  if (
+    date.toDateString() ===
+    yesterday.toDateString()
+  ) {
+    return "Yesterday / कल";
+  }
+
 
   return date.toLocaleDateString(
     "en-IN",
     {
-      day: "numeric",
-      month: "long",
+      day: "2-digit",
+      month: "short",
       year: "numeric"
     }
   );
 }
 
-function renderMessages(messages) {
-  const box = $("chatMessages");
 
-  if (!box) return;
+/* =========================================================
+   MARK DELIVERED
+========================================================= */
 
-  if (!messages.length) {
-    box.innerHTML = `
-      <div class="empty-state">
-        💬
-        <h3>Start chatting</h3>
-        <p>Send your first message.</p>
-      </div>
-    `;
+async function markMessagesDelivered(
+  person
+) {
 
+  if (!currentStudent || !person) {
     return;
   }
 
-  let lastDate = "";
-
-  box.innerHTML = messages.map(message => {
-    const mine =
-      message.senderId === currentStudent?.id;
-
-    const dateText =
-      formatDate(message.createdAt);
-
-    let separator = "";
-
-    if (dateText !== lastDate) {
-      separator = `
-        <div class="chat-date">
-          ${escapeHTML(dateText)}
-        </div>
-      `;
-
-      lastDate = dateText;
-    }
-
-    let ticks = "✓";
-
-    if (mine) {
-      if (message.seen) {
-        ticks = "✓✓";
-      } else if (message.delivered) {
-        ticks = "✓✓";
-      }
-    }
-
-    return `
-      ${separator}
-
-      <div class="message-row ${mine ? "sent" : "received"}">
-        <div class="message-bubble">
-
-          <div class="message-text">
-            ${escapeHTML(message.text || "")}
-          </div>
-
-          <div class="message-meta">
-            ${escapeHTML(formatTime(message.createdAt))}
-
-            ${
-              mine
-                ? `<span class="message-ticks ${
-                    message.seen ? "seen" : ""
-                  }">${ticks}</span>`
-                : ""
-            }
-          </div>
-
-        </div>
-      </div>
-    `;
-  }).join("");
-
-  box.scrollTop = box.scrollHeight;
-}
-
-async function sendMessage() {
-  if (!currentStudent || !currentChatUser) {
-    toast("पहले कोई friend select करो।", "!");
-    return;
-  }
-
-  const input = $("messageInput");
-
-  if (!input) return;
-
-  const message = input.value.trim();
-
-  if (!message) return;
-
-  const chatId = makeChatId(
-    currentStudent.id,
-    currentChatUser.id
-  );
 
   try {
-    input.disabled = true;
 
-    await addDoc(
-      collection(db, "messages"),
-      {
-        chatId,
-        senderId: currentStudent.id,
-        receiverId: currentChatUser.id,
-        text: message,
-        delivered: false,
-        seen: false,
-        createdAt: serverTimestamp()
-      }
-    );
+    const chatId =
+      makeChatId(
+        currentStudent.id,
+        person.id
+      );
 
-    input.value = "";
 
-  } catch (error) {
-    console.error(error);
-    toast("Message send नहीं हुआ।", "!");
-  } finally {
-    input.disabled = false;
-    input.focus();
-  }
-}
+    const q =
+      query(
+        collection(db, "messages"),
+        where(
+          "chatId",
+          "==",
+          chatId
+        ),
+        where(
+          "receiverId",
+          "==",
+          currentStudent.id
+        )
+      );
 
-async function markMessagesSeen(messages) {
-  if (!currentStudent) return;
 
-  const incoming = messages.filter(
-    m =>
-      m.receiverId === currentStudent.id &&
-      !m.seen
-  );
+    const snapshot =
+      await getDocs(q);
 
-  for (const message of incoming) {
-    try {
+
+    const updates =
+      snapshot.docs.filter(
+        docSnap =>
+          docSnap.data().delivered !== true
+      );
+
+
+    for (const messageDoc of updates) {
+
       await updateDoc(
-        doc(db, "messages", message.id),
+        messageDoc.ref,
         {
-          seen: true,
           delivered: true
         }
       );
-    } catch (error) {
-      console.error(error);
+
     }
-  }
-}
-
-/* =========================
-   CHAT SEARCH
-========================= */
-
-function setupChatSearch() {
-  $("chatSearchBtn")?.addEventListener(
-    "click",
-    () => {
-      $("chatSearchBox")?.classList.toggle("hidden");
-      $("chatSearchInput")?.focus();
-    }
-  );
-
-  $("chatSearchInput")?.addEventListener(
-    "input",
-    e => {
-      const value =
-        e.target.value.trim().toLowerCase();
-
-      const filtered =
-        studentsCache.filter(person =>
-          String(person.name || "")
-            .toLowerCase()
-            .includes(value) ||
-          String(person.phone || "")
-            .includes(value)
-        );
-
-      renderChatPeople(filtered);
-    }
-  );
-}
-
-/* =========================
-   GROUPS
-========================= */
-
-async function loadGroups() {
-  const container = $("groupsList");
-
-  if (!container || !currentStudent) return;
-
-  try {
-    const snap =
-      await getDocs(collection(db, "groups"));
-
-    groupsCache = snap.docs
-      .map(d => ({
-        id: d.id,
-        ...d.data()
-      }))
-      .filter(group =>
-        Array.isArray(group.memberIds) &&
-        group.memberIds.includes(currentStudent.id)
-      );
-
-    renderGroups(groupsCache);
 
   } catch (error) {
-    console.error(error);
 
-    container.innerHTML = `
-      <div class="empty-state">
-        Groups load नहीं हुए।
-      </div>
-    `;
-  }
-}
-
-function renderGroups(groups) {
-  const container = $("groupsList");
-
-  if (!container) return;
-
-  if (!groups.length) {
-    container.innerHTML = `
-      <div class="empty-state">
-        👥
-        <h3>No groups yet</h3>
-        <p>Create your first private study group.</p>
-      </div>
-    `;
-
-    return;
-  }
-
-  container.innerHTML = groups.map(group => `
-    <article
-      class="group-card"
-      data-group-id="${escapeHTML(group.id)}"
-    >
-      <div class="group-icon">👥</div>
-
-      <div class="group-info">
-        <h3>${escapeHTML(group.name || "Study Group")}</h3>
-
-        <p>
-          ${Array.isArray(group.memberIds)
-            ? group.memberIds.length
-            : 0}
-          members
-        </p>
-      </div>
-
-      <button
-        class="secondary-btn group-open-btn"
-        data-group="${escapeHTML(group.id)}"
-      >
-        Open
-      </button>
-    </article>
-  `).join("");
-
-  qsa(".group-open-btn").forEach(button => {
-    button.addEventListener("click", () => {
-      const id = button.dataset.group;
-
-      const group =
-        groupsCache.find(x => x.id === id);
-
-      if (!group) return;
-
-      openGroup(group);
-    });
-  });
-}
-
-function openGroup(group) {
-  openModal(
-    group.name || "Study Group",
-    `
-      <div class="group-modal-content">
-
-        <div class="avatar group-big-avatar">
-          👥
-        </div>
-
-        <h3>${escapeHTML(group.name || "")}</h3>
-
-        <p>
-          Members:
-          ${
-            Array.isArray(group.memberIds)
-              ? group.memberIds.length
-              : 0
-          }
-        </p>
-
-        <button
-          id="closeGroupView"
-          class="primary-btn"
-        >
-          Close
-        </button>
-
-      </div>
-    `
-  );
-
-  $("closeGroupView")?.addEventListener(
-    "click",
-    closeModal
-  );
-}
-
-/* =========================
-   CREATE GROUP
-========================= */
-
-function setupGroupModal() {
-  $("createGroupBtn")?.addEventListener(
-    "click",
-    () => {
-      if (!canUse("groups")) {
-        toast("Groups की permission नहीं है।", "!");
-        return;
-      }
-
-      openGroupModal();
-    }
-  );
-
-  $("closeGroupModalBtn")?.addEventListener(
-    "click",
-    closeGroupModal
-  );
-
-  $("groupForm")?.addEventListener(
-    "submit",
-    createGroup
-  );
-
-  $("groupMemberSearch")?.addEventListener(
-    "input",
-    searchGroupMembers
-  );
-}
-
-function openGroupModal() {
-  $("groupForm")?.reset();
-
-  if ($("groupMemberResults")) {
-    $("groupMemberResults").innerHTML = "";
-  }
-
-  if ($("selectedGroupMembers")) {
-    $("selectedGroupMembers").innerHTML = "";
-  }
-
-  show($("groupModal"));
-}
-
-function closeGroupModal() {
-  hide($("groupModal"));
-}
-
-let selectedGroupMembers = [];
-
-function searchGroupMembers(event) {
-  const value =
-    event.target.value.trim();
-
-  const container =
-    $("groupMemberResults");
-
-  if (!container) return;
-
-  if (!value) {
-    container.innerHTML = "";
-    return;
-  }
-
-  const results =
-    studentsCache.filter(person =>
-      String(person.phone || "").includes(value) ||
-      String(person.name || "")
-        .toLowerCase()
-        .includes(value.toLowerCase())
+    console.error(
+      "Delivered update error:",
+      error
     );
 
-  container.innerHTML =
-    results.map(person => `
-      <button
-        type="button"
-        class="person-item group-member-result"
-        data-id="${escapeHTML(person.id)}"
-      >
-        <span class="avatar">
-          ${escapeHTML(
-            (person.name || "S")
-              .charAt(0)
-              .toUpperCase()
-          )}
-        </span>
-
-        <span class="person-info">
-          <strong>${escapeHTML(person.name || "")}</strong>
-          <small>${escapeHTML(person.phone || "")}</small>
-        </span>
-      </button>
-    `).join("");
-
-  qsa(".group-member-result").forEach(button => {
-    button.addEventListener("click", () => {
-      const person =
-        studentsCache.find(
-          x => x.id === button.dataset.id
-        );
-
-      if (!person) return;
-
-      addSelectedMember(person);
-    });
-  });
+  }
 }
 
-function addSelectedMember(person) {
+
+/* =========================================================
+   MARK SEEN
+========================================================= */
+
+async function markMessagesSeen(
+  person
+) {
+
+  if (!currentStudent || !person) {
+    return;
+  }
+
+
+  try {
+
+    const chatId =
+      makeChatId(
+        currentStudent.id,
+        person.id
+      );
+
+
+    const q =
+      query(
+        collection(db, "messages"),
+        where(
+          "chatId",
+          "==",
+          chatId
+        ),
+        where(
+          "receiverId",
+          "==",
+          currentStudent.id
+        )
+      );
+
+
+    const snapshot =
+      await getDocs(q);
+
+
+    for (const messageDoc of snapshot.docs) {
+
+      const data =
+        messageDoc.data();
+
+      if (data.seen !== true) {
+
+        await updateDoc(
+          messageDoc.ref,
+          {
+            delivered: true,
+            seen: true
+          }
+        );
+
+      }
+
+    }
+
+  } catch (error) {
+
+    console.error(
+      "Seen update error:",
+      error
+    );
+
+  }
+}
+
+
+/* =========================================================
+   PERSONAL CHAT MESSAGE LIMIT
+========================================================= */
+
+async function getChatUsage() {
+
+  if (!currentStudent) {
+    return {
+      count: 0,
+      start: Date.now()
+    };
+  }
+
+
+  const ref =
+    doc(
+      db,
+      "chatUsage",
+      currentStudent.id
+    );
+
+
+  const snapshot =
+    await getDoc(ref);
+
+
+  if (!snapshot.exists()) {
+
+    return {
+      count: 0,
+      start: Date.now()
+    };
+
+  }
+
+
+  const data =
+    snapshot.data();
+
+
+  const start =
+    getMillis(data.windowStart);
+
+
   if (
-    selectedGroupMembers.some(
-      x => x.id === person.id
-    )
+    Date.now() -
+    start >=
+    24 * 60 * 60 * 1000
+  ) {
+
+    return {
+      count: 0,
+      start: Date.now()
+    };
+
+  }
+
+
+  return {
+    count: Number(data.count || 0),
+    start
+  };
+}
+
+
+/* =========================================================
+   SEND PERSONAL MESSAGE
+========================================================= */
+
+async function sendMessage() {
+
+  if (
+    !currentStudent ||
+    !currentChatUser
   ) {
     return;
   }
 
-  selectedGroupMembers.push(person);
-  renderSelectedMembers();
-}
 
-function renderSelectedMembers() {
-  const container =
-    $("selectedGroupMembers");
+  if (!canUse("chat")) {
 
-  if (!container) return;
+    showToast(
+      "Chat की permission नहीं है।",
+      "warning"
+    );
 
-  container.innerHTML =
-    selectedGroupMembers.map(person => `
-      <span class="chip">
-        ${escapeHTML(person.name || "")}
-
-        <button
-          type="button"
-          class="remove-chip"
-          data-id="${escapeHTML(person.id)}"
-        >
-          ×
-        </button>
-      </span>
-    `).join("");
-
-  qsa(".remove-chip").forEach(button => {
-    button.addEventListener("click", () => {
-      selectedGroupMembers =
-        selectedGroupMembers.filter(
-          x => x.id !== button.dataset.id
-        );
-
-      renderSelectedMembers();
-    });
-  });
-}
-
-async function createGroup(event) {
-  event.preventDefault();
-
-  if (!currentStudent) return;
-
-  const name =
-    $("groupNameInput")?.value.trim();
-
-  const password =
-    $("groupPasswordInput")?.value.trim();
-
-  if (!name) {
-    toast("Group name डालो।", "!");
     return;
   }
 
-  if (!password) {
-    toast("Group password डालो।", "!");
+
+  const input =
+    $("chatInput");
+
+  if (!input) return;
+
+
+  const message =
+    input.value.trim();
+
+
+  if (!message) {
     return;
   }
+
+
+  /* 2 messages / 24 hours */
 
   try {
-    const memberIds = [
-      currentStudent.id,
-      ...selectedGroupMembers.map(x => x.id)
-    ];
 
-    const uniqueMembers =
-      [...new Set(memberIds)];
+    const usage =
+      await getChatUsage();
 
-    const passwordHash =
-      await hashPassword(password);
+
+    if (
+      usage.count >= CHAT_LIMIT
+    ) {
+
+      showToast(
+        "आपकी 24-hour chat limit पूरी हो गई है।",
+        "warning"
+      );
+
+      return;
+    }
+
+
+    const chatId =
+      makeChatId(
+        currentStudent.id,
+        currentChatUser.id
+      );
+
 
     await addDoc(
-      collection(db, "groups"),
+      collection(db, "messages"),
       {
-        name,
-        creatorId: currentStudent.id,
-        memberIds: uniqueMembers,
-        passwordHash,
-        createdAt: serverTimestamp(),
-        active: true
+
+        chatId,
+
+        senderId:
+          currentStudent.id,
+
+        senderName:
+          currentStudent.name,
+
+        receiverId:
+          currentChatUser.id,
+
+        receiverName:
+          currentChatUser.name,
+
+        text: message,
+
+        delivered: false,
+
+        seen: false,
+
+        createdAt:
+          serverTimestamp()
+
       }
     );
 
-    selectedGroupMembers = [];
 
-    closeGroupModal();
+    const usageRef =
+      doc(
+        db,
+        "chatUsage",
+        currentStudent.id
+      );
 
-    toast("Private group created.", "✓");
 
-    loadGroups();
+    if (
+      usage.count === 0
+    ) {
+
+      await setDoc(
+        usageRef,
+        {
+          count: 1,
+          windowStart:
+            serverTimestamp()
+        },
+        {
+          merge: true
+        }
+      );
+
+    } else {
+
+      await setDoc(
+        usageRef,
+        {
+          count:
+            usage.count + 1
+        },
+        {
+          merge: true
+        }
+      );
+
+    }
+
+
+    input.value = "";
 
   } catch (error) {
-    console.error(error);
-    toast("Group create नहीं हुआ।", "!");
+
+    console.error(
+      "Send message error:",
+      error
+    );
+
+    showToast(
+      "Message send नहीं हो पाया।",
+      "error"
+    );
   }
 }
 
-/* =========================
-   HOMEWORK
-========================= */
+
+/* =========================================================
+   CHAT COMPOSER
+========================================================= */
+
+function setupChatComposer() {
+
+  const send =
+    $("sendMessageBtn");
+
+  const input =
+    $("chatInput");
+
+
+  if (send) {
+
+    send.addEventListener(
+      "click",
+      sendMessage
+    );
+
+  }
+
+
+  if (input) {
+
+    input.addEventListener(
+      "keydown",
+      event => {
+
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey
+        ) {
+
+          event.preventDefault();
+
+          sendMessage();
+
+        }
+
+      }
+    );
+
+  }
+
+
+  const back =
+    $("chatBackBtn");
+
+  if (back) {
+
+    back.addEventListener(
+      "click",
+      closeChat
+    );
+
+  }
+
+
+  const groupBack =
+    $("groupChatBackBtn");
+
+  if (groupBack) {
+
+    groupBack.addEventListener(
+      "click",
+      closeGroupChat
+    );
+
+  }
+
+
+  const groupSend =
+    $("groupSendMessageBtn");
+
+  const groupInput =
+    $("groupChatInput");
+
+
+  if (groupSend) {
+
+    groupSend.addEventListener(
+      "click",
+      sendGroupMessage
+    );
+
+  }
+
+
+  if (groupInput) {
+
+    groupInput.addEventListener(
+      "keydown",
+      event => {
+
+        if (
+          event.key === "Enter" &&
+          !event.shiftKey
+        ) {
+
+          event.preventDefault();
+
+          sendGroupMessage();
+
+        }
+
+      }
+    );
+
+  }
+
+}
+
+
+/* =========================================================
+   SEND GROUP MESSAGE
+========================================================= */
+
+async function sendGroupMessage() {
+
+  if (
+    !currentStudent ||
+    !currentGroup
+  ) {
+    return;
+  }
+
+
+  const input =
+    $("groupChatInput");
+
+  if (!input) return;
+
+
+  const message =
+    input.value.trim();
+
+
+  if (!message) return;
+
+
+  if (
+    !currentGroup.memberIds.includes(
+      currentStudent.id
+    )
+  ) {
+
+    showToast(
+      "आप इस group के member नहीं हैं।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  try {
+
+    await addDoc(
+      collection(db, "groupMessages"),
+      {
+
+        groupId:
+          currentGroup.id,
+
+        chatId:
+          makeGroupChatId(
+            currentGroup.id
+          ),
+
+        senderId:
+          currentStudent.id,
+
+        senderName:
+          currentStudent.name,
+
+        text: message,
+
+        createdAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    input.value = "";
+
+  } catch (error) {
+
+    console.error(
+      "Group message error:",
+      error
+    );
+
+    showToast(
+      "Group message send नहीं हो पाया।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   EMOJI BUTTON
+========================================================= */
+
+function setupEmojiButtons() {
+
+  const emoji =
+    $("emojiBtn");
+
+  if (emoji) {
+
+    emoji.addEventListener(
+      "click",
+      () => {
+
+        const input =
+          $("chatInput");
+
+        if (!input) return;
+
+        input.value += " 😊";
+
+        input.focus();
+
+      }
+    );
+
+  }
+
+
+  const groupEmoji =
+    $("groupEmojiBtn");
+
+  if (groupEmoji) {
+
+    groupEmoji.addEventListener(
+      "click",
+      () => {
+
+        const input =
+          $("groupChatInput");
+
+        if (!input) return;
+
+        input.value += " 😊";
+
+        input.focus();
+
+      }
+    );
+
+  }
+}
+
+
+/* =========================================================
+   SETTINGS PAGE
+========================================================= */
+
+function loadSettingsPage() {
+
+  const language =
+    $("languageSelect");
+
+  const theme =
+    $("themeSelect");
+
+
+  if (language) {
+    language.value =
+      globalSettings.language || "en";
+  }
+
+
+  if (theme) {
+    theme.value =
+      globalSettings.theme || "system";
+  }
+
+
+  const welcome =
+    $("welcomeAnimationToggle");
+
+  if (welcome) {
+
+    welcome.checked =
+      globalSettings.welcomeAnimation !== false;
+
+  }
+}
+
+
+/* =========================================================
+   END OF PART 1
+========================================================= */
+
+/* =========================================================
+   STUDYCONNECT — SCRIPT.JS
+   PART 2 / 2
+   Homework + Notes + School + Owner Panel + Settings
+   + All Button Handlers + Logout + Initialization
+========================================================= */
+
+
+/* =========================================================
+   HOMEWORK SUBJECTS
+========================================================= */
+
+const HOMEWORK_SUBJECTS = [
+  "Hindi",
+  "English",
+  "Maths",
+  "Science",
+  "SST",
+  "GK",
+  "Computer",
+  "Art",
+  "Other",
+  "Activity Period",
+  "English Grammar",
+  "Hindi Grammar"
+];
+
+
+/* =========================================================
+   GENERIC FIRESTORE HELPERS
+========================================================= */
+
+async function getCollectionData(
+  collectionName,
+  limitCount = 50
+) {
+
+  try {
+
+    const q = query(
+      collection(db, collectionName),
+      orderBy("createdAt", "desc"),
+      limit(limitCount)
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(docSnap => ({
+      id: docSnap.id,
+      ...docSnap.data()
+    }));
+
+  } catch (error) {
+
+    console.error(
+      `Loading ${collectionName} failed:`,
+      error
+    );
+
+    return [];
+  }
+}
+
+
+/* =========================================================
+   HOMEWORK — STUDENT
+========================================================= */
 
 async function loadHomework() {
-  const container = $("homeworkList");
+
+  const container =
+    $("homeworkList");
 
   if (!container) return;
 
+  container.innerHTML = `
+    <div class="loading-card">
+      Homework loading...
+    </div>
+  `;
+
   try {
-    const snap =
-      await getDocs(collection(db, "homework"));
 
     const items =
-      snap.docs
-        .map(d => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .filter(x => x.published !== false);
+      await getCollectionData(
+        "homework",
+        100
+      );
 
-    if (!items.length) {
+
+    const published =
+      items.filter(
+        item =>
+          item.published !== false
+      );
+
+
+    if (!published.length) {
+
       container.innerHTML = `
-        <div class="empty-state">
-          📝
-          <h3>No homework</h3>
-          <p>Published homework will appear here.</p>
+        <div class="empty-card">
+          अभी कोई homework नहीं है।
         </div>
       `;
 
       return;
     }
 
+
     container.innerHTML =
-      items.map(item => `
-        <article class="content-card">
-          <span class="content-badge">
-            ${escapeHTML(item.subject || "Homework")}
-          </span>
+      published.map(item => {
 
-          <h3>
-            ${escapeHTML(item.title || "Homework")}
-          </h3>
+        const subject =
+          item.subject || "Other";
 
-          <p>
-            ${escapeHTML(item.description || item.text || "")}
-          </p>
+        return `
+          <article class="homework-card">
 
-          ${
-            item.chapter
-              ? `<small>Chapter: ${escapeHTML(item.chapter)}</small>`
-              : ""
-          }
-        </article>
-      `).join("");
+            <div class="homework-card-top">
+
+              <span class="homework-subject">
+                ${escapeHTML(subject)}
+              </span>
+
+              <span class="homework-date">
+                ${escapeHTML(
+                  item.date || formatDate(item.createdAt)
+                )}
+              </span>
+
+            </div>
+
+            <h3>
+              ${escapeHTML(
+                item.title ||
+                item.chapter ||
+                subject
+              )}
+            </h3>
+
+            ${
+              item.chapter
+                ? `
+                  <p class="homework-chapter">
+                    Chapter:
+                    ${escapeHTML(item.chapter)}
+                  </p>
+                `
+                : ""
+            }
+
+            <p>
+              ${escapeHTML(
+                item.description ||
+                item.text ||
+                ""
+              )}
+            </p>
+
+          </article>
+        `;
+
+      }).join("");
 
   } catch (error) {
-    console.error(error);
-    container.innerHTML =
-      `<div class="empty-state">
-        Homework load नहीं हुआ।
-      </div>`;
+
+    console.error(
+      "Homework error:",
+      error
+    );
+
+    container.innerHTML = `
+      <div class="empty-card">
+        Homework load नहीं हो पाया।
+      </div>
+    `;
   }
 }
 
-/* =========================
+
+/* =========================================================
+   ADD HOMEWORK MODAL
+========================================================= */
+
+function openAddHomeworkModal() {
+
+  if (
+    effectivePermission(currentStudent) !==
+    "owner"
+  ) {
+    showToast(
+      "यह option सिर्फ Owner के लिए है।",
+      "warning"
+    );
+    return;
+  }
+
+
+  const subjectOptions =
+    HOMEWORK_SUBJECTS.map(
+      subject => `
+        <option value="${escapeHTML(subject)}">
+          ${escapeHTML(subject)}
+        </option>
+      `
+    ).join("");
+
+
+  openModal(
+    "Add Homework",
+    `
+      <form id="dynamicHomeworkForm">
+
+        <div class="form-group">
+          <label>Date</label>
+          <input
+            id="dynamicHomeworkDate"
+            type="date"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Subject</label>
+
+          <select
+            id="dynamicHomeworkSubject"
+            required
+          >
+            <option value="">
+              Select Subject
+            </option>
+
+            ${subjectOptions}
+
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Chapter</label>
+
+          <input
+            id="dynamicHomeworkChapter"
+            type="text"
+            placeholder="Chapter name"
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Title</label>
+
+          <input
+            id="dynamicHomeworkTitle"
+            type="text"
+            placeholder="Homework title"
+            required
+          >
+        </div>
+
+        <div class="form-group">
+          <label>Description</label>
+
+          <textarea
+            id="dynamicHomeworkDescription"
+            rows="5"
+            placeholder="Homework details"
+            required
+          ></textarea>
+        </div>
+
+        <button
+          type="submit"
+          class="primary-btn save-homework-btn"
+        >
+          💾 Save Homework
+        </button>
+
+      </form>
+    `
+  );
+
+
+  const form =
+    $("dynamicHomeworkForm");
+
+  if (form) {
+
+    form.addEventListener(
+      "submit",
+      saveHomework
+    );
+
+  }
+}
+
+
+/* =========================================================
+   SAVE HOMEWORK
+========================================================= */
+
+async function saveHomework(event) {
+
+  event.preventDefault();
+
+
+  const date =
+    $("dynamicHomeworkDate")?.value;
+
+  const subject =
+    $("dynamicHomeworkSubject")?.value;
+
+  const chapter =
+    $("dynamicHomeworkChapter")?.value.trim();
+
+  const title =
+    $("dynamicHomeworkTitle")?.value.trim();
+
+  const description =
+    $("dynamicHomeworkDescription")?.value.trim();
+
+
+  if (!date || !subject || !title || !description) {
+
+    showToast(
+      "Date, Subject, Title और Description भरें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  try {
+
+    await addDoc(
+      collection(db, "homework"),
+      {
+
+        date,
+        subject,
+        chapter,
+        title,
+        description,
+
+        published: true,
+
+        createdBy:
+          currentStudent.id,
+
+        createdByName:
+          currentStudent.name,
+
+        createdAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    closeModal();
+
+    showToast(
+      "Homework successfully add हो गया।"
+    );
+
+
+    await loadHomework();
+
+    await loadOwnerContent();
+
+  } catch (error) {
+
+    console.error(
+      "Save homework error:",
+      error
+    );
+
+    showToast(
+      "Homework save नहीं हुआ।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   NOTES
+========================================================= */
+
+async function loadNotes() {
+
+  const container =
+    $("notesList");
+
+  if (!container) return;
+
+
+  container.innerHTML = `
+    <div class="loading-card">
+      Notes loading...
+    </div>
+  `;
+
+
+  try {
+
+    const items =
+      await getCollectionData(
+        "notes",
+        100
+      );
+
+
+    const published =
+      items.filter(
+        item =>
+          item.published !== false
+      );
+
+
+    if (!published.length) {
+
+      container.innerHTML = `
+        <div class="empty-card">
+          अभी कोई notes नहीं हैं।
+        </div>
+      `;
+
+      return;
+    }
+
+
+    container.innerHTML =
+      published.map(item => {
+
+        return `
+          <article class="note-card">
+
+            <div class="note-card-top">
+
+              <span>
+                ${escapeHTML(
+                  item.subject || "Notes"
+                )}
+              </span>
+
+              ${
+                item.chapter
+                  ? `
+                    <small>
+                      ${escapeHTML(item.chapter)}
+                    </small>
+                  `
+                  : ""
+              }
+
+            </div>
+
+            <h3>
+              ${escapeHTML(
+                item.title || "Note"
+              )}
+            </h3>
+
+            <p>
+              ${escapeHTML(
+                item.content ||
+                item.text ||
+                ""
+              )}
+            </p>
+
+          </article>
+        `;
+
+      }).join("");
+
+  } catch (error) {
+
+    console.error(
+      "Notes error:",
+      error
+    );
+
+    container.innerHTML = `
+      <div class="empty-card">
+        Notes load नहीं हो सके।
+      </div>
+    `;
+  }
+}
+
+
+/* =========================================================
+   ADD NOTE
+========================================================= */
+
+function openAddNoteModal() {
+
+  if (
+    effectivePermission(currentStudent) !==
+    "owner"
+  ) {
+    showToast(
+      "यह option सिर्फ Owner के लिए है।",
+      "warning"
+    );
+    return;
+  }
+
+
+  const options =
+    HOMEWORK_SUBJECTS.map(
+      subject => `
+        <option value="${escapeHTML(subject)}">
+          ${escapeHTML(subject)}
+        </option>
+      `
+    ).join("");
+
+
+  openModal(
+    "Add Note",
+    `
+      <form id="dynamicNoteForm">
+
+        <div class="form-group">
+
+          <label>Subject</label>
+
+          <select
+            id="dynamicNoteSubject"
+            required
+          >
+            <option value="">
+              Select Subject
+            </option>
+
+            ${options}
+
+          </select>
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>Chapter</label>
+
+          <input
+            id="dynamicNoteChapter"
+            type="text"
+            placeholder="Chapter"
+          >
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>Title</label>
+
+          <input
+            id="dynamicNoteTitle"
+            type="text"
+            placeholder="Note title"
+            required
+          >
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>Content</label>
+
+          <textarea
+            id="dynamicNoteContent"
+            rows="7"
+            placeholder="Write note..."
+            required
+          ></textarea>
+
+        </div>
+
+
+        <button
+          type="submit"
+          class="primary-btn"
+        >
+          💾 Save Note
+        </button>
+
+      </form>
+    `
+  );
+
+
+  $("dynamicNoteForm")
+    ?.addEventListener(
+      "submit",
+      saveNote
+    );
+}
+
+
+async function saveNote(event) {
+
+  event.preventDefault();
+
+
+  const subject =
+    $("dynamicNoteSubject")?.value;
+
+  const chapter =
+    $("dynamicNoteChapter")?.value.trim();
+
+  const title =
+    $("dynamicNoteTitle")?.value.trim();
+
+  const content =
+    $("dynamicNoteContent")?.value.trim();
+
+
+  if (!subject || !title || !content) {
+
+    showToast(
+      "Subject, Title और Content भरें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  try {
+
+    await addDoc(
+      collection(db, "notes"),
+      {
+
+        subject,
+        chapter,
+        title,
+        content,
+
+        published: true,
+
+        createdBy:
+          currentStudent.id,
+
+        createdByName:
+          currentStudent.name,
+
+        createdAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    closeModal();
+
+    showToast(
+      "Note successfully add हो गया।"
+    );
+
+
+    await loadNotes();
+    await loadOwnerContent();
+
+  } catch (error) {
+
+    console.error(
+      "Save note error:",
+      error
+    );
+
+    showToast(
+      "Note save नहीं हुआ।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
    SCHOOL UPDATES
-========================= */
+========================================================= */
 
 async function loadSchool() {
+
   const container =
     $("schoolUpdatesList");
 
   if (!container) return;
 
-  try {
-    const snap =
-      await getDocs(collection(db, "school"));
-
-    const items =
-      snap.docs
-        .map(d => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .filter(x => x.published !== false);
-
-    if (!items.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          📢
-          <h3>No updates</h3>
-          <p>School updates will appear here.</p>
-        </div>
-      `;
-
-      return;
-    }
-
-    container.innerHTML =
-      items.map(item => `
-        <article class="content-card">
-          <h3>
-            ${escapeHTML(item.title || "School Update")}
-          </h3>
-
-          <p>
-            ${escapeHTML(item.text || item.description || "")}
-          </p>
-        </article>
-      `).join("");
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================
-   NOTES
-========================= */
-
-async function loadNotes() {
-  const container = $("notesList");
-
-  if (!container) return;
-
-  try {
-    const snap =
-      await getDocs(collection(db, "notes"));
-
-    const items =
-      snap.docs
-        .map(d => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .filter(x => x.published !== false);
-
-    if (!items.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          📚
-          <h3>No notes</h3>
-          <p>Published notes will appear here.</p>
-        </div>
-      `;
-
-      return;
-    }
-
-    container.innerHTML =
-      items.map(item => `
-        <article class="content-card">
-          <span class="content-badge">
-            ${escapeHTML(item.subject || "Notes")}
-          </span>
-
-          <h3>
-            ${escapeHTML(item.title || "Note")}
-          </h3>
-
-          <p>
-            ${escapeHTML(item.text || item.description || "")}
-          </p>
-
-          ${
-            item.chapter
-              ? `<small>
-                  Chapter: ${escapeHTML(item.chapter)}
-                </small>`
-              : ""
-          }
-        </article>
-      `).join("");
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================
-   SETTINGS
-========================= */
-
-function setupSettings() {
-  $("themeSelect")?.addEventListener(
-    "change",
-    event => {
-      applyTheme(event.target.value);
-
-      localStorage.setItem(
-        "studyTheme",
-        event.target.value
-      );
-    }
-  );
-
-  $("languageSelect")?.addEventListener(
-    "change",
-    event => {
-      const lang = event.target.value;
-
-      applyLanguage(lang);
-
-      localStorage.setItem(
-        "studyLanguage",
-        lang
-      );
-    }
-  );
-
-  $("profileSettingsBtn")?.addEventListener(
-    "click",
-    editProfile
-  );
-
-  $("settingsLogoutBtn")?.addEventListener(
-    "click",
-    logout
-  );
-
-  $("logoutBtn")?.addEventListener(
-    "click",
-    logout
-  );
-
-  $("openOwnerPanelBtn")?.addEventListener(
-    "click",
-    () => {
-      if (currentStudent?.isOwner) {
-        openPage("owner");
-      }
-    }
-  );
-
-  $("headerProfileBtn")?.addEventListener(
-    "click",
-    () => {
-      openPage("settings");
-    }
-  );
-
-  $("headerNotificationBtn")?.addEventListener(
-    "click",
-    () => {
-      openPage("school");
-    }
-  );
-}
-
-function editProfile() {
-  if (!currentStudent) return;
-
-  openModal(
-    "Edit Profile",
-    `
-      <div class="form-stack">
-
-        <label>Name</label>
-
-        <input
-          id="editProfileName"
-          class="text-input"
-          value="${escapeHTML(currentStudent.name || "")}"
-        >
-
-        <button
-          id="saveProfileName"
-          class="primary-btn"
-        >
-          Save
-        </button>
-
-      </div>
-    `
-  );
-
-  $("saveProfileName")?.addEventListener(
-    "click",
-    async () => {
-      const name =
-        $("editProfileName")?.value.trim();
-
-      if (!name) {
-        toast("Name डालो।", "!");
-        return;
-      }
-
-      try {
-        if (currentStudent.id !== "owner") {
-          await updateDoc(
-            doc(
-              db,
-              "students",
-              currentStudent.id
-            ),
-            { name }
-          );
-        }
-
-        currentStudent.name = name;
-
-        localStorage.setItem(
-          "studyName",
-          name
-        );
-
-        updateProfile();
-        closeModal();
-
-        toast("Profile updated.", "✓");
-
-      } catch (error) {
-        console.error(error);
-        toast("Profile update नहीं हुआ।", "!");
-      }
-    }
-  );
-}
-
-/* =========================
-   OWNER PANEL
-========================= */
-
-async function loadOwnerPanel() {
-  if (!currentStudent?.isOwner) return;
-
-  await loadOwnerStudents();
-  await loadOwnerStats();
-  await loadOwnerApprovals();
-  await loadOwnerGroups();
-  await loadOwnerContent();
-  await loadOwnerActivity();
-
-  loadOwnerControls();
-}
-
-async function loadOwnerStudents() {
-  try {
-    const snap =
-      await getDocs(collection(db, "students"));
-
-    studentsCache =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
-
-    renderOwnerPeople(
-      studentsCache
-    );
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-function renderOwnerPeople(list) {
-  const container =
-    $("ownerPeopleList");
-
-  if (!container) return;
-
-  if (!list.length) {
-    container.innerHTML =
-      `<div class="empty-state">
-        No students.
-      </div>`;
-
-    return;
-  }
-
-  container.innerHTML =
-    list.map(person => `
-      <button
-        class="person-item owner-person"
-        data-person-id="${escapeHTML(person.id)}"
-      >
-        <span class="avatar">
-          ${escapeHTML(
-            (person.name || "S")
-              .charAt(0)
-              .toUpperCase()
-          )}
-        </span>
-
-        <span class="person-info">
-          <strong>
-            ${escapeHTML(person.name || "Student")}
-          </strong>
-
-          <small>
-            ${escapeHTML(person.phone || "")}
-          </small>
-        </span>
-      </button>
-    `).join("");
-
-  qsa(".owner-person").forEach(button => {
-    button.addEventListener(
-      "click",
-      () => {
-        const person =
-          studentsCache.find(
-            x =>
-              x.id ===
-              button.dataset.personId
-          );
-
-        if (person) {
-          showOwnerPerson(person);
-        }
-      }
-    );
-  });
-}
-
-function showOwnerPerson(person) {
-  const container =
-    $("ownerPersonDetails");
-
-  if (!container) return;
 
   container.innerHTML = `
-    <div class="owner-profile-detail">
-
-      <div class="avatar profile-large">
-        ${escapeHTML(
-          (person.name || "S")
-            .charAt(0)
-            .toUpperCase()
-        )}
-      </div>
-
-      <h2>
-        ${escapeHTML(person.name || "Student")}
-      </h2>
-
-      <p>
-        📱 ${escapeHTML(person.phone || "")}
-      </p>
-
-      <p>
-        Status:
-        <strong>
-          ${escapeHTML(person.status || "pending")}
-        </strong>
-      </p>
-
-      <p>
-        Permission:
-        <strong>
-          ${escapeHTML(person.permission || "normal")}
-        </strong>
-      </p>
-
-      <div class="owner-actions">
-
-        <button
-          class="secondary-btn"
-          id="approvePersonBtn"
-        >
-          Approve
-        </button>
-
-        <button
-          class="secondary-btn"
-          id="allowPersonBtn"
-        >
-          Full Allow
-        </button>
-
-        <button
-          class="secondary-btn"
-          id="normalPersonBtn"
-        >
-          Normal
-        </button>
-
-        <button
-          class="danger-btn"
-          id="blockPersonBtn"
-        >
-          Block
-        </button>
-
-      </div>
-
+    <div class="loading-card">
+      School updates loading...
     </div>
   `;
 
-  $("approvePersonBtn")?.addEventListener(
-    "click",
-    () => updateStudent(person.id, {
-      status: "approved"
-    })
-  );
-
-  $("allowPersonBtn")?.addEventListener(
-    "click",
-    () => updateStudent(person.id, {
-      permission: "allow"
-    })
-  );
-
-  $("normalPersonBtn")?.addEventListener(
-    "click",
-    () => updateStudent(person.id, {
-      permission: "normal"
-    })
-  );
-
-  $("blockPersonBtn")?.addEventListener(
-    "click",
-    () => updateStudent(person.id, {
-      status: "blocked"
-    })
-  );
-}
-
-async function updateStudent(id, data) {
-  try {
-    await updateDoc(
-      doc(db, "students", id),
-      data
-    );
-
-    toast("Student updated.", "✓");
-
-    await loadOwnerStudents();
-    await loadOwnerStats();
-
-  } catch (error) {
-    console.error(error);
-    toast("Student update failed.", "!");
-  }
-}
-
-/* =========================
-   OWNER SEARCH
-========================= */
-
-function setupOwnerSearch() {
-  $("ownerStudentSearch")?.addEventListener(
-    "input",
-    event => {
-      const value =
-        event.target.value
-          .trim()
-          .toLowerCase();
-
-      const filtered =
-        studentsCache.filter(person =>
-          String(person.name || "")
-            .toLowerCase()
-            .includes(value) ||
-          String(person.phone || "")
-            .includes(value)
-        );
-
-      renderOwnerPeople(filtered);
-    }
-  );
-}
-
-/* =========================
-   OWNER TABS
-========================= */
-
-function setupOwnerTabs() {
-  qsa(".owner-tab").forEach(button => {
-    button.addEventListener(
-      "click",
-      () => {
-        const section =
-          button.dataset.ownerSection;
-
-        qsa(".owner-tab").forEach(btn =>
-          btn.classList.remove("active")
-        );
-
-        button.classList.add("active");
-
-        qsa(".owner-section").forEach(
-          item => {
-            item.classList.toggle(
-              "active",
-              item.id ===
-                `ownerSection-${section}`
-            );
-          }
-        );
-      }
-    );
-  });
-}
-
-/* =========================
-   OWNER STATS
-========================= */
-
-async function loadOwnerStats() {
-  try {
-    const students =
-      await getDocs(
-        collection(db, "students")
-      );
-
-    const messages =
-      await getDocs(
-        collection(db, "messages")
-      );
-
-    const groups =
-      await getDocs(
-        collection(db, "groups")
-      );
-
-    const homework =
-      await getDocs(
-        collection(db, "homework")
-      );
-
-    const pending =
-      students.docs.filter(
-        d => d.data().status === "pending"
-      ).length;
-
-    const online =
-      students.docs.filter(
-        d => d.data().online === true
-      ).length;
-
-    text(
-      $("ownerTotalStudents"),
-      students.size
-    );
-
-    text(
-      $("ownerOnlineStudents"),
-      online
-    );
-
-    text(
-      $("ownerPendingStudents"),
-      pending
-    );
-
-    text(
-      $("ownerTotalMessages"),
-      messages.size
-    );
-
-    text(
-      $("ownerTotalGroups"),
-      groups.size
-    );
-
-    text(
-      $("ownerTotalHomework"),
-      homework.size
-    );
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================
-   APPROVALS
-========================= */
-
-async function loadOwnerApprovals() {
-  const container =
-    $("ownerApprovalList");
-
-  if (!container) return;
 
   try {
-    const snap =
-      await getDocs(collection(db, "students"));
 
-    const pending =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      })).filter(
-        x => x.status === "pending"
+    const items =
+      await getCollectionData(
+        "school",
+        100
       );
 
-    if (!pending.length) {
-      container.innerHTML =
-        `<div class="empty-state">
-          No pending approvals.
-        </div>`;
+
+    const published =
+      items.filter(
+        item =>
+          item.published !== false
+      );
+
+
+    if (!published.length) {
+
+      container.innerHTML = `
+        <div class="empty-card">
+          अभी कोई school update नहीं है।
+        </div>
+      `;
 
       return;
     }
 
-    container.innerHTML =
-      pending.map(person => `
-        <article class="content-card">
-
-          <h3>
-            ${escapeHTML(person.name || "Student")}
-          </h3>
-
-          <p>
-            📱 ${escapeHTML(person.phone || "")}
-          </p>
-
-          <button
-            class="primary-btn approval-btn"
-            data-id="${escapeHTML(person.id)}"
-          >
-            Approve
-          </button>
-
-        </article>
-      `).join("");
-
-    qsa(".approval-btn").forEach(button => {
-      button.addEventListener(
-        "click",
-        () =>
-          updateStudent(
-            button.dataset.id,
-            { status: "approved" }
-          )
-      );
-    });
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================
-   OWNER GROUPS
-========================= */
-
-async function loadOwnerGroups() {
-  const container =
-    $("ownerGroupsList");
-
-  if (!container) return;
-
-  try {
-    const snap =
-      await getDocs(
-        collection(db, "groups")
-      );
-
-    const groups =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
-
-    if (!groups.length) {
-      container.innerHTML =
-        `<div class="empty-state">
-          No groups.
-        </div>`;
-
-      return;
-    }
 
     container.innerHTML =
-      groups.map(group => `
-        <article class="content-card">
-
-          <h3>
-            👥 ${escapeHTML(group.name || "Group")}
-          </h3>
-
-          <p>
-            Members:
-            ${
-              Array.isArray(group.memberIds)
-                ? group.memberIds.length
-                : 0
-            }
-          </p>
-
-          <button
-            class="danger-btn delete-group-btn"
-            data-id="${escapeHTML(group.id)}"
-          >
-            Remove Group
-          </button>
-
-        </article>
-      `).join("");
-
-    qsa(".delete-group-btn").forEach(button => {
-      button.addEventListener(
-        "click",
-        async () => {
-          if (
-            !confirm(
-              "Remove this group?"
-            )
-          ) return;
-
-          try {
-            await deleteDoc(
-              doc(
-                db,
-                "groups",
-                button.dataset.id
-              )
-            );
-
-            toast("Group removed.", "✓");
-            loadOwnerGroups();
-            loadGroups();
-
-          } catch (error) {
-            console.error(error);
-            toast("Group remove failed.", "!");
-          }
-        }
-      );
-    });
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================
-   OWNER CONTENT
-========================= */
-
-async function loadOwnerContent() {
-  await loadOwnerHomework();
-  await loadOwnerNotes();
-  await loadOwnerAnnouncements();
-}
-
-async function loadOwnerHomework() {
-  const container =
-    $("ownerHomeworkList");
-
-  if (!container) return;
-
-  try {
-    const snap =
-      await getDocs(
-        collection(db, "homework")
-      );
-
-    container.innerHTML =
-      snap.docs.map(d => {
-        const x = d.data();
+      published.map(item => {
 
         return `
-          <article class="content-card">
-
-            <h3>
-              ${escapeHTML(x.title || "Homework")}
-            </h3>
-
-            <p>
-              ${escapeHTML(
-                x.description || x.text || ""
-              )}
-            </p>
-
-            <button
-              class="danger-btn delete-homework-btn"
-              data-id="${escapeHTML(d.id)}"
-            >
-              Delete
-            </button>
-
-          </article>
-        `;
-      }).join("") ||
-      `<div class="empty-state">
-        No homework.
-      </div>`;
-
-    qsa(".delete-homework-btn").forEach(
-      button => {
-        button.addEventListener(
-          "click",
-          () =>
-            deleteOwnerContent(
-              "homework",
-              button.dataset.id
-            )
-        );
-      }
-    );
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-async function loadOwnerNotes() {
-  const container = $("ownerNotesList");
-
-  if (!container) return;
-
-  try {
-    const snap = await getDocs(
-      collection(db, "notes")
-    );
-
-    if (snap.empty) {
-      container.innerHTML =
-        '<div class="empty-state">No notes yet.</div>';
-      return;
-    }
-
-    container.innerHTML = "";
-
-    snap.docs.forEach((docSnap) => {
-      const x = docSnap.data();
-
-      const article = document.createElement("article");
-      article.className = "content-card";
-
-      const title = document.createElement("h3");
-      title.textContent = x.title || "Note";
-
-      const subject = document.createElement("p");
-      subject.textContent =
-        "Subject: " + (x.subject || "General");
-
-      const content = document.createElement("p");
-      content.textContent =
-        x.content || x.description || "";
-
-      article.appendChild(title);
-      article.appendChild(subject);
-      article.appendChild(content);
-
-      container.appendChild(article);
-    });
-
-  } catch (error) {
-    console.error("loadOwnerNotes error:", error);
-
-    container.innerHTML =
-      '<div class="empty-state">Unable to load notes.</div>';
-  }
-}
-
-async function loadOwnerAnnouncements() {
-  const container =
-    $("ownerAnnouncementsList");
-
-  if (!container) return;
-
-  try {
-    const snap =
-      await getDocs(
-        collection(db, "school")
-      );
-
-    container.innerHTML =
-      snap.docs.map(d => {
-        const x = d.data();
-
-        return `
-          <article class="content-card">
+          <article class="announcement-card">
 
             <h3>
               ${escapeHTML(
-                x.title || "Announcement"
+                item.title ||
+                "School Update"
               )}
             </h3>
 
             <p>
-              ${escapeHTML(x.text || "")}
+              ${escapeHTML(
+                item.text ||
+                item.description ||
+                ""
+              )}
             </p>
 
-            <button
-              class="danger-btn delete-announcement-btn"
-              data-id="${escapeHTML(d.id)}"
-            >
-              Delete
-            </button>
+            <small>
+              ${escapeHTML(
+                formatDate(item.createdAt)
+              )}
+            </small>
 
           </article>
         `;
-      }).join("") ||
-      `<div class="empty-state">
-        No announcements.
-      </div>`;
 
-    qsa(".delete-announcement-btn")
-      .forEach(button => {
-        button.addEventListener(
-          "click",
-          () =>
-            deleteOwnerContent(
-              "school",
-              button.dataset.id
-            )
-        );
-      });
+      }).join("");
 
   } catch (error) {
-    console.error(error);
-  }
-}
 
-async function deleteOwnerContent(
-  collectionName,
-  id
-) {
-  try {
-    await deleteDoc(
-      doc(db, collectionName, id)
-    );
-
-    toast("Deleted successfully.", "✓");
-
-    loadOwnerContent();
-    loadHomework();
-    loadNotes();
-    loadSchool();
-
-  } catch (error) {
-    console.error(error);
-    toast("Delete failed.", "!");
-  }
-}
-
-/* =========================
-   ADD OWNER CONTENT
-========================= */
-
-function setupOwnerContentButtons() {
-  $("ownerAddHomeworkBtn")
-    ?.addEventListener(
-      "click",
-      () => openContentForm("homework")
-    );
-
-  $("ownerAddNoteBtn")
-    ?.addEventListener(
-      "click",
-      () => openContentForm("notes")
-    );
-
-  $("ownerAddAnnouncementBtn")
-    ?.addEventListener(
-      "click",
-      () => openContentForm("school")
-    );
-}
-
-function openContentForm(type) {
-  const titles = {
-    homework: "Add Homework",
-    notes: "Add Note",
-    school: "Add Announcement"
-  };
-
-  openModal(
-    titles[type],
-    `
-      <div class="form-stack">
-
-        <input
-          id="contentTitle"
-          class="text-input"
-          placeholder="Title"
-        >
-
-        ${
-          type !== "school"
-            ? `
-              <input
-                id="contentSubject"
-                class="text-input"
-                placeholder="Subject"
-              >
-
-              <input
-                id="contentChapter"
-                class="text-input"
-                placeholder="Chapter"
-              >
-            `
-            : ""
-        }
-
-        <textarea
-          id="contentText"
-          class="text-input"
-          rows="6"
-          placeholder="Write content..."
-        ></textarea>
-
-        <button
-          id="saveContentBtn"
-          class="primary-btn"
-        >
-          Publish
-        </button>
-
-      </div>
-    `
-  );
-
-  $("saveContentBtn")
-    ?.addEventListener(
-      "click",
-      async () => {
-
-        const title =
-          $("contentTitle")?.value.trim();
-
-        const content =
-          $("contentText")?.value.trim();
-
-        if (!title || !content) {
-          toast("Title और content डालो।", "!");
-          return;
-        }
-
-        try {
-          const data = {
-            title,
-            text: content,
-            published: true,
-            createdAt: serverTimestamp()
-          };
-
-          if (type !== "school") {
-            data.subject =
-              $("contentSubject")
-                ?.value.trim() || "";
-
-            data.chapter =
-              $("contentChapter")
-                ?.value.trim() || "";
-          }
-
-          await addDoc(
-            collection(db, type),
-            data
-          );
-
-          closeModal();
-
-          toast("Published successfully.", "✓");
-
-          loadOwnerContent();
-
-          if (type === "homework") {
-            loadHomework();
-          }
-
-          if (type === "notes") {
-            loadNotes();
-          }
-
-          if (type === "school") {
-            loadSchool();
-            loadHome();
-          }
-
-        } catch (error) {
-          console.error(error);
-          toast("Publish failed.", "!");
-        }
-      }
-    );
-}
-
-/* =========================
-   OWNER APPEARANCE
-========================= */
-
-function loadOwnerControls() {
-  if (!currentStudent?.isOwner) return;
-
-  const f =
-    globalSettings.features ||
-    DEFAULT_SETTINGS.features;
-
-  if ($("ownerAppName")) {
-    $("ownerAppName").value =
-      globalSettings.appName ||
-      "StudyConnect";
-  }
-
-  if ($("ownerGlobalLanguage")) {
-    $("ownerGlobalLanguage").value =
-      globalSettings.language || "en";
-  }
-
-  if ($("ownerGlobalTheme")) {
-    $("ownerGlobalTheme").value =
-      globalSettings.theme || "system";
-  }
-
-  if ($("ownerWelcomeAnimation")) {
-    $("ownerWelcomeAnimation").checked =
-      globalSettings.welcomeAnimation !== false;
-  }
-
-  if ($("featureChat")) {
-    $("featureChat").checked =
-      f.chat !== false;
-  }
-
-  if ($("featureGroups")) {
-    $("featureGroups").checked =
-      f.groups !== false;
-  }
-
-  if ($("featureHomework")) {
-    $("featureHomework").checked =
-      f.homework !== false;
-  }
-
-  if ($("featureNotes")) {
-    $("featureNotes").checked =
-      f.notes !== false;
-  }
-
-  if ($("featureAnnouncements")) {
-    $("featureAnnouncements").checked =
-      f.announcements !== false;
-  }
-
-  if ($("featureRegistration")) {
-    $("featureRegistration").checked =
-      f.registration !== false;
-  }
-
-  if ($("featureMaintenance")) {
-    $("featureMaintenance").checked =
-      f.maintenance === true;
-  }
-}
-
-function setupOwnerSettings() {
-  $("saveGlobalSettingsBtn")
-    ?.addEventListener(
-      "click",
-      saveGlobalSettings
-    );
-
-  $("saveFeatureSettingsBtn")
-    ?.addEventListener(
-      "click",
-      saveFeatureSettings
-    );
-
-  $("changeOwnerPasswordBtn")
-    ?.addEventListener(
-      "click",
-      changeOwnerPassword
-    );
-}
-
-async function saveGlobalSettings() {
-  if (!currentStudent?.isOwner) return;
-
-  try {
-    globalSettings = {
-      ...globalSettings,
-
-      appName:
-        $("ownerAppName")?.value.trim() ||
-        "StudyConnect",
-
-      language:
-        $("ownerGlobalLanguage")?.value ||
-        "en",
-
-      theme:
-        $("ownerGlobalTheme")?.value ||
-        "system",
-
-      welcomeAnimation:
-        $("ownerWelcomeAnimation")?.checked !== false
-    };
-
-    await setDoc(
-      doc(db, "appSettings", "main"),
-      globalSettings,
-      { merge: true }
-    );
-
-    applySettings();
-
-    toast(
-      "Global settings saved.",
-      "✓"
-    );
-
-  } catch (error) {
-    console.error(error);
-    toast(
-      "Settings save नहीं हुए।",
-      "!"
-    );
-  }
-}
-
-async function saveFeatureSettings() {
-  if (!currentStudent?.isOwner) return;
-
-  try {
-    const features = {
-      chat:
-        $("featureChat")?.checked !== false,
-
-      groups:
-        $("featureGroups")?.checked !== false,
-
-      homework:
-        $("featureHomework")?.checked !== false,
-
-      notes:
-        $("featureNotes")?.checked !== false,
-
-      announcements:
-        $("featureAnnouncements")?.checked !== false,
-
-      registration:
-        $("featureRegistration")?.checked !== false,
-
-      maintenance:
-        $("featureMaintenance")?.checked === true
-    };
-
-    globalSettings.features = features;
-
-    await setDoc(
-      doc(db, "appSettings", "main"),
-      {
-        features
-      },
-      { merge: true }
-    );
-
-    applyFeatureVisibility();
-
-    toast(
-      "Feature settings saved.",
-      "✓"
-    );
-
-  } catch (error) {
-    console.error(error);
-    toast(
-      "Feature settings save नहीं हुए।",
-      "!"
-    );
-  }
-}
-
-async function changeOwnerPassword() {
-  if (!currentStudent?.isOwner) return;
-
-  const password =
-    $("ownerNewPassword")
-      ?.value.trim();
-
-  const confirmPassword =
-    $("ownerConfirmPassword")
-      ?.value.trim();
-
-  if (!password || !confirmPassword) {
-    toast("दोनों password डालो।", "!");
-    return;
-  }
-
-  if (password !== confirmPassword) {
-    toast("Passwords match नहीं हैं।", "!");
-    return;
-  }
-
-  try {
-    const passwordHash =
-      await hashPassword(password);
-
-    await setDoc(
-      doc(db, "appSettings", "main"),
-      {
-        ownerPasswordHash: passwordHash
-      },
-      { merge: true }
-    );
-
-    $("ownerNewPassword").value = "";
-    $("ownerConfirmPassword").value = "";
-
-    toast(
-      "Owner password updated.",
-      "✓"
-    );
-
-  } catch (error) {
-    console.error(error);
-    toast(
-      "Password update failed.",
-      "!"
-    );
-  }
-}
-
-/* =========================
-   ACTIVITY
-========================= */
-
-async function loadOwnerActivity() {
-  const container =
-    $("ownerActivityLog");
-
-  if (!container) return;
-
-  try {
-    const snap =
-      await getDocs(
-        collection(db, "activityLogs")
-      );
-
-    const logs =
-      snap.docs
-        .map(d => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .slice(-50)
-        .reverse();
-
-    if (!logs.length) {
-      container.innerHTML =
-        `<div class="empty-state">
-          No activity yet.
-        </div>`;
-
-      return;
-    }
-
-    container.innerHTML =
-      logs.map(log => `
-        <article class="content-card">
-          <strong>
-            ${escapeHTML(
-              log.action || "Activity"
-            )}
-          </strong>
-
-          <p>
-            ${escapeHTML(
-              log.text || log.message || ""
-            )}
-          </p>
-        </article>
-      `).join("");
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-/* =========================
-   LOGOUT
-========================= */
-
-function logout() {
-  currentStudent = null;
-  currentChatUser = null;
-
-  if (unsubscribeMessages) {
-    unsubscribeMessages();
-    unsubscribeMessages = null;
-  }
-
-  localStorage.removeItem("studyName");
-  localStorage.removeItem("studyPhone");
-
-  hide($("app"));
-  show($("loginScreen"));
-
-  loginStep = 1;
-
-  hide($("loginNameWrap"));
-  hide($("loginPhoneWrap"));
-
-  $("loginName").value = "";
-  $("loginPhone").value = "";
-  $("loginPassword").value = "";
-
-  $("loginName").required = false;
-  $("loginPhone").required = false;
-
-  $("loginBtn").textContent = "Next →";
-
-  text($("loginMessage"), "");
-
-  toast("Logged out.", "✓");
-}
-
-/* =========================
-   GLOBAL MODAL BUTTON
-========================= */
-
-function setupModal() {
-  $("closeAppModalBtn")
-    ?.addEventListener(
-      "click",
-      closeModal
-    );
-
-  $("appModal")
-    ?.addEventListener(
-      "click",
-      event => {
-        if (
-          event.target === $("appModal")
-        ) {
-          closeModal();
-        }
-      }
-    );
-
-  $("groupModal")
-    ?.addEventListener(
-      "click",
-      event => {
-        if (
-          event.target === $("groupModal")
-        ) {
-          closeGroupModal();
-        }
-      }
-    );
-}
-
-/* =========================
-   PASSWORD BUTTON
-========================= */
-
-function setupPasswordToggle() {
-  const password =
-    $("loginPassword");
-
-  if (!password) return;
-
-  const wrapper =
-    password.parentElement;
-
-  if (!wrapper) return;
-
-  const button =
-    document.createElement("button");
-
-  button.type = "button";
-  button.className =
-    "password-toggle";
-
-  button.textContent = "👁";
-
-  wrapper.appendChild(button);
-
-  button.addEventListener(
-    "click",
-    () => {
-      if (
-        password.type === "password"
-      ) {
-        password.type = "text";
-        button.textContent = "🙈";
-      } else {
-        password.type = "password";
-        button.textContent = "👁";
-      }
-    }
-  );
-}
-
-/* =========================
-   INITIALIZE
-========================= */
-
-async function init() {
-  console.log(
-    "StudyConnect starting..."
-  );
-
-  setupLogin();
-  setupNavigation();
-  setupMenu();
-  setupChatSearch();
-  setupGroupModal();
-  setupSettings();
-  setupOwnerSearch();
-  setupOwnerTabs();
-  setupOwnerContentButtons();
-  setupOwnerSettings();
-  setupModal();
-  setupPasswordToggle();
-
-  await startFirebase();
-  await loadSettings();
-
-  const savedName =
-    localStorage.getItem("studyName");
-
-  const savedPhone =
-    localStorage.getItem("studyPhone");
-
-  if (savedName && savedPhone) {
-    console.log(
-      "Previous login found:",
-      savedName
-    );
-  }
-
-  console.log(
-    "StudyConnect ready."
-  );
-}
-
-window.addEventListener(
-  "DOMContentLoaded",
-  init
-);
-/* =========================================================
-   STUDYCONNECT — JAVASCRIPT
-   PART 2 / 2
-   ========================================================= */
-
-
-/* =========================================================
-   OWNER PANEL
-   ========================================================= */
-
-async function loadOwnerPanel() {
-  if (!currentStudent?.isOwner) {
-    return;
-  }
-
-  await Promise.all([
-    loadOwnerStats(),
-    loadOwnerStudents(),
-    loadOwnerApprovals(),
-    loadOwnerGroups(),
-    loadOwnerContent(),
-    loadOwnerActivity()
-  ]);
-}
-
-
-/* =========================================================
-   OWNER STATS
-   ========================================================= */
-
-async function loadOwnerStats() {
-  try {
-    const [
-      studentsSnap,
-      messagesSnap,
-      groupsSnap,
-      homeworkSnap
-    ] = await Promise.all([
-      getDocs(collection(db, "students")),
-      getDocs(collection(db, "messages")),
-      getDocs(collection(db, "groups")),
-      getDocs(collection(db, "homework"))
-    ]);
-
-    const students =
-      studentsSnap.docs.map(d => d.data());
-
-    const online =
-      students.filter(
-        s => s.online === true
-      ).length;
-
-    const pending =
-      students.filter(
-        s =>
-          s.status === "pending"
-      ).length;
-
-    text(
-      $("ownerTotalStudents"),
-      students.length
-    );
-
-    text(
-      $("ownerOnlineStudents"),
-      online
-    );
-
-    text(
-      $("ownerPendingStudents"),
-      pending
-    );
-
-    text(
-      $("ownerTotalMessages"),
-      messagesSnap.size
-    );
-
-    text(
-      $("ownerTotalGroups"),
-      groupsSnap.size
-    );
-
-    text(
-      $("ownerTotalHomework"),
-      homeworkSnap.size
-    );
-
-  } catch (error) {
     console.error(
-      "Owner stats:",
-      error
-    );
-  }
-}
-
-
-/* =========================================================
-   OWNER STUDENTS
-   ========================================================= */
-
-async function loadOwnerStudents() {
-  const container =
-    $("ownerPeopleList");
-
-  if (!container) return;
-
-  try {
-    const snap =
-      await getDocs(
-        collection(db, "students")
-      );
-
-    studentsCache =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
-
-    renderOwnerPeople(
-      studentsCache
-    );
-
-  } catch (error) {
-    console.error(
-      "Owner students:",
+      "School update error:",
       error
     );
 
     container.innerHTML = `
-      <div class="empty-state">
+      <div class="empty-card">
+        School updates load नहीं हो सके।
+      </div>
+    `;
+  }
+}
+
+
+/* =========================================================
+   ADD SCHOOL ANNOUNCEMENT
+========================================================= */
+
+function openAddAnnouncementModal() {
+
+  if (
+    effectivePermission(currentStudent) !==
+    "owner"
+  ) {
+    showToast(
+      "यह option सिर्फ Owner के लिए है।",
+      "warning"
+    );
+    return;
+  }
+
+
+  openModal(
+    "Add School Update",
+    `
+      <form id="dynamicAnnouncementForm">
+
+        <div class="form-group">
+
+          <label>Title</label>
+
+          <input
+            id="dynamicAnnouncementTitle"
+            type="text"
+            placeholder="Announcement title"
+            required
+          >
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>Message</label>
+
+          <textarea
+            id="dynamicAnnouncementText"
+            rows="7"
+            placeholder="Write school update..."
+            required
+          ></textarea>
+
+        </div>
+
+
+        <button
+          type="submit"
+          class="primary-btn"
+        >
+          📢 Publish Update
+        </button>
+
+      </form>
+    `
+  );
+
+
+  $("dynamicAnnouncementForm")
+    ?.addEventListener(
+      "submit",
+      saveAnnouncement
+    );
+}
+
+
+async function saveAnnouncement(event) {
+
+  event.preventDefault();
+
+
+  const title =
+    $("dynamicAnnouncementTitle")
+      ?.value.trim();
+
+  const message =
+    $("dynamicAnnouncementText")
+      ?.value.trim();
+
+
+  if (!title || !message) {
+
+    showToast(
+      "Title और message भरें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  try {
+
+    await addDoc(
+      collection(db, "school"),
+      {
+
+        title,
+        text: message,
+
+        published: true,
+
+        createdBy:
+          currentStudent.id,
+
+        createdByName:
+          currentStudent.name,
+
+        createdAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    closeModal();
+
+    showToast(
+      "School update publish हो गया।"
+    );
+
+
+    await loadSchool();
+    await loadHome();
+    await loadOwnerContent();
+
+  } catch (error) {
+
+    console.error(
+      "Announcement error:",
+      error
+    );
+
+    showToast(
+      "School update save नहीं हुआ।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER PANEL
+========================================================= */
+
+async function loadOwnerPanel() {
+
+  if (
+    effectivePermission(currentStudent) !==
+    "owner"
+  ) {
+    return;
+  }
+
+
+  await loadOwnerDashboard();
+  await loadOwnerStudents();
+  await loadOwnerApprovals();
+  await loadOwnerGroups();
+  await loadOwnerContent();
+  loadOwnerAppearance();
+  loadOwnerFeatures();
+  loadOwnerSecurity();
+
+}
+
+
+/* =========================================================
+   OWNER DASHBOARD
+========================================================= */
+
+async function loadOwnerDashboard() {
+
+  const studentCount =
+    $("ownerStudentCount");
+
+  const messageCount =
+    $("ownerMessageCount");
+
+  const groupCount =
+    $("ownerGroupCount");
+
+  const homeworkCount =
+    $("ownerHomeworkCount");
+
+
+  try {
+
+    const [
+      students,
+      messages,
+      groups,
+      homework
+    ] = await Promise.all([
+
+      getDocs(
+        collection(db, "students")
+      ),
+
+      getDocs(
+        collection(db, "messages")
+      ),
+
+      getDocs(
+        collection(db, "groups")
+      ),
+
+      getDocs(
+        collection(db, "homework")
+      )
+
+    ]);
+
+
+    text(
+      studentCount,
+      students.size
+    );
+
+    text(
+      messageCount,
+      messages.size
+    );
+
+    text(
+      groupCount,
+      groups.size
+    );
+
+    text(
+      homeworkCount,
+      homework.size
+    );
+
+
+  } catch (error) {
+
+    console.error(
+      "Owner dashboard error:",
+      error
+    );
+
+  }
+}
+
+
+/* =========================================================
+   OWNER — STUDENTS
+========================================================= */
+
+async function loadOwnerStudents() {
+
+  const container =
+    $("ownerPeopleList");
+
+  if (!container) return;
+
+
+  container.innerHTML = `
+    <div class="loading-card">
+      Students loading...
+    </div>
+  `;
+
+
+  try {
+
+    const snapshot =
+      await getDocs(
+        collection(db, "students")
+      );
+
+
+    studentsCache =
+      snapshot.docs.map(
+        docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        })
+      );
+
+
+    renderOwnerStudents(
+      studentsCache
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Owner students error:",
+      error
+    );
+
+    container.innerHTML = `
+      <div class="empty-card">
         Students load नहीं हुए।
       </div>
     `;
@@ -3421,514 +5110,62 @@ async function loadOwnerStudents() {
 }
 
 
-function renderOwnerPeople(list) {
+function permissionLabel(student) {
+
+  const permission =
+    effectivePermission(student);
+
+  const labels = {
+
+    owner: "👑 Owner",
+
+    allow: "🟢 Allow",
+
+    full: "🟢 Full",
+
+    normal: "🟡 Normal",
+
+    restricted: "🔴 Restricted"
+
+  };
+
+  return labels[permission] ||
+    "🔴 Restricted";
+}
+
+
+function renderOwnerStudents(students) {
+
   const container =
     $("ownerPeopleList");
 
   if (!container) return;
 
-  if (!list.length) {
+
+  if (!students.length) {
+
     container.innerHTML = `
-      <div class="empty-state">
-        👤
-        <h3>No students</h3>
+      <div class="empty-card">
+        अभी कोई student registered नहीं है।
       </div>
     `;
 
     return;
   }
+
 
   container.innerHTML =
-    list.map(student => {
-
-      const permission =
-        effectivePermission(student);
+    students.map(student => {
 
       return `
-        <button
-          type="button"
-          class="person-item owner-person"
-          data-id="${escapeHTML(
-            student.id
-          )}"
+        <div
+          class="owner-person-card"
+          data-owner-student="${escapeHTML(student.id)}"
         >
 
-          <span class="avatar">
-            ${escapeHTML(
-              (student.name || "S")
-                .charAt(0)
-                .toUpperCase()
-            )}
-          </span>
+          <div class="owner-person-main">
 
-          <span class="person-info">
-
-            <strong>
-              ${escapeHTML(
-                student.name ||
-                "Student"
-              )}
-            </strong>
-
-            <small>
-              ${escapeHTML(
-                student.phone ||
-                ""
-              )}
-            </small>
-
-            <small>
-              ${
-                permission === "allow" ||
-                permission === "full"
-                  ? "🟢 Allow"
-                  : permission === "normal"
-                    ? "🟡 Normal"
-                    : "🔴 Restricted"
-              }
-            </small>
-
-          </span>
-
-        </button>
-      `;
-    }).join("");
-
-  qsa(
-    ".owner-person"
-  ).forEach(button => {
-    button.addEventListener(
-      "click",
-      () => {
-        showOwnerPerson(
-          button.dataset.id
-        );
-      }
-    );
-  });
-}
-
-
-/* =========================================================
-   OWNER STUDENT SEARCH
-   ========================================================= */
-
-function setupOwnerSearch() {
-  $("ownerStudentSearch")
-    ?.addEventListener(
-      "input",
-      event => {
-
-        const value =
-          event.target.value
-            .trim()
-            .toLowerCase();
-
-        const filtered =
-          studentsCache.filter(
-            student =>
-              String(
-                student.name || ""
-              )
-                .toLowerCase()
-                .includes(value) ||
-              String(
-                student.phone || ""
-              ).includes(value)
-          );
-
-        renderOwnerPeople(
-          filtered
-        );
-      }
-    );
-}
-
-
-/* =========================================================
-   OWNER STUDENT DETAILS
-   ========================================================= */
-
-function showOwnerPerson(id) {
-  const container =
-    $("ownerPersonDetails");
-
-  if (!container) return;
-
-  const student =
-    studentsCache.find(
-      x => x.id === id
-    );
-
-  if (!student) {
-    container.innerHTML = `
-      <div class="empty-state">
-        Student not found.
-      </div>
-    `;
-
-    return;
-  }
-
-  const permission =
-    effectivePermission(student);
-
-  const joined =
-    formatDate(
-      student.createdAt
-    ) || "Unknown";
-
-  container.innerHTML = `
-    <div class="owner-profile-card">
-
-      <div class="owner-big-avatar">
-        ${escapeHTML(
-          (student.name || "S")
-            .charAt(0)
-            .toUpperCase()
-        )}
-      </div>
-
-      <h2>
-        ${escapeHTML(
-          student.name ||
-          "Student"
-        )}
-      </h2>
-
-      <p>
-        📱 ${escapeHTML(
-          student.phone ||
-          ""
-        )}
-      </p>
-
-      <div class="owner-detail-grid">
-
-        <div>
-          <small>Status</small>
-          <strong>
-            ${escapeHTML(
-              student.status ||
-              "unknown"
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <small>Permission</small>
-          <strong>
-            ${escapeHTML(
-              permission
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <small>Joined</small>
-          <strong>
-            ${escapeHTML(
-              joined
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <small>Online</small>
-          <strong>
-            ${
-              student.online === true
-                ? "🟢 Online"
-                : "⚪ Offline"
-            }
-          </strong>
-        </div>
-
-        <div>
-          <small>Followers</small>
-          <strong>
-            ${
-              Array.isArray(
-                student.followers
-              )
-                ? student.followers.length
-                : 0
-            }
-          </strong>
-        </div>
-
-        <div>
-          <small>Following</small>
-          <strong>
-            ${
-              Array.isArray(
-                student.following
-              )
-                ? student.following.length
-                : 0
-            }
-          </strong>
-        </div>
-
-      </div>
-
-      <div class="owner-actions">
-
-        <button
-          type="button"
-          class="primary-btn"
-          data-owner-action="allow"
-        >
-          Allow 24h
-        </button>
-
-        <button
-          type="button"
-          class="secondary-btn"
-          data-owner-action="normal"
-        >
-          Normal 24h
-        </button>
-
-        <button
-          type="button"
-          class="secondary-btn"
-          data-owner-action="restricted"
-        >
-          Don't Allow
-        </button>
-
-        <button
-          type="button"
-          class="secondary-btn"
-          data-owner-action="block"
-        >
-          Block
-        </button>
-
-        <button
-          type="button"
-          class="secondary-btn"
-          data-owner-action="unblock"
-        >
-          Unblock
-        </button>
-
-        <button
-          type="button"
-          class="danger-btn"
-          data-owner-action="remove"
-        >
-          Remove
-        </button>
-
-      </div>
-
-    </div>
-  `;
-
-  qsa(
-    "[data-owner-action]"
-  ).forEach(button => {
-
-    button.addEventListener(
-      "click",
-      () => {
-
-        const action =
-          button.dataset.ownerAction;
-
-        updateOwnerStudent(
-          student,
-          action
-        );
-      }
-    );
-  });
-}
-
-
-/* =========================================================
-   OWNER STUDENT UPDATE
-   ========================================================= */
-
-async function updateOwnerStudent(
-  student,
-  action
-) {
-  try {
-
-    const ref =
-      doc(
-        db,
-        "students",
-        student.id
-      );
-
-    const now =
-      Date.now();
-
-    let patch = {};
-
-    if (action === "allow") {
-      patch = {
-        status: "approved",
-        permission: "allow",
-        permissionGrantedAt: now,
-        permissionExpiresAt:
-          now +
-          24 * 60 * 60 * 1000
-      };
-    }
-
-    if (action === "normal") {
-      patch = {
-        status: "approved",
-        permission: "normal",
-        permissionGrantedAt: now,
-        permissionExpiresAt:
-          now +
-          24 * 60 * 60 * 1000
-      };
-    }
-
-    if (action === "restricted") {
-      patch = {
-        status: "approved",
-        permission: "restricted",
-        permissionGrantedAt: now,
-        permissionExpiresAt:
-          now +
-          24 * 60 * 60 * 1000
-      };
-    }
-
-    if (action === "block") {
-      patch = {
-        status: "blocked",
-        permission: "restricted"
-      };
-    }
-
-    if (action === "unblock") {
-      patch = {
-        status: "approved",
-        permission: "restricted",
-        permissionGrantedAt: now,
-        permissionExpiresAt:
-          now +
-          24 * 60 * 60 * 1000
-      };
-    }
-
-    if (action === "remove") {
-
-      const confirmed =
-        confirm(
-          `Remove ${student.name || "student"}?`
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      await deleteDoc(ref);
-
-      toast(
-        "Student removed.",
-        "✓"
-      );
-
-      await loadOwnerPanel();
-
-      return;
-    }
-
-    await updateDoc(
-      ref,
-      patch
-    );
-
-    Object.assign(
-      student,
-      patch
-    );
-
-    toast(
-      "Student permission updated.",
-      "✓"
-    );
-
-    await logActivity(
-      `${student.name || "Student"} → ${action}`
-    );
-
-    await loadOwnerPanel();
-
-    showOwnerPerson(
-      student.id
-    );
-
-  } catch (error) {
-    console.error(
-      "Owner student update:",
-      error
-    );
-
-    toast(
-      "Update नहीं हुआ।",
-      "!"
-    );
-  }
-}
-
-
-/* =========================================================
-   APPROVALS
-   ========================================================= */
-
-async function loadOwnerApprovals() {
-  const container =
-    $("ownerApprovalList");
-
-  if (!container) return;
-
-  try {
-
-    const snap =
-      await getDocs(
-        collection(db, "students")
-      );
-
-    const pending =
-      snap.docs
-        .map(d => ({
-          id: d.id,
-          ...d.data()
-        }))
-        .filter(
-          student =>
-            student.status ===
-            "pending"
-        );
-
-    if (!pending.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          ✅
-          <h3>No pending approvals</h3>
-        </div>
-      `;
-
-      return;
-    }
-
-    container.innerHTML =
-      pending.map(
-        student => `
-          <article class="approval-card">
-
-            <div class="avatar">
+            <div class="chat-person-avatar">
               ${escapeHTML(
                 (student.name || "S")
                   .charAt(0)
@@ -3937,1516 +5174,1464 @@ async function loadOwnerApprovals() {
             </div>
 
             <div>
-              <h3>
+
+              <strong>
                 ${escapeHTML(
-                  student.name ||
-                  "Student"
+                  student.name || "Student"
                 )}
-              </h3>
+              </strong>
 
-              <p>
-                📱 ${escapeHTML(
-                  student.phone ||
-                  ""
+              <small>
+                ${escapeHTML(
+                  student.phone || ""
                 )}
-              </p>
-            </div>
+              </small>
 
-            <div class="owner-actions">
-
-              <button
-                type="button"
-                class="primary-btn approve-btn"
-                data-id="${escapeHTML(
-                  student.id
-                )}"
-              >
-                Approve 24h
-              </button>
-
-              <button
-                type="button"
-                class="danger-btn reject-btn"
-                data-id="${escapeHTML(
-                  student.id
-                )}"
-              >
-                Reject
-              </button>
+              <small>
+                ${escapeHTML(
+                  permissionLabel(student)
+                )}
+              </small>
 
             </div>
 
-          </article>
-        `
-      ).join("");
+          </div>
 
-    qsa(".approve-btn")
-      .forEach(button => {
+          <button
+            type="button"
+            class="secondary-btn"
+            data-student-details="${escapeHTML(student.id)}"
+          >
+            Manage
+          </button>
 
-        button.addEventListener(
-          "click",
-          () =>
-            approveStudent(
-              button.dataset.id
-            )
-        );
+        </div>
+      `;
 
-      });
-
-    qsa(".reject-btn")
-      .forEach(button => {
-
-        button.addEventListener(
-          "click",
-          () =>
-            rejectStudent(
-              button.dataset.id
-            )
-        );
-
-      });
-
-  } catch (error) {
-    console.error(
-      "Approvals:",
-      error
-    );
-  }
-}
+    }).join("");
 
 
-async function approveStudent(id) {
-  const now =
-    Date.now();
+  qsa(
+    "[data-student-details]",
+    container
+  ).forEach(button => {
 
-  try {
+    button.addEventListener(
+      "click",
+      () => {
 
-    await updateDoc(
-      doc(
-        db,
-        "students",
-        id
-      ),
-      {
-        status: "approved",
-        permission: "normal",
-        permissionGrantedAt: now,
-        permissionExpiresAt:
-          now +
-          24 * 60 * 60 * 1000
+        const student =
+          students.find(
+            item =>
+              item.id ===
+              button.dataset.studentDetails
+          );
+
+        if (student) {
+          showOwnerStudentDetails(student);
+        }
+
       }
     );
 
-    toast(
-      "Student approved for 24 hours.",
-      "✓"
-    );
-
-    await logActivity(
-      `Student ${id} approved`
-    );
-
-    await loadOwnerPanel();
-
-  } catch (error) {
-    console.error(
-      "Approve:",
-      error
-    );
-
-    toast(
-      "Approval failed.",
-      "!"
-    );
-  }
+  });
 }
 
 
-async function rejectStudent(id) {
-  try {
+/* =========================================================
+   OWNER STUDENT DETAILS
+========================================================= */
 
-    await updateDoc(
-      doc(
-        db,
-        "students",
-        id
-      ),
-      {
-        status: "rejected",
-        permission: "restricted",
-        permissionGrantedAt: null,
-        permissionExpiresAt: null
+function showOwnerStudentDetails(student) {
+
+  const details =
+    $("ownerPersonDetails");
+
+  if (!details) return;
+
+
+  details.innerHTML = `
+    <div class="owner-details-card">
+
+      <h3>
+        ${escapeHTML(
+          student.name || "Student"
+        )}
+      </h3>
+
+      <p>
+        📱 ${escapeHTML(
+          student.phone || ""
+        )}
+      </p>
+
+      <p>
+        Status:
+        ${escapeHTML(
+          student.status || "unknown"
+        )}
+      </p>
+
+      <p>
+        Permission:
+        ${escapeHTML(
+          permissionLabel(student)
+        )}
+      </p>
+
+      ${
+        student.permissionExpiresAt
+          ? `
+            <p>
+              Permission:
+              ${permissionExpired(student)
+                ? "Expired"
+                : "Active"}
+            </p>
+          `
+          : ""
+      }
+
+      <div class="owner-action-grid">
+
+        <button
+          type="button"
+          class="primary-btn"
+          data-permission-action="allow"
+          data-student-id="${escapeHTML(student.id)}"
+        >
+          🟢 Allow 24h
+        </button>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          data-permission-action="normal"
+          data-student-id="${escapeHTML(student.id)}"
+        >
+          🟡 Normal 24h
+        </button>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          data-permission-action="restricted"
+          data-student-id="${escapeHTML(student.id)}"
+        >
+          🔴 Restricted
+        </button>
+
+        <button
+          type="button"
+          class="danger-btn"
+          data-permission-action="block"
+          data-student-id="${escapeHTML(student.id)}"
+        >
+          ⛔ Block
+        </button>
+
+        <button
+          type="button"
+          class="secondary-btn"
+          data-permission-action="unblock"
+          data-student-id="${escapeHTML(student.id)}"
+        >
+          🔓 Unblock
+        </button>
+
+        <button
+          type="button"
+          class="danger-btn"
+          data-permission-action="remove"
+          data-student-id="${escapeHTML(student.id)}"
+        >
+          🗑 Remove
+        </button>
+
+      </div>
+
+    </div>
+  `;
+
+
+  qsa(
+    "[data-permission-action]",
+    details
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        manageStudentPermission(
+          button.dataset.studentId,
+          button.dataset.permissionAction
+        );
+
       }
     );
 
-    toast(
-      "Student rejected.",
-      "✓"
+  });
+}
+
+
+/* =========================================================
+   OWNER — PERMISSIONS
+========================================================= */
+
+async function manageStudentPermission(
+  studentId,
+  action
+) {
+
+  if (
+    effectivePermission(currentStudent) !==
+    "owner"
+  ) {
+    return;
+  }
+
+
+  if (!studentId) return;
+
+
+  const studentRef =
+    doc(
+      db,
+      "students",
+      studentId
     );
 
-    await logActivity(
-      `Student ${id} rejected`
-    );
 
-    await loadOwnerPanel();
+  try {
+
+    if (action === "remove") {
+
+      const confirmRemove =
+        confirm(
+          "क्या आप इस student को permanently remove करना चाहते हैं?"
+        );
+
+      if (!confirmRemove) {
+        return;
+      }
+
+      await deleteDoc(studentRef);
+
+      showToast(
+        "Student remove हो गया।"
+      );
+
+    } else if (action === "block") {
+
+      await updateDoc(
+        studentRef,
+        {
+          status: "blocked",
+          permission: "restricted",
+          permissionExpiresAt: null
+        }
+      );
+
+      showToast(
+        "Student blocked."
+      );
+
+    } else if (action === "unblock") {
+
+      await updateDoc(
+        studentRef,
+        {
+          status: "approved",
+          permission: "restricted",
+          permissionExpiresAt:
+            new Date(
+              Date.now() +
+              PERMISSION_HOURS *
+              60 *
+              60 *
+              1000
+            )
+        }
+      );
+
+      showToast(
+        "Student unblocked."
+      );
+
+    } else if (
+      action === "allow" ||
+      action === "normal" ||
+      action === "restricted"
+    ) {
+
+      await updateDoc(
+        studentRef,
+        {
+
+          status: "approved",
+
+          permission:
+            action,
+
+          permissionExpiresAt:
+            new Date(
+              Date.now() +
+              PERMISSION_HOURS *
+              60 *
+              60 *
+              1000
+            )
+
+        }
+      );
+
+
+      showToast(
+        `${action} permission 24 hours के लिए set हो गई।`
+      );
+
+    }
+
+
+    await loadOwnerStudents();
+    await loadOwnerDashboard();
+
+
+    const updated =
+      studentsCache.find(
+        student =>
+          student.id === studentId
+      );
+
+
+    if (updated) {
+      showOwnerStudentDetails(updated);
+    }
 
   } catch (error) {
+
     console.error(
-      "Reject:",
+      "Permission error:",
       error
     );
 
-    toast(
-      "Reject failed.",
-      "!"
+    showToast(
+      "Permission update नहीं हुआ।",
+      "error"
     );
   }
 }
 
 
 /* =========================================================
-   OWNER GROUPS
-   ========================================================= */
+   OWNER — APPROVALS
+========================================================= */
+
+async function loadOwnerApprovals() {
+
+  const container =
+    $("ownerApprovalList");
+
+  if (!container) return;
+
+
+  try {
+
+    const q =
+      query(
+        collection(db, "students"),
+        where(
+          "status",
+          "==",
+          "pending"
+        )
+      );
+
+
+    const snapshot =
+      await getDocs(q);
+
+
+    if (snapshot.empty) {
+
+      container.innerHTML = `
+        <div class="empty-card">
+          कोई pending approval नहीं है।
+        </div>
+      `;
+
+      return;
+    }
+
+
+    container.innerHTML =
+      snapshot.docs.map(
+        docSnap => {
+
+          const student =
+            {
+              id: docSnap.id,
+              ...docSnap.data()
+            };
+
+
+          return `
+            <div class="approval-card">
+
+              <div>
+
+                <strong>
+                  ${escapeHTML(
+                    student.name || "Student"
+                  )}
+                </strong>
+
+                <small>
+                  ${escapeHTML(
+                    student.phone || ""
+                  )}
+                </small>
+
+              </div>
+
+
+              <div class="owner-action-grid">
+
+                <button
+                  type="button"
+                  class="primary-btn"
+                  data-approve="${escapeHTML(student.id)}"
+                >
+                  ✓ Approve
+                </button>
+
+                <button
+                  type="button"
+                  class="danger-btn"
+                  data-reject="${escapeHTML(student.id)}"
+                >
+                  ✕ Reject
+                </button>
+
+              </div>
+
+            </div>
+          `;
+
+        }
+      ).join("");
+
+
+    qsa(
+      "[data-approve]",
+      container
+    ).forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          approveStudent(
+            button.dataset.approve
+          )
+      );
+
+    });
+
+
+    qsa(
+      "[data-reject]",
+      container
+    ).forEach(button => {
+
+      button.addEventListener(
+        "click",
+        () =>
+          rejectStudent(
+            button.dataset.reject
+          )
+      );
+
+    });
+
+  } catch (error) {
+
+    console.error(
+      "Approval error:",
+      error
+    );
+
+  }
+}
+
+
+/* =========================================================
+   APPROVE STUDENT
+========================================================= */
+
+async function approveStudent(studentId) {
+
+  try {
+
+    await updateDoc(
+      doc(db, "students", studentId),
+      {
+
+        status: "approved",
+
+        permission: "normal",
+
+        permissionExpiresAt:
+          new Date(
+            Date.now() +
+            PERMISSION_HOURS *
+            60 *
+            60 *
+            1000
+          ),
+
+        approvedAt:
+          serverTimestamp(),
+
+        approvedBy:
+          OWNER_NAME
+
+      }
+    );
+
+
+    showToast(
+      "Student approved."
+    );
+
+
+    await loadOwnerApprovals();
+    await loadOwnerStudents();
+    await loadOwnerDashboard();
+
+  } catch (error) {
+
+    console.error(
+      "Approve error:",
+      error
+    );
+
+    showToast(
+      "Approve नहीं हुआ।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   REJECT STUDENT
+========================================================= */
+
+async function rejectStudent(studentId) {
+
+  try {
+
+    await updateDoc(
+      doc(db, "students", studentId),
+      {
+
+        status: "rejected",
+
+        permission:
+          "restricted",
+
+        rejectedAt:
+          serverTimestamp(),
+
+        rejectedBy:
+          OWNER_NAME
+
+      }
+    );
+
+
+    showToast(
+      "Student rejected."
+    );
+
+
+    await loadOwnerApprovals();
+
+  } catch (error) {
+
+    console.error(
+      "Reject error:",
+      error
+    );
+
+    showToast(
+      "Reject नहीं हुआ।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER — GROUPS
+========================================================= */
 
 async function loadOwnerGroups() {
+
   const container =
     $("ownerGroupsList");
 
   if (!container) return;
 
+
   try {
 
-    const snap =
+    const snapshot =
       await getDocs(
         collection(db, "groups")
       );
 
-    if (snap.empty) {
+
+    if (snapshot.empty) {
+
       container.innerHTML = `
-        <div class="empty-state">
-          👥
-          <h3>No groups</h3>
+        <div class="empty-card">
+          अभी कोई group नहीं है।
         </div>
       `;
 
       return;
     }
 
+
     const groups =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
+      snapshot.docs.map(
+        docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        })
+      );
+
 
     container.innerHTML =
-      groups.map(group => `
-        <article class="content-card">
+      groups.map(group => {
 
-          <h3>
-            👥 ${escapeHTML(
-              group.name ||
-              "Group"
-            )}
-          </h3>
+        return `
+          <div class="owner-group-card">
 
-          <p>
-            Creator:
-            ${escapeHTML(
-              group.createdByName ||
-              "Unknown"
-            )}
-          </p>
+            <div>
 
-          <p>
-            Members:
-            ${
-              Array.isArray(
-                group.memberIds
-              )
-                ? group.memberIds.length
-                : 0
-            }
-          </p>
+              <strong>
+                ${escapeHTML(
+                  group.name || "Group"
+                )}
+              </strong>
 
-          <button
-            type="button"
-            class="danger-btn owner-delete-group"
-            data-id="${escapeHTML(
-              group.id
-            )}"
-          >
-            Disable Group
-          </button>
+              <small>
+                Creator:
+                ${escapeHTML(
+                  group.creatorName || ""
+                )}
+              </small>
 
-        </article>
-      `).join("");
+              <small>
+                Members:
+                ${
+                  Array.isArray(group.memberIds)
+                    ? group.memberIds.length
+                    : 0
+                }
+              </small>
+
+              <small>
+                ${
+                  group.active === false
+                    ? "⛔ Disabled"
+                    : "🟢 Active"
+                }
+              </small>
+
+            </div>
+
+
+            <button
+              type="button"
+              class="${
+                group.active === false
+                  ? "primary-btn"
+                  : "danger-btn"
+              }"
+              data-toggle-group="${escapeHTML(group.id)}"
+              data-group-active="${
+                group.active === false
+                  ? "false"
+                  : "true"
+              }"
+            >
+              ${
+                group.active === false
+                  ? "Enable"
+                  : "Disable"
+              }
+            </button>
+
+          </div>
+        `;
+
+      }).join("");
+
 
     qsa(
-      ".owner-delete-group"
+      "[data-toggle-group]",
+      container
     ).forEach(button => {
 
       button.addEventListener(
         "click",
-        () =>
-          disableGroup(
-            button.dataset.id
-          )
+        () => {
+
+          toggleGroupStatus(
+            button.dataset.toggleGroup,
+            button.dataset.groupActive !== "false"
+          );
+
+        }
       );
 
     });
 
   } catch (error) {
+
     console.error(
-      "Owner groups:",
+      "Owner groups error:",
       error
     );
+
   }
 }
 
 
-async function disableGroup(id) {
+/* =========================================================
+   TOGGLE GROUP
+========================================================= */
+
+async function toggleGroupStatus(
+  groupId,
+  currentlyActive
+) {
+
   try {
 
     await updateDoc(
-      doc(
-        db,
-        "groups",
-        id
-      ),
+      doc(db, "groups", groupId),
       {
-        active: false
+        active: !currentlyActive
       }
     );
 
-    toast(
-      "Group disabled.",
-      "✓"
+
+    showToast(
+      currentlyActive
+        ? "Group disabled."
+        : "Group enabled."
     );
 
-    await logActivity(
-      `Group ${id} disabled`
-    );
 
     await loadOwnerGroups();
+    await loadGroups();
 
   } catch (error) {
+
     console.error(
-      "Disable group:",
+      "Group status error:",
       error
     );
 
-    toast(
-      "Group update failed.",
-      "!"
+    showToast(
+      "Group status update नहीं हुआ।",
+      "error"
     );
   }
 }
 
 
 /* =========================================================
-   OWNER CONTENT
-   ========================================================= */
+   OWNER — CONTENT
+========================================================= */
 
 async function loadOwnerContent() {
-  await Promise.all([
-    loadOwnerHomework(),
-    loadOwnerNotes(),
-    loadOwnerAnnouncements()
-  ]);
+
+  await loadOwnerHomework();
+  await loadOwnerNotes();
+  await loadOwnerAnnouncements();
+
 }
 
 
-/* =========================================================
-   OWNER HOMEWORK
-   ========================================================= */
-
 async function loadOwnerHomework() {
+
   const container =
     $("ownerHomeworkList");
 
   if (!container) return;
 
-  try {
 
-    const snap =
-      await getDocs(
-        collection(
-          db,
-          "homework"
-        )
-      );
+  const items =
+    await getCollectionData(
+      "homework",
+      100
+    );
 
-    const items =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
 
-    if (!items.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          📝
-          <h3>No homework yet</h3>
-        </div>
-      `;
+  if (!items.length) {
 
-      return;
-    }
+    container.innerHTML = `
+      <div class="empty-card">
+        कोई homework नहीं है।
+      </div>
+    `;
 
-    container.innerHTML =
-      items.map(item => `
-        <article class="content-card">
+    return;
+  }
 
-          <span class="content-badge">
-            ${escapeHTML(
-              item.subject ||
-              "Homework"
-            )}
-          </span>
 
-          <h3>
-            ${escapeHTML(
-              item.title ||
-              "Homework"
-            )}
-          </h3>
+  container.innerHTML =
+    items.map(item => {
 
-          ${
-            item.date
-              ? `
-                <p>
-                  📅 ${escapeHTML(
-                    item.date
-                  )}
-                </p>
-              `
-              : ""
-          }
+      return `
+        <div class="owner-content-row">
 
-          ${
-            item.chapter
-              ? `
-                <p>
-                  Chapter:
-                  ${escapeHTML(
-                    item.chapter
-                  )}
-                </p>
-              `
-              : ""
-          }
+          <div>
 
-          <p>
-            ${escapeHTML(
-              item.description ||
-              item.text ||
-              ""
-            )}
-          </p>
+            <strong>
+              ${escapeHTML(
+                item.title ||
+                item.subject ||
+                "Homework"
+              )}
+            </strong>
+
+            <small>
+              ${escapeHTML(
+                item.subject || ""
+              )}
+            </small>
+
+          </div>
+
 
           <button
             type="button"
-            class="danger-btn owner-delete-homework"
-            data-id="${escapeHTML(
-              item.id
-            )}"
+            class="danger-btn"
+            data-delete-homework="${escapeHTML(item.id)}"
           >
-            Delete
+            🗑 Delete
           </button>
 
-        </article>
-      `).join("");
+        </div>
+      `;
 
-    qsa(
-      ".owner-delete-homework"
-    ).forEach(button => {
+    }).join("");
 
-      button.addEventListener(
-        "click",
-        () =>
-          deleteOwnerContent(
-            "homework",
-            button.dataset.id
-          )
-      );
 
-    });
+  qsa(
+    "[data-delete-homework]",
+    container
+  ).forEach(button => {
 
-  } catch (error) {
-    console.error(
-      "Owner homework:",
-      error
+    button.addEventListener(
+      "click",
+      () =>
+        deleteContent(
+          "homework",
+          button.dataset.deleteHomework
+        )
     );
-  }
+
+  });
 }
 
 
-/* =========================================================
-   OWNER NOTES
-   ========================================================= */
-
 async function loadOwnerNotes() {
+
   const container =
     $("ownerNotesList");
 
   if (!container) return;
 
-  try {
 
-    const snap =
-      await getDocs(
-        collection(
-          db,
-          "notes"
-        )
-      );
+  const items =
+    await getCollectionData(
+      "notes",
+      100
+    );
 
-    if (snap.empty) {
-      container.innerHTML = `
-        <div class="empty-state">
-          📚
-          <h3>No notes yet</h3>
-        </div>
-      `;
 
-      return;
-    }
+  if (!items.length) {
 
-    container.innerHTML = "";
+    container.innerHTML = `
+      <div class="empty-card">
+        कोई notes नहीं हैं।
+      </div>
+    `;
 
-    snap.docs.forEach(
-      docSnap => {
+    return;
+  }
 
-        const x =
-          docSnap.data();
 
-        const article =
-          document.createElement(
-            "article"
-          );
+  container.innerHTML =
+    items.map(item => {
 
-        article.className =
-          "content-card";
+      return `
+        <div class="owner-content-row">
 
-        article.innerHTML = `
-          <span class="content-badge">
-            ${escapeHTML(
-              x.subject ||
-              "General"
-            )}
-          </span>
+          <div>
 
-          <h3>
-            ${escapeHTML(
-              x.title ||
-              "Note"
-            )}
-          </h3>
+            <strong>
+              ${escapeHTML(
+                item.title || "Note"
+              )}
+            </strong>
 
-          ${
-            x.chapter
-              ? `
-                <p>
-                  Chapter:
-                  ${escapeHTML(
-                    x.chapter
-                  )}
-                </p>
-              `
-              : ""
-          }
+            <small>
+              ${escapeHTML(
+                item.subject || ""
+              )}
+            </small>
 
-          <p>
-            ${escapeHTML(
-              x.content ||
-              x.description ||
-              x.text ||
-              ""
-            )}
-          </p>
+          </div>
+
 
           <button
             type="button"
-            class="danger-btn owner-delete-note"
-            data-id="${escapeHTML(
-              docSnap.id
-            )}"
+            class="danger-btn"
+            data-delete-note="${escapeHTML(item.id)}"
           >
-            Delete
+            🗑 Delete
           </button>
-        `;
 
-        container.appendChild(
-          article
-        );
-      }
+        </div>
+      `;
+
+    }).join("");
+
+
+  qsa(
+    "[data-delete-note]",
+    container
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () =>
+        deleteContent(
+          "notes",
+          button.dataset.deleteNote
+        )
     );
 
-    qsa(
-      ".owner-delete-note"
-    ).forEach(button => {
-
-      button.addEventListener(
-        "click",
-        () =>
-          deleteOwnerContent(
-            "notes",
-            button.dataset.id
-          )
-      );
-
-    });
-
-  } catch (error) {
-
-    console.error(
-      "loadOwnerNotes error:",
-      error
-    );
-
-    container.innerHTML = `
-      <div class="empty-state">
-        Unable to load notes.
-      </div>
-    `;
-  }
+  });
 }
 
 
-/* =========================================================
-   OWNER ANNOUNCEMENTS
-   ========================================================= */
-
 async function loadOwnerAnnouncements() {
+
   const container =
     $("ownerAnnouncementsList");
 
   if (!container) return;
 
-  try {
 
-    const snap =
-      await getDocs(
-        collection(
-          db,
-          "school"
-        )
-      );
+  const items =
+    await getCollectionData(
+      "school",
+      100
+    );
 
-    const items =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
 
-    if (!items.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          📢
-          <h3>No announcements</h3>
-        </div>
-      `;
+  if (!items.length) {
 
-      return;
-    }
+    container.innerHTML = `
+      <div class="empty-card">
+        कोई school update नहीं है।
+      </div>
+    `;
 
-    container.innerHTML =
-      items.map(item => `
-        <article class="content-card">
+    return;
+  }
 
-          <span class="content-badge">
-            📢 School
-          </span>
 
-          <h3>
-            ${escapeHTML(
-              item.title ||
-              "Announcement"
-            )}
-          </h3>
+  container.innerHTML =
+    items.map(item => {
 
-          <p>
-            ${escapeHTML(
-              item.text ||
-              item.description ||
-              ""
-            )}
-          </p>
+      return `
+        <div class="owner-content-row">
+
+          <div>
+
+            <strong>
+              ${escapeHTML(
+                item.title ||
+                "School Update"
+              )}
+            </strong>
+
+            <small>
+              ${escapeHTML(
+                item.text || ""
+              )}
+            </small>
+
+          </div>
+
 
           <button
             type="button"
-            class="danger-btn owner-delete-announcement"
-            data-id="${escapeHTML(
-              item.id
-            )}"
+            class="danger-btn"
+            data-delete-announcement="${escapeHTML(item.id)}"
           >
-            Delete
+            🗑 Delete
           </button>
 
-        </article>
-      `).join("");
+        </div>
+      `;
 
-    qsa(
-      ".owner-delete-announcement"
-    ).forEach(button => {
+    }).join("");
 
-      button.addEventListener(
-        "click",
-        () =>
-          deleteOwnerContent(
-            "school",
-            button.dataset.id
-          )
-      );
 
-    });
+  qsa(
+    "[data-delete-announcement]",
+    container
+  ).forEach(button => {
 
-  } catch (error) {
-    console.error(
-      "Owner announcements:",
-      error
+    button.addEventListener(
+      "click",
+      () =>
+        deleteContent(
+          "school",
+          button.dataset.deleteAnnouncement
+        )
     );
-  }
+
+  });
 }
 
 
 /* =========================================================
-   DELETE OWNER CONTENT
-   ========================================================= */
+   DELETE CONTENT
+========================================================= */
 
-async function deleteOwnerContent(
-  type,
+async function deleteContent(
+  collectionName,
   id
 ) {
-  const names = {
-    homework: "homework",
-    notes: "note",
-    school: "announcement"
-  };
 
-  if (
-    !confirm(
-      `Delete this ${names[type] || "content"}?`
-    )
-  ) {
-    return;
-  }
+  const okay =
+    confirm(
+      "क्या आप इसे delete करना चाहते हैं?"
+    );
+
+
+  if (!okay) return;
+
 
   try {
 
     await deleteDoc(
       doc(
         db,
-        type,
+        collectionName,
         id
       )
     );
 
-    toast(
-      "Deleted successfully.",
-      "✓"
+
+    showToast(
+      "Delete successfully हो गया।"
     );
 
-    await logActivity(
-      `Deleted ${type}: ${id}`
-    );
 
     await loadOwnerContent();
 
-    await loadHomework();
-    await loadNotes();
-    await loadSchool();
+
+    if (collectionName === "homework") {
+      await loadHomework();
+    }
+
+    if (collectionName === "notes") {
+      await loadNotes();
+    }
+
+    if (collectionName === "school") {
+      await loadSchool();
+      await loadHome();
+    }
+
 
   } catch (error) {
+
     console.error(
-      "Delete content:",
+      "Delete content error:",
       error
     );
 
-    toast(
-      "Delete failed.",
-      "!"
+    showToast(
+      "Delete नहीं हुआ।",
+      "error"
     );
   }
 }
 
 
 /* =========================================================
-   ADD HOMEWORK
-   ========================================================= */
-
-function openAddHomework() {
-  openModal(
-    "Add Homework",
-    `
-      <form
-        id="addHomeworkForm"
-        class="app-form"
-      >
-
-        <label>
-          Date
-          <input
-            id="hwDate"
-            type="date"
-            required
-          >
-        </label>
-
-        <label>
-          Subject
-          <select
-            id="hwSubject"
-            required
-          >
-            <option value="">
-              Select Subject
-            </option>
-
-            <option>Hindi</option>
-            <option>English</option>
-            <option>Maths</option>
-            <option>Science</option>
-            <option>Social Science</option>
-            <option>GK</option>
-            <option>Computer</option>
-            <option>Art</option>
-            <option>Other</option>
-          </select>
-        </label>
-
-        <label>
-          Chapter
-          <input
-            id="hwChapter"
-            type="text"
-            placeholder="Chapter name"
-          >
-        </label>
-
-        <label>
-          Homework Title
-          <input
-            id="hwTitle"
-            type="text"
-            placeholder="Today's Homework"
-            required
-          >
-        </label>
-
-        <label>
-          Homework
-          <textarea
-            id="hwDescription"
-            rows="6"
-            placeholder="Write homework..."
-            required
-          ></textarea>
-        </label>
-
-        <button
-          type="submit"
-          class="primary-btn"
-        >
-          Publish Homework
-        </button>
-
-      </form>
-    `
-  );
-
-  $("addHomeworkForm")
-    ?.addEventListener(
-      "submit",
-      submitHomework
-    );
-}
-
-
-async function submitHomework(event) {
-  event.preventDefault();
-
-  try {
-
-    await addDoc(
-      collection(
-        db,
-        "homework"
-      ),
-      {
-        date:
-          $("hwDate")?.value ||
-          "",
-
-        subject:
-          $("hwSubject")?.value ||
-          "Other",
-
-        chapter:
-          $("hwChapter")?.value.trim() ||
-          "",
-
-        title:
-          $("hwTitle")?.value.trim() ||
-          "Homework",
-
-        description:
-          $("hwDescription")?.value.trim() ||
-          "",
-
-        published: true,
-
-        createdAt:
-          serverTimestamp(),
-
-        createdBy:
-          currentStudent.id
-      }
-    );
-
-    closeModal();
-
-    toast(
-      "Homework published.",
-      "✓"
-    );
-
-    await logActivity(
-      "New homework published"
-    );
-
-    await loadOwnerHomework();
-
-  } catch (error) {
-    console.error(
-      "Add homework:",
-      error
-    );
-
-    toast(
-      "Homework publish नहीं हुआ।",
-      "!"
-    );
-  }
-}
-
-
-/* =========================================================
-   ADD NOTE
-   ========================================================= */
-
-function openAddNote() {
-  openModal(
-    "Add Note",
-    `
-      <form
-        id="addNoteForm"
-        class="app-form"
-      >
-
-        <label>
-          Subject
-          <select
-            id="noteSubject"
-            required
-          >
-            <option value="">
-              Select Subject
-            </option>
-
-            <option>Hindi</option>
-            <option>English</option>
-            <option>Maths</option>
-            <option>Science</option>
-            <option>Social Science</option>
-            <option>GK</option>
-            <option>Computer</option>
-            <option>Art</option>
-            <option>Other</option>
-          </select>
-        </label>
-
-        <label>
-          Chapter
-          <input
-            id="noteChapter"
-            type="text"
-            placeholder="Chapter"
-          >
-        </label>
-
-        <label>
-          Note Title
-          <input
-            id="noteTitle"
-            type="text"
-            placeholder="Note title"
-            required
-          >
-        </label>
-
-        <label>
-          Note
-          <textarea
-            id="noteContent"
-            rows="8"
-            placeholder="Write your note..."
-            required
-          ></textarea>
-        </label>
-
-        <button
-          type="submit"
-          class="primary-btn"
-        >
-          Publish Note
-        </button>
-
-      </form>
-    `
-  );
-
-  $("addNoteForm")
-    ?.addEventListener(
-      "submit",
-      submitNote
-    );
-}
-
-
-async function submitNote(event) {
-  event.preventDefault();
-
-  try {
-
-    await addDoc(
-      collection(
-        db,
-        "notes"
-      ),
-      {
-        subject:
-          $("noteSubject")?.value ||
-          "Other",
-
-        chapter:
-          $("noteChapter")?.value.trim() ||
-          "",
-
-        title:
-          $("noteTitle")?.value.trim() ||
-          "Note",
-
-        content:
-          $("noteContent")?.value.trim() ||
-          "",
-
-        published: true,
-
-        createdAt:
-          serverTimestamp(),
-
-        createdBy:
-          currentStudent.id
-      }
-    );
-
-    closeModal();
-
-    toast(
-      "Note published.",
-      "✓"
-    );
-
-    await logActivity(
-      "New note published"
-    );
-
-    await loadOwnerNotes();
-
-  } catch (error) {
-    console.error(
-      "Add note:",
-      error
-    );
-
-    toast(
-      "Note publish नहीं हुआ।",
-      "!"
-    );
-  }
-}
-
-
-/* =========================================================
-   ADD ANNOUNCEMENT
-   ========================================================= */
-
-function openAddAnnouncement() {
-  openModal(
-    "School Update",
-    `
-      <form
-        id="addAnnouncementForm"
-        class="app-form"
-      >
-
-        <label>
-          Title
-          <input
-            id="announcementTitle"
-            type="text"
-            placeholder="Important school update"
-            required
-          >
-        </label>
-
-        <label>
-          Update
-          <textarea
-            id="announcementText"
-            rows="8"
-            placeholder="Write school update..."
-            required
-          ></textarea>
-        </label>
-
-        <button
-          type="submit"
-          class="primary-btn"
-        >
-          Publish Update
-        </button>
-
-      </form>
-    `
-  );
-
-  $("addAnnouncementForm")
-    ?.addEventListener(
-      "submit",
-      submitAnnouncement
-    );
-}
-
-
-async function submitAnnouncement(event) {
-  event.preventDefault();
-
-  try {
-
-    await addDoc(
-      collection(
-        db,
-        "school"
-      ),
-      {
-        title:
-          $("announcementTitle")
-            ?.value.trim() ||
-          "School Update",
-
-        text:
-          $("announcementText")
-            ?.value.trim() ||
-          "",
-
-        published: true,
-
-        createdAt:
-          serverTimestamp(),
-
-        createdBy:
-          currentStudent.id
-      }
-    );
-
-    closeModal();
-
-    toast(
-      "School update published.",
-      "✓"
-    );
-
-    await logActivity(
-      "New school update published"
-    );
-
-    await loadOwnerAnnouncements();
-
-  } catch (error) {
-    console.error(
-      "Announcement:",
-      error
-    );
-
-    toast(
-      "Update publish नहीं हुआ।",
-      "!"
-    );
-  }
-}
-
-
-/* =========================================================
-   OWNER TABS
-   ========================================================= */
-
-function setupOwnerTabs() {
-  qsa(
-    ".owner-tab[data-owner-section]"
-  ).forEach(tab => {
-
-    tab.addEventListener(
-      "click",
-      () => {
-
-        const section =
-          tab.dataset.ownerSection;
-
-        qsa(
-          ".owner-tab[data-owner-section]"
-        ).forEach(item => {
-          item.classList.toggle(
-            "active",
-            item === tab
-          );
-        });
-
-        qsa(
-          ".owner-section"
-        ).forEach(item => {
-          item.classList.toggle(
-            "active",
-            item.id ===
-              `ownerSection-${section}`
-          );
-
-          if (
-            item.id ===
-              `ownerSection-${section}`
-          ) {
-            item.removeAttribute(
-              "hidden"
-            );
-          } else {
-            item.setAttribute(
-              "hidden",
-              ""
-            );
-          }
-        });
-
-      }
-    );
-  });
-}
-
-
-/* =========================================================
-   GLOBAL APPEARANCE SETTINGS
-   ========================================================= */
+   OWNER — APPEARANCE
+========================================================= */
 
 function loadOwnerAppearance() {
-  if (!currentStudent?.isOwner) {
-    return;
-  }
 
-  if ($("ownerAppName")) {
-    $("ownerAppName").value =
+  const appName =
+    $("globalAppName");
+
+  const language =
+    $("globalLanguage");
+
+  const theme =
+    $("globalTheme");
+
+  const welcome =
+    $("globalWelcomeAnimation");
+
+
+  if (appName) {
+    appName.value =
       globalSettings.appName ||
       "StudyConnect";
   }
 
-  if ($("ownerGlobalLanguage")) {
-    $("ownerGlobalLanguage").value =
+
+  if (language) {
+    language.value =
       globalSettings.language ||
       "en";
   }
 
-  if ($("ownerGlobalTheme")) {
-    $("ownerGlobalTheme").value =
+
+  if (theme) {
+    theme.value =
       globalSettings.theme ||
       "system";
   }
 
-  if ($("ownerWelcomeAnimation")) {
-    $("ownerWelcomeAnimation").checked =
-      globalSettings.welcomeAnimation !==
-      false;
-  }
-}
 
-
-async function saveGlobalSettings() {
-  if (!currentStudent?.isOwner) {
-    return;
-  }
-
-  const appName =
-    $("ownerAppName")
-      ?.value.trim() ||
-    "StudyConnect";
-
-  const language =
-    $("ownerGlobalLanguage")
-      ?.value ||
-    "en";
-
-  const theme =
-    $("ownerGlobalTheme")
-      ?.value ||
-    "system";
-
-  const welcomeAnimation =
-    $("ownerWelcomeAnimation")
-      ?.checked !== false;
-
-  try {
-
-    const newSettings = {
-      ...globalSettings,
-
-      appName,
-      language,
-      theme,
-      welcomeAnimation,
-
-      updatedAt:
-        serverTimestamp(),
-
-      updatedBy:
-        OWNER_NAME
-    };
-
-    await setDoc(
-      doc(
-        db,
-        "appSettings",
-        "main"
-      ),
-      newSettings,
-      {
-        merge: true
-      }
-    );
-
-    globalSettings = {
-      ...globalSettings,
-      ...newSettings
-    };
-
-    applySettings();
-
-    toast(
-      "Global settings saved.",
-      "✓"
-    );
-
-    await logActivity(
-      "Global settings updated"
-    );
-
-  } catch (error) {
-    console.error(
-      "Global settings:",
-      error
-    );
-
-    toast(
-      "Settings save नहीं हुईं।",
-      "!"
-    );
+  if (welcome) {
+    welcome.checked =
+      globalSettings.welcomeAnimation !== false;
   }
 }
 
 
 /* =========================================================
-   FEATURE SETTINGS
-   ========================================================= */
+   SAVE GLOBAL SETTINGS
+========================================================= */
 
-function loadFeatureSettings() {
-  const features =
-    globalSettings.features ||
-    DEFAULT_SETTINGS.features;
+async function saveGlobalSettings() {
 
-  const map = {
-    featureChat: "chat",
-    featureGroups: "groups",
-    featureHomework: "homework",
-    featureNotes: "notes",
-    featureAnnouncements:
-      "announcements",
-    featureRegistration:
-      "registration",
-    featureMaintenance:
-      "maintenance"
-  };
-
-  Object.entries(map)
-    .forEach(
-      ([id, key]) => {
-
-        const checkbox =
-          $(id);
-
-        if (checkbox) {
-          checkbox.checked =
-            features[key] !== false;
-        }
-
-      }
-    );
-}
-
-
-async function saveFeatureSettings() {
-  if (!currentStudent?.isOwner) {
+  if (
+    effectivePermission(currentStudent) !==
+    "owner"
+  ) {
     return;
   }
 
-  const map = {
-    featureChat: "chat",
-    featureGroups: "groups",
-    featureHomework: "homework",
-    featureNotes: "notes",
-    featureAnnouncements:
-      "announcements",
-    featureRegistration:
-      "registration",
-    featureMaintenance:
-      "maintenance"
-  };
 
-  const features = {
-    ...globalSettings.features
-  };
+  const appName =
+    $("globalAppName")
+      ?.value.trim() ||
+    "StudyConnect";
 
-  Object.entries(map)
-    .forEach(
-      ([id, key]) => {
+  const language =
+    $("globalLanguage")
+      ?.value ||
+    "en";
 
-        const checkbox =
-          $(id);
+  const theme =
+    $("globalTheme")
+      ?.value ||
+    "system";
 
-        if (checkbox) {
-          features[key] =
-            checkbox.checked;
-        }
+  const welcome =
+    $("globalWelcomeAnimation")
+      ?.checked !== false;
 
-      }
-    );
 
   try {
 
     await setDoc(
-      doc(
-        db,
-        "appSettings",
-        "main"
-      ),
+      doc(db, "appSettings", "main"),
       {
-        features,
+
+        appName,
+
+        language,
+
+        theme,
+
+        welcomeAnimation:
+          welcome,
+
         updatedAt:
           serverTimestamp(),
+
         updatedBy:
           OWNER_NAME
+
       },
       {
         merge: true
       }
     );
 
-    globalSettings.features =
-      features;
 
-    applyFeatureVisibility();
-    applyUserAccess();
+    globalSettings = {
 
-    toast(
-      "Feature settings saved.",
-      "✓"
-    );
+      ...globalSettings,
 
-    await logActivity(
-      "Feature settings updated"
+      appName,
+      language,
+      theme,
+
+      welcomeAnimation:
+        welcome
+
+    };
+
+
+    applySettings();
+
+    showToast(
+      "Global settings save हो गईं।"
     );
 
   } catch (error) {
+
     console.error(
-      "Feature settings:",
+      "Global settings error:",
       error
     );
 
-    toast(
-      "Feature settings save नहीं हुईं।",
-      "!"
+    showToast(
+      "Settings save नहीं हुईं।",
+      "error"
     );
   }
 }
 
 
 /* =========================================================
-   OWNER PASSWORD
-   ========================================================= */
+   OWNER — FEATURES
+========================================================= */
 
-async function changeOwnerPassword() {
-  if (!currentStudent?.isOwner) {
-    return;
-  }
+function loadOwnerFeatures() {
 
-  const newPassword =
-    $("ownerNewPassword")
-      ?.value.trim();
+  const features =
+    globalSettings.features || {};
 
-  const confirmPassword =
-    $("ownerConfirmPassword")
-      ?.value.trim();
 
-  if (!newPassword) {
-    toast(
-      "New password डालो।",
-      "!"
-    );
+  const ids = [
+    "featureChat",
+    "featureGroups",
+    "featureHomework",
+    "featureNotes",
+    "featureAnnouncements",
+    "featureRegistration",
+    "featureMaintenance"
+  ];
 
-    return;
-  }
+
+  const keys = [
+    "chat",
+    "groups",
+    "homework",
+    "notes",
+    "announcements",
+    "registration",
+    "maintenance"
+  ];
+
+
+  ids.forEach(
+    (id, index) => {
+
+      const element =
+        $(id);
+
+      if (!element) return;
+
+      element.checked =
+        features[keys[index]] !== false;
+
+    }
+  );
+}
+
+
+/* =========================================================
+   SAVE FEATURES
+========================================================= */
+
+async function saveFeatureSettings() {
 
   if (
-    newPassword !==
-    confirmPassword
+    effectivePermission(currentStudent) !==
+    "owner"
   ) {
-    toast(
-      "Passwords match नहीं कर रहे।",
-      "!"
+    return;
+  }
+
+
+  const featureIds = {
+
+    chat:
+      $("featureChat")?.checked !== false,
+
+    groups:
+      $("featureGroups")?.checked !== false,
+
+    homework:
+      $("featureHomework")?.checked !== false,
+
+    notes:
+      $("featureNotes")?.checked !== false,
+
+    announcements:
+      $("featureAnnouncements")?.checked !== false,
+
+    registration:
+      $("featureRegistration")?.checked !== false,
+
+    maintenance:
+      $("featureMaintenance")?.checked === true
+
+  };
+
+
+  try {
+
+    await setDoc(
+      doc(db, "appSettings", "main"),
+      {
+
+        features:
+          featureIds,
+
+        updatedAt:
+          serverTimestamp(),
+
+        updatedBy:
+          OWNER_NAME
+
+      },
+      {
+        merge: true
+      }
+    );
+
+
+    globalSettings.features =
+      featureIds;
+
+
+    applySettings();
+    applyUserAccess();
+
+
+    showToast(
+      "Feature settings save हो गईं।"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Feature settings error:",
+      error
+    );
+
+    showToast(
+      "Feature settings save नहीं हुईं।",
+      "error"
+    );
+  }
+}
+
+
+/* =========================================================
+   OWNER — SECURITY
+========================================================= */
+
+function loadOwnerSecurity() {
+
+  const field =
+    $("newOwnerPassword");
+
+  if (field) {
+    field.value = "";
+  }
+
+}
+
+
+/* =========================================================
+   CHANGE OWNER PASSWORD
+========================================================= */
+
+async function changeOwnerPassword() {
+
+  if (
+    effectivePermission(currentStudent) !==
+    "owner"
+  ) {
+    return;
+  }
+
+
+  const password =
+    $("newOwnerPassword")
+      ?.value.trim();
+
+
+  if (!password) {
+
+    showToast(
+      "New password डालें।",
+      "error"
     );
 
     return;
   }
 
-  if (newPassword.length < 4) {
-    toast(
-      "Password कम से कम 4 characters का रखो।",
-      "!"
+
+  if (password.length < 4) {
+
+    showToast(
+      "Password कम से कम 4 characters का रखें।",
+      "error"
     );
 
     return;
   }
+
 
   try {
 
     const passwordHash =
-      await hashPassword(
-        newPassword
-      );
+      await hashPassword(password);
+
 
     await setDoc(
-      doc(
-        db,
-        "appSettings",
-        "main"
-      ),
+      doc(db, "appSettings", "main"),
       {
+
         ownerPasswordHash:
           passwordHash,
 
@@ -5455,322 +6640,390 @@ async function changeOwnerPassword() {
 
         updatedBy:
           OWNER_NAME
+
       },
       {
         merge: true
       }
     );
 
-    $("ownerNewPassword").value =
-      "";
 
-    $("ownerConfirmPassword").value =
-      "";
-
-    toast(
-      "Owner password changed.",
-      "✓"
+    showToast(
+      "Owner password change हो गया।"
     );
 
-    await logActivity(
-      "Owner password changed"
-    );
 
-  } catch (error) {
-    console.error(
-      "Owner password:",
-      error
-    );
-
-    toast(
-      "Password change नहीं हुआ।",
-      "!"
-    );
-  }
-}
-
-
-/* =========================================================
-   ACTIVITY LOG
-   ========================================================= */
-
-async function logActivity(action) {
-  if (!action) return;
-
-  try {
-
-    await addDoc(
-      collection(
-        db,
-        "activityLogs"
-      ),
-      {
-        action,
-
-        actor:
-          currentStudent?.name ||
-          OWNER_NAME,
-
-        actorId:
-          currentStudent?.id ||
-          "owner",
-
-        createdAt:
-          serverTimestamp()
-      }
-    );
-
-  } catch (error) {
-    console.error(
-      "Activity log:",
-      error
-    );
-  }
-}
-
-
-async function loadOwnerActivity() {
-  const container =
-    $("ownerActivityLog");
-
-  if (!container) return;
-
-  try {
-
-    const snap =
-      await getDocs(
-        collection(
-          db,
-          "activityLogs"
-        )
-      );
-
-    const items =
-      snap.docs.map(d => ({
-        id: d.id,
-        ...d.data()
-      }));
-
-    items.sort(
-      (a, b) =>
-        getMillis(
-          b.createdAt
-        ) -
-        getMillis(
-          a.createdAt
-        )
-    );
-
-    if (!items.length) {
-      container.innerHTML = `
-        <div class="empty-state">
-          Activity log empty.
-        </div>
-      `;
-
-      return;
+    if ($("newOwnerPassword")) {
+      $("newOwnerPassword").value = "";
     }
 
-    container.innerHTML =
-      items.slice(0, 100)
-        .map(item => `
-          <article class="activity-item">
-
-            <strong>
-              ${escapeHTML(
-                item.action ||
-                "Activity"
-              )}
-            </strong>
-
-            <small>
-              ${escapeHTML(
-                item.actor ||
-                "Unknown"
-              )}
-              ·
-              ${escapeHTML(
-                formatDate(
-                  item.createdAt
-                )
-              )}
-              ${escapeHTML(
-                formatTime(
-                  item.createdAt
-                )
-              )}
-            </small>
-
-          </article>
-        `).join("");
-
   } catch (error) {
+
     console.error(
-      "Activity:",
+      "Owner password error:",
       error
+    );
+
+    showToast(
+      "Password change नहीं हुआ।",
+      "error"
     );
   }
 }
 
 
 /* =========================================================
-   SETTINGS PAGE
-   ========================================================= */
+   OWNER TABS
+========================================================= */
 
-function setupSettings() {
-  $("languageSelect")
-    ?.addEventListener(
-      "change",
-      event => {
+function setupOwnerTabs() {
 
-        if (
-          currentStudent?.isOwner
-        ) {
-          globalSettings.language =
-            event.target.value;
+  qsa(
+    "[data-owner-tab]"
+  ).forEach(button => {
 
-          applyLanguage(
-            event.target.value
+    button.addEventListener(
+      "click",
+      () => {
+
+        const tab =
+          button.dataset.ownerTab;
+
+        qsa(
+          "[data-owner-tab]"
+        ).forEach(item => {
+
+          item.classList.toggle(
+            "active",
+            item === button
           );
-        }
+
+        });
+
+
+        qsa(
+          "[data-owner-section]"
+        ).forEach(section => {
+
+          section.classList.toggle(
+            "active",
+            section.dataset.ownerSection ===
+            tab
+          );
+
+        });
 
       }
     );
 
-  $("themeSelect")
+  });
+}
+
+
+/* =========================================================
+   OWNER BUTTONS
+========================================================= */
+
+function setupOwnerButtons() {
+
+  $("ownerAddHomeworkBtn")
     ?.addEventListener(
-      "change",
-      event => {
+      "click",
+      openAddHomeworkModal
+    );
 
-        applyTheme(
-          event.target.value
+
+  $("ownerAddNoteBtn")
+    ?.addEventListener(
+      "click",
+      openAddNoteModal
+    );
+
+
+  $("ownerAddAnnouncementBtn")
+    ?.addEventListener(
+      "click",
+      openAddAnnouncementModal
+    );
+
+
+  $("saveGlobalSettingsBtn")
+    ?.addEventListener(
+      "click",
+      saveGlobalSettings
+    );
+
+
+  $("saveFeatureSettingsBtn")
+    ?.addEventListener(
+      "click",
+      saveFeatureSettings
+    );
+
+
+  $("changeOwnerPasswordBtn")
+    ?.addEventListener(
+      "click",
+      changeOwnerPassword
+    );
+
+
+  const studentSearch =
+    $("ownerStudentSearch");
+
+
+  if (studentSearch) {
+
+    studentSearch.addEventListener(
+      "input",
+      () => {
+
+        const term =
+          studentSearch.value
+            .trim()
+            .toLowerCase();
+
+
+        const filtered =
+          studentsCache.filter(student => {
+
+            const name =
+              String(
+                student.name || ""
+              ).toLowerCase();
+
+            const phone =
+              String(
+                student.phone || ""
+              );
+
+
+            return (
+              name.includes(term) ||
+              phone.includes(term)
+            );
+
+          });
+
+
+        renderOwnerStudents(
+          filtered
         );
-
-        if (
-          currentStudent?.isOwner
-        ) {
-          globalSettings.theme =
-            event.target.value;
-        }
 
       }
     );
 
-  $("notificationToggle")
-    ?.addEventListener(
-      "change",
-      event => {
+  }
+}
 
-        localStorage.setItem(
-          "studyNotifications",
-          event.target.checked
-            ? "1"
-            : "0"
-        );
 
-        toast(
-          event.target.checked
-            ? "Notifications enabled."
-            : "Notifications disabled.",
-          "✓"
-        );
+/* =========================================================
+   OWNER ACCESS
+========================================================= */
 
-      }
-    );
+function setupOwnerAccess() {
 
-  $("openOwnerPanelBtn")
-    ?.addEventListener(
+  qsa(
+    "[data-owner-open]"
+  ).forEach(button => {
+
+    button.addEventListener(
       "click",
       () => {
 
         if (
-          currentStudent?.isOwner
+          effectivePermission(
+            currentStudent
+          ) !== "owner"
         ) {
-          openPage("owner");
+
+          showToast(
+            "Owner Panel access denied.",
+            "error"
+          );
+
+          return;
         }
+
+        openPage("owner");
 
       }
     );
 
-  $("settingsLogoutBtn")
-    ?.addEventListener(
-      "click",
-      logout
-    );
+  });
 }
 
 
 /* =========================================================
-   PASSWORD EYE
-   ========================================================= */
+   SETTINGS — STUDENT
+========================================================= */
 
-function setupPasswordToggle() {
-  const input =
-    $("loginPassword");
+function setupSettingsButtons() {
 
-  const button =
-    $("toggleLoginPassword");
+  const language =
+    $("languageSelect");
 
-  if (!input || !button) {
-    return;
+  if (language) {
+
+    language.addEventListener(
+      "change",
+      async () => {
+
+        globalSettings.language =
+          language.value;
+
+        applyLanguage();
+
+      }
+    );
+
   }
 
-  button.addEventListener(
-    "click",
-    () => {
 
-      const isPassword =
-        input.type ===
-        "password";
+  const theme =
+    $("themeSelect");
 
-      input.type =
-        isPassword
-          ? "text"
-          : "password";
+  if (theme) {
 
-      button.textContent =
-        isPassword
-          ? "🙈"
-          : "👁";
-    }
+    theme.addEventListener(
+      "change",
+      async () => {
+
+        globalSettings.theme =
+          theme.value;
+
+        applyTheme();
+
+      }
+    );
+
+  }
+
+
+  const welcome =
+    $("welcomeAnimationToggle");
+
+  if (welcome) {
+
+    welcome.addEventListener(
+      "change",
+      async () => {
+
+        globalSettings.welcomeAnimation =
+          welcome.checked;
+
+      }
+    );
+
+  }
+
+
+  const save =
+    $("saveSettingsBtn");
+
+  if (save) {
+
+    save.addEventListener(
+      "click",
+      saveStudentSettings
+    );
+
+  }
+
+}
+
+
+async function saveStudentSettings() {
+
+  const language =
+    $("languageSelect")?.value ||
+    globalSettings.language;
+
+  const theme =
+    $("themeSelect")?.value ||
+    globalSettings.theme;
+
+  const welcome =
+    $("welcomeAnimationToggle")
+      ?.checked !== false;
+
+
+  globalSettings.language =
+    language;
+
+  globalSettings.theme =
+    theme;
+
+  globalSettings.welcomeAnimation =
+    welcome;
+
+
+  applySettings();
+
+  showToast(
+    "Settings updated."
   );
 }
 
 
 /* =========================================================
    LOGOUT
-   ========================================================= */
+========================================================= */
 
 async function logout() {
+
   try {
 
     if (
-      currentStudent?.id &&
-      !currentStudent.isOwner
+      currentStudent &&
+      currentStudent.id !== "owner"
     ) {
+
       await setStudentOnline(
         currentStudent.id,
         false
       );
+
     }
 
   } catch (error) {
-    console.log(
-      "Logout online update skipped."
+
+    console.error(
+      "Offline status error:",
+      error
     );
+
   }
 
-  if (
-    unsubscribeMessages
-  ) {
+
+  if (unsubscribeMessages) {
+
     unsubscribeMessages();
-    unsubscribeMessages =
-      null;
+    unsubscribeMessages = null;
+
   }
+
+
+  if (unsubscribeGroupMessages) {
+
+    unsubscribeGroupMessages();
+    unsubscribeGroupMessages = null;
+
+  }
+
+
+  if (unsubscribeOnline) {
+
+    unsubscribeOnline();
+    unsubscribeOnline = null;
+
+  }
+
 
   currentStudent = null;
   currentChatUser = null;
-  currentPage = "home";
+  currentGroup = null;
+
 
   localStorage.removeItem(
     "studyName"
@@ -5780,35 +7033,154 @@ async function logout() {
     "studyPhone"
   );
 
+
+  sessionStorage.clear();
+
+
   hide($("app"));
+
   hide($("ownerWelcome"));
 
   show($("loginScreen"));
 
-  if ($("loginForm")) {
-    $("loginForm").reset();
-  }
 
   loginStep = 1;
+
   setLoginStep(1);
 
-  text(
-    $("loginMessage"),
-    ""
+
+  if ($("loginPassword")) {
+    $("loginPassword").value = "";
+  }
+
+  if ($("loginName")) {
+    $("loginName").value = "";
+  }
+
+  if ($("loginPhone")) {
+    $("loginPhone").value = "";
+  }
+
+  if ($("loginMessage")) {
+    $("loginMessage").textContent = "";
+  }
+
+
+  showToast(
+    "Logout successful."
   );
 }
 
 
 /* =========================================================
-   CLOSE GENERIC MODAL
-   ========================================================= */
+   LOGOUT BUTTONS
+========================================================= */
 
-function setupModal() {
-  $("closeAppModalBtn")
+function setupLogoutButtons() {
+
+  qsa(
+    "[data-logout]"
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      () => {
+
+        const okay =
+          confirm(
+            "क्या आप logout करना चाहते हैं?"
+          );
+
+        if (okay) {
+          logout();
+        }
+
+      }
+    );
+
+  });
+
+
+  $("logoutBtn")
+    ?.addEventListener(
+      "click",
+      () => {
+
+        const okay =
+          confirm(
+            "क्या आप logout करना चाहते हैं?"
+          );
+
+        if (okay) {
+          logout();
+        }
+
+      }
+    );
+}
+
+
+/* =========================================================
+   PASSWORD EYE TOGGLE
+========================================================= */
+
+function setupPasswordToggle() {
+
+  const button =
+    $("toggleLoginPassword");
+
+  const input =
+    $("loginPassword");
+
+
+  if (!button || !input) {
+    return;
+  }
+
+
+  button.addEventListener(
+    "click",
+    () => {
+
+      const visible =
+        input.type === "text";
+
+
+      input.type =
+        visible
+          ? "password"
+          : "text";
+
+
+      button.textContent =
+        visible
+          ? "👁"
+          : "🙈";
+
+    }
+  );
+}
+
+
+/* =========================================================
+   MODAL CLOSE BUTTONS
+========================================================= */
+
+function setupModalButtons() {
+
+  $("closeAppModal")
     ?.addEventListener(
       "click",
       closeModal
     );
+
+
+  $("appModalClose")
+    ?.addEventListener(
+      "click",
+      closeModal
+    );
+
 
   $("appModal")
     ?.addEventListener(
@@ -5824,126 +7196,371 @@ function setupModal() {
 
       }
     );
-}
 
 
-/* =========================================================
-   OWNER BUTTONS
-   ========================================================= */
-
-function setupOwnerButtons() {
-  $("ownerAddHomeworkBtn")
+  $("groupModal")
     ?.addEventListener(
-      "click",
-      openAddHomework
-    );
-
-  $("ownerAddNoteBtn")
-    ?.addEventListener(
-      "click",
-      openAddNote
-    );
-
-  $("ownerAddAnnouncementBtn")
-    ?.addEventListener(
-      "click",
-      openAddAnnouncement
-    );
-
-  $("saveGlobalSettingsBtn")
-    ?.addEventListener(
-      "click",
-      saveGlobalSettings
-    );
-
-  $("saveFeatureSettingsBtn")
-    ?.addEventListener(
-      "click",
-      saveFeatureSettings
-    );
-
-  $("changeOwnerPasswordBtn")
-    ?.addEventListener(
-      "click",
-      changeOwnerPassword
-    );
-}
-
-
-/* =========================================================
-   OWNER PAGE OPEN
-   ========================================================= */
-
-function setupOwnerAccess() {
-  qsa(
-    '[data-page="owner"]'
-  ).forEach(button => {
-
-    button.addEventListener(
       "click",
       event => {
 
-        event.preventDefault();
-
         if (
-          currentStudent?.isOwner
+          event.target ===
+          $("groupModal")
         ) {
-          openPage("owner");
+          closeGroupModal();
         }
 
       }
     );
 
+
+  $("groupChatModal")
+    ?.addEventListener(
+      "click",
+      event => {
+
+        if (
+          event.target ===
+          $("groupChatModal")
+        ) {
+          closeGroupChat();
+        }
+
+      }
+    );
+
+
+  $("closeGroupChat")
+    ?.addEventListener(
+      "click",
+      closeGroupChat
+    );
+
+
+  $("closeGroupChatModal")
+    ?.addEventListener(
+      "click",
+      closeGroupChat
+    );
+}
+
+
+/* =========================================================
+   BACK BUTTONS
+========================================================= */
+
+function setupBackButtons() {
+
+  $("backToHomeBtn")
+    ?.addEventListener(
+      "click",
+      () => openPage("home")
+    );
+
+
+  $("settingsBackBtn")
+    ?.addEventListener(
+      "click",
+      () => openPage("home")
+    );
+
+
+  $("ownerBackBtn")
+    ?.addEventListener(
+      "click",
+      () => openPage("home")
+    );
+
+}
+
+
+/* =========================================================
+   REGISTRATION
+========================================================= */
+
+function setupRegistrationButton() {
+
+  qsa(
+    "[data-registration]"
+  ).forEach(button => {
+
+    button.addEventListener(
+      "click",
+      openRegistrationModal
+    );
+
   });
+
+}
+
+
+function openRegistrationModal() {
+
+  if (
+    globalSettings.features?.registration ===
+    false
+  ) {
+
+    showToast(
+      "Registration अभी बंद है।",
+      "warning"
+    );
+
+    return;
+  }
+
+
+  openModal(
+    "Student Registration",
+    `
+      <form id="registrationForm">
+
+        <div class="form-group">
+
+          <label>Full Name</label>
+
+          <input
+            id="registrationName"
+            type="text"
+            required
+            placeholder="Your name"
+          >
+
+        </div>
+
+
+        <div class="form-group">
+
+          <label>Mobile Number</label>
+
+          <input
+            id="registrationPhone"
+            type="tel"
+            inputmode="numeric"
+            maxlength="10"
+            required
+            placeholder="10 digit mobile"
+          >
+
+        </div>
+
+
+        <button
+          type="submit"
+          class="primary-btn"
+        >
+          📝 Send Registration
+        </button>
+
+      </form>
+    `
+  );
+
+
+  $("registrationForm")
+    ?.addEventListener(
+      "submit",
+      submitRegistration
+    );
+}
+
+
+async function submitRegistration(event) {
+
+  event.preventDefault();
+
+
+  const name =
+    $("registrationName")
+      ?.value.trim();
+
+  const phone =
+    $("registrationPhone")
+      ?.value.trim();
+
+
+  if (!name) {
+
+    showToast(
+      "Name डालें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  if (!/^\d{10}$/.test(phone)) {
+
+    showToast(
+      "Valid 10 digit mobile number डालें।",
+      "error"
+    );
+
+    return;
+  }
+
+
+  try {
+
+    const q =
+      query(
+        collection(db, "students"),
+        where(
+          "phone",
+          "==",
+          phone
+        ),
+        limit(1)
+      );
+
+
+    const existing =
+      await getDocs(q);
+
+
+    if (!existing.empty) {
+
+      showToast(
+        "यह mobile number पहले से registered है।",
+        "warning"
+      );
+
+      return;
+    }
+
+
+    await addDoc(
+      collection(db, "students"),
+      {
+
+        name,
+        phone,
+
+        status:
+          "pending",
+
+        permission:
+          "restricted",
+
+        permissionExpiresAt:
+          null,
+
+        online:
+          false,
+
+        createdAt:
+          serverTimestamp()
+
+      }
+    );
+
+
+    closeModal();
+
+    showToast(
+      "Registration request Owner को भेज दी गई।"
+    );
+
+  } catch (error) {
+
+    console.error(
+      "Registration error:",
+      error
+    );
+
+    showToast(
+      "Registration नहीं हो पाई।",
+      "error"
+    );
+  }
 }
 
 
 /* =========================================================
-   AUTO LOGIN NAME
-   ========================================================= */
+   ONLINE STUDENT LIST
+========================================================= */
 
-function restoreSavedUser() {
-  const savedName =
-    localStorage.getItem(
-      "studyName"
-    );
+function subscribeOnlineStudents() {
 
-  const savedPhone =
-    localStorage.getItem(
-      "studyPhone"
-    );
+  if (unsubscribeOnline) {
 
-  /*
-    After first successful login,
-    name is remembered.
-    Mobile number is remembered
-    internally but is not required
-    again from the user.
-  */
+    unsubscribeOnline();
+    unsubscribeOnline = null;
 
-  if (
-    savedName &&
-    $("loginName")
-  ) {
-    $("loginName").value =
-      savedName;
   }
 
-  if (
-    savedPhone &&
-    $("loginPhone")
-  ) {
-    $("loginPhone").value =
-      savedPhone;
+
+  try {
+
+    const q =
+      query(
+        collection(db, "students"),
+        where(
+          "status",
+          "==",
+          "approved"
+        )
+      );
+
+
+    unsubscribeOnline =
+      onSnapshot(
+        q,
+        snapshot => {
+
+          studentsCache =
+            snapshot.docs.map(
+              docSnap => ({
+                id: docSnap.id,
+                ...docSnap.data()
+              })
+            );
+
+
+          if (
+            currentPage === "chat"
+          ) {
+
+            renderChatPeople(
+              studentsCache.filter(
+                student =>
+                  student.id !==
+                  currentStudent?.id
+              )
+            );
+
+          }
+
+        },
+
+        error => {
+
+          console.error(
+            "Online subscription error:",
+            error
+          );
+
+        }
+      );
+
+  } catch (error) {
+
+    console.error(
+      "Online setup error:",
+      error
+    );
+
   }
 }
 
 
 /* =========================================================
-   RE-LOGIN USING SAVED NAME
-   ========================================================= */
+   RESTORE SAVED LOGIN
+========================================================= */
 
 async function trySavedLogin() {
+
   const savedName =
     localStorage.getItem(
       "studyName"
@@ -5953,6 +7570,7 @@ async function trySavedLogin() {
     localStorage.getItem(
       "studyPhone"
     );
+
 
   if (
     !savedName ||
@@ -5961,123 +7579,341 @@ async function trySavedLogin() {
     return false;
   }
 
-  /*
-    This function only restores
-    the saved fields. Password is
-    still required for security.
-  */
-
-  if ($("loginName")) {
-    $("loginName").value =
-      savedName;
-  }
-
-  if ($("loginPhone")) {
-    $("loginPhone").value =
-      savedPhone;
-  }
-
-  return true;
-}
-
-
-/* =========================================================
-   INIT
-   ========================================================= */
-
-async function init() {
-
-  setupLogin();
-  setupNavigation();
-  setupMenu();
-
-  setupChatSearch();
-  setupGroupModal();
-
-  setupSettings();
-  setupModal();
-
-  setupPasswordToggle();
-
-  setupOwnerTabs();
-  setupOwnerSearch();
-
-  setupOwnerButtons();
-  setupOwnerAccess();
-
-  restoreSavedUser();
-  await trySavedLogin();
-
-  const authOK =
-    await startFirebase();
-
-  if (!authOK) {
-    return;
-  }
-
-  await loadSettings();
-
-  setLoginStep(1);
-
-  /*
-    If user was already logged in
-    in this browser session, restore
-    only the UI identity.
-  */
-
-  const savedName =
-    localStorage.getItem(
-      "studyName"
-    );
-
-  const savedPhone =
-    localStorage.getItem(
-      "studyPhone"
-    );
 
   if (
+    savedPhone === "owner" &&
     savedName === OWNER_NAME
   ) {
 
     currentStudent = {
+
       id: "owner",
+
       name: OWNER_NAME,
+
       phone: "",
-      permission: "owner",
+
       status: "approved",
+
+      permission: "owner",
+
       isOwner: true
+
     };
+
 
     openApp();
 
-    setTimeout(
-      ownerWelcomeAnimation,
-      250
-    );
+    if (
+      globalSettings.welcomeAnimation !== false
+    ) {
+
+      ownerWelcomeAnimation();
+
+    } else {
+
+      openPage("owner");
+
+    }
+
+    return true;
   }
 
-  window.addEventListener(
-    "beforeunload",
+
+  try {
+
+    const q =
+      query(
+        collection(db, "students"),
+        where(
+          "phone",
+          "==",
+          savedPhone
+        ),
+        limit(1)
+      );
+
+
+    const snapshot =
+      await getDocs(q);
+
+
+    if (snapshot.empty) {
+
+      localStorage.removeItem(
+        "studyName"
+      );
+
+      localStorage.removeItem(
+        "studyPhone"
+      );
+
+      return false;
+    }
+
+
+    const studentDoc =
+      snapshot.docs[0];
+
+
+    const student =
+      {
+        id: studentDoc.id,
+        ...studentDoc.data()
+      };
+
+
+    if (
+      String(student.name || "")
+        .trim()
+        .toLowerCase() !==
+      String(savedName)
+        .trim()
+        .toLowerCase()
+    ) {
+
+      return false;
+    }
+
+
+    if (
+      student.status !== "approved"
+    ) {
+
+      return false;
+    }
+
+
+    currentStudent =
+      student;
+
+
+    await setStudentOnline(
+      student.id,
+      true
+    );
+
+
+    openApp();
+
+    return true;
+
+
+  } catch (error) {
+
+    console.error(
+      "Restore login error:",
+      error
+    );
+
+    return false;
+  }
+}
+
+
+/* =========================================================
+   BEFORE UNLOAD
+========================================================= */
+
+window.addEventListener(
+  "beforeunload",
+  () => {
+
+    if (
+      currentStudent &&
+      currentStudent.id !== "owner"
+    ) {
+
+      /*
+       Firebase update may not finish
+       during beforeunload.
+       This is only a best-effort status update.
+      */
+
+      setStudentOnline(
+        currentStudent.id,
+        false
+      );
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   SYSTEM THEME CHANGE
+========================================================= */
+
+if (window.matchMedia) {
+
+  const media =
+    window.matchMedia(
+      "(prefers-color-scheme: dark)"
+    );
+
+
+  media.addEventListener(
+    "change",
     () => {
 
       if (
-        currentStudent &&
-        !currentStudent.isOwner
+        globalSettings.theme ===
+        "system"
       ) {
-        setStudentOnline(
-          currentStudent.id,
-          false
-        );
+
+        applyTheme();
+
       }
 
     }
+  );
+
+}
+
+
+/* =========================================================
+   GLOBAL ESCAPE KEY
+========================================================= */
+
+document.addEventListener(
+  "keydown",
+  event => {
+
+    if (event.key !== "Escape") {
+      return;
+    }
+
+
+    if (
+      $("appModal") &&
+      !$("appModal").classList.contains("hidden")
+    ) {
+
+      closeModal();
+      return;
+
+    }
+
+
+    if (
+      $("groupModal") &&
+      !$("groupModal").classList.contains("hidden")
+    ) {
+
+      closeGroupModal();
+      return;
+
+    }
+
+
+    if (
+      $("groupChatModal") &&
+      !$("groupChatModal").classList.contains("hidden")
+    ) {
+
+      closeGroupChat();
+      return;
+
+    }
+
+  }
+);
+
+
+/* =========================================================
+   MAIN INITIALIZATION
+========================================================= */
+
+async function initStudyConnect() {
+
+  console.log(
+    "StudyConnect initializing..."
+  );
+
+
+  /* Login UI */
+
+  setLoginStep(1);
+
+
+  /* Main button systems */
+
+  setupLogin();
+
+  setupNavigation();
+
+  setupMenu();
+
+  setupGroupModal();
+
+  setupChatComposer();
+
+  setupEmojiButtons();
+
+  setupOwnerTabs();
+
+  setupOwnerButtons();
+
+  setupOwnerAccess();
+
+  setupSettingsButtons();
+
+  setupLogoutButtons();
+
+  setupPasswordToggle();
+
+  setupModalButtons();
+
+  setupBackButtons();
+
+  setupRegistrationButton();
+
+
+  /* Firebase */
+
+  const connected =
+    await startFirebase();
+
+
+  if (!connected) {
+    return;
+  }
+
+
+  /* Settings */
+
+  await loadSettings();
+
+
+  /* Online */
+
+  subscribeOnlineStudents();
+
+
+  /* Try saved login */
+
+  const restored =
+    await trySavedLogin();
+
+
+  if (!restored) {
+
+    show($("loginScreen"));
+    hide($("app"));
+
+  }
+
+
+  console.log(
+    "StudyConnect ready."
   );
 }
 
 
 /* =========================================================
    START APP
-   ========================================================= */
+========================================================= */
 
 if (
   document.readyState ===
@@ -6086,16 +7922,16 @@ if (
 
   document.addEventListener(
     "DOMContentLoaded",
-    init
+    initStudyConnect
   );
 
 } else {
 
-  init();
+  initStudyConnect();
 
 }
 
 
 /* =========================================================
-   END OF STUDYCONNECT
-   ========================================================= */
+   END OF PART 2
+========================================================= */
