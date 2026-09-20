@@ -556,140 +556,78 @@ async function registerStudent(e){
 
     await openApp(false)
 }
-
 async function openApp(owner){
-    $("loginScreen")
-        .classList.add("hidden");
 
-    $("app")
-        .classList.remove("hidden");
+    $("loginScreen").classList.add("hidden");
+    $("app").classList.remove("hidden");
 
     profileUI();
-
     applyAccess();
 
     await getSettings();
-
     applyAccess();
 
-    if(
-        owner &&
-        state.settings.welcomeAnimation
-    ){
-        await ownerWelcome()
+    // App तुरंत खोलो
+    go(owner ? "owner" : "home", false);
+
+    // Welcome animation को app loading से अलग रखो
+    if(owner && state.settings.welcomeAnimation){
+        ownerWelcome();
     }
 
-    go(
-        owner?"owner":"home",
-        false
-    );
+    // बाकी data background में load होगा
+    if(owner){
+        loadOwner().catch(console.error);
+    }
 
-    if(owner)
-        await loadOwner();
+    loadContent().catch(console.error);
 
-    await loadContent();
-
-    startPresence()
+    startPresence();
 }
 
-async function ownerWelcome(){
-    const w=$("ownerWelcome");
+
+function ownerWelcome(){
+
+    const w = $("ownerWelcome");
+
+    if(!w) return;
 
     w.classList.remove("hidden");
 
-    const box=$("fallingStars");
+    const box = $("fallingStars");
 
-    box.innerHTML="";
+    if(box){
+        box.innerHTML = "";
 
-    for(let i=0;i<70;i++){
-        const s=document.createElement("span");
+        for(let i = 0; i < 70; i++){
 
-        s.className="star";
+            const s = document.createElement("span");
 
-        s.textContent=
-            ["✦","✧","★","•"][
-                Math.floor(Math.random()*4)
-            ];
+            s.className = "star";
 
-        s.style.left=
-            Math.random()*100+"%";
+            s.textContent =
+                ["✦","✧","★","•"]
+                [Math.floor(Math.random() * 4)];
 
-        s.style.animationDuration=
-            (1.4+Math.random()*1.5)+"s";
+            s.style.left =
+                Math.random() * 100 + "%";
 
-        s.style.animationDelay=
-            Math.random()*.8+"s";
+            s.style.animationDuration =
+                (1.4 + Math.random() * 1.5) + "s";
 
-        box.appendChild(s)
+            s.style.animationDelay =
+                Math.random() * 0.8 + "s";
+
+            box.appendChild(s);
+        }
     }
 
-    try{
-        const c=new AudioContext();
+    // Maximum 2 seconds बाद Welcome हटेगा
+    setTimeout(() => {
 
-        const o=c.createOscillator(),
-            g=c.createGain();
+        w.classList.add("hidden");
 
-        o.frequency.value=660;
-
-        g.gain.setValueAtTime(
-            .0001,
-            c.currentTime
-        );
-
-        g.gain.exponentialRampToValueAtTime(
-            .08,
-            c.currentTime+.03
-        );
-
-        g.gain.exponentialRampToValueAtTime(
-            .0001,
-            c.currentTime+.55
-        );
-
-        o.connect(g);
-        g.connect(c.destination);
-
-        o.start();
-        o.stop(c.currentTime+.6)
-
-    }catch(_){}
-
-    await new Promise(
-        r=>setTimeout(r,2000)
-    );
-
-    w.classList.add("hidden")
-}
-
-function startPresence(){
-    if(!state.user?.id)return;
-
-    const ref=
-        doc(db,"students",state.user.id);
-
-    setDoc(
-        ref,
-        {
-            online:true,
-            lastSeen:serverTimestamp()
-        },
-        {merge:true}
-    ).catch(()=>{});
-
-    clearInterval(startPresence.t);
-
-    startPresence.t=
-        setInterval(
-            ()=>setDoc(
-                ref,
-                {
-                    online:true,
-                    lastSeen:serverTimestamp()
-                },
-                {merge:true}
-            ).catch(()=>{}),
-            30000
-        )
+    }, 2000);
 }
 
 async function logActivity(text){
